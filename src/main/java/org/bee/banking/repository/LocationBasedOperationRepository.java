@@ -44,7 +44,7 @@ public class LocationBasedOperationRepository {
     @Transactional(readOnly = true)
     public Page<BankLocations> search(LocationType type, String city, String state, String zip,
                                       BankOperationServices service, Pageable pageable) {
-        Specification<BankLocationEntity> spec = Specification.where(null);
+        Specification<BankLocationEntity> spec = Specification.unrestricted();
         if (type != null) {
             Set<LocationType> matching = switch (type) {
                 case OFFICE -> EnumSet.of(LocationType.OFFICE, LocationType.BOTH);

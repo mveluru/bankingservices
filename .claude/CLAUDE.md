@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Spring Boot 3 (Java 21) REST application (`org.bee`, artifact `SBProjects`) that demonstrates several backend patterns in isolated modules: `@ConfigurationProperties` binding, async notification processing, JSON Schema-validated event ingestion, Resilience4j circuit breaking/retry, MapStruct mapping, and Spring Data JPA — see `../README.md` for the full endpoint table and sample `curl` requests.
+A Spring Boot 3.5 (Java 25) REST application (`org.bee`, artifact `SBProjects`) that demonstrates several backend patterns in isolated modules: `@ConfigurationProperties` binding, async notification processing, JSON Schema-validated event ingestion, Resilience4j circuit breaking/retry, MapStruct mapping, and Spring Data JPA — see `../README.md` for the full endpoint table and sample `curl` requests.
 
 ## Banking module rules
 
@@ -14,6 +14,8 @@ Skills (`.claude/skills/`): `banking-change-checklist` (which code/`db/`/OpenAPI
 
 ## Commands
 
+**Java 25 is required** (`java.version` = 25 in `pom.xml`; classes are bytecode 69). Run Maven and the app on JDK 25: `export JAVA_HOME=$(/usr/libexec/java_home -v 25)` and check `mvn -v`. On a JDK older than 25 the build fails at the compiler; building with 25 but running on an older JVM fails with `UnsupportedClassVersionError`. Spring Boot is 3.5.x (currently 3.5.16, Spring Cloud 2025.0.3) because Boot 3.4's Spring Framework/ASM can't read Java 25 class files (every `@SpringBootTest` failed with "Unsupported class file major version 69") and its managed Byte Buddy/Mockito predates Java 25. Don't downgrade Boot or `java.version` without re-running the full suite. Spring Data JPA 3.5: use `Specification.unrestricted()`, not the deprecated `Specification.where(null)`. If `mvn` is run while the app is running under DevTools, the rebuilt classes restart the app on whatever JVM launched it, so restart the app on the same JDK as the build.
+
 ```bash
 mvn clean compile          # compile
 mvn test                   # run all tests + generate a JaCoCo coverage report
@@ -22,7 +24,7 @@ mvn test -Dtest=ClassName#methodName              # run a single test method
 mvn spring-boot:run        # start the server (port 8081, context path /brite)
 ```
 
-`mvn test` also runs the `jacoco-maven-plugin` (`prepare-agent` + `report`, version managed by `spring-boot-starter-parent`), producing `target/site/jacoco/index.html` (plus `jacoco.csv`/`jacoco.xml`) — open the HTML file directly in a browser, no server needed. It's build output under `target/`, so it's git-ignored and regenerated on every test run.
+`mvn test` also runs the `jacoco-maven-plugin` (`prepare-agent` + `report`; Boot does **not** manage this plugin, so its version is pinned via the `jacoco.version` property in `pom.xml` — 0.8.14+ is needed for Java 25 class files, and an unpinned plugin silently floats to the latest release), producing `target/site/jacoco/index.html` (plus `jacoco.csv`/`jacoco.xml`) — open the HTML file directly in a browser, no server needed. It's build output under `target/`, so it's git-ignored and regenerated on every test run.
 
 **A live MySQL instance is required to run the app or most of the test suite.** The datasource in `../src/main/resources/application.yml` (`spring.datasource.url: jdbc:mysql://localhost:3306/db_example`) is real — there is no H2/test profile override for the app itself (`src/test/resources` doesn't exist), so `@SpringBootTest` classes boot the full context against that same MySQL instance. `spring.jpa.hibernate.ddl-auto: update` auto-creates/updates tables (`events`, `accounts`, `customers`, `account_transactions`, `withdrawal_history`, `bank_locations`, `bank_location_services`) on startup. The one exception is `AccountRepositoryTest`, a `@DataJpaTest` that swaps in embedded H2 (already a dependency) instead — see Testing below.
 

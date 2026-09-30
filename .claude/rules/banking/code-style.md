@@ -5,7 +5,7 @@ paths:
 ---
 # Banking module: code style
 
-Match the surrounding code. Java 21, Spring Boot 3, 4-space indent, no tabs, no wildcard imports in new files.
+Match the surrounding code. Java 25, Spring Boot 3.5, 4-space indent, no tabs, no wildcard imports in new files.
 
 ## Naming
 - Packages: lowercase. **Keep the existing typos** `contoller` and `validtors`; do not rename or "fix" them.

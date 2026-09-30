@@ -23,6 +23,7 @@ Work through the rows that apply, then run the verification commands. The rules 
 Service = Mockito unit test; controller = standalone MockMvc with the real `BankingExceptionHandler`; `Specification` queries, state rules and seeders = `@DataJpaTest` on H2; filters = `Mock*` servlet objects. Bug fix = regression test first. See `rules/banking/testing.md`.
 
 ## 3. Verify
+Run Maven on JDK 25 (`mvn -v` must say `Java version: 25.x`; the project targets Java 25).
 ```bash
 mvn -o test -Dtest='*Suspension*Test,AccountRepositoryTest,ClientAccountServiceTest,AccountStatusStatementServiceTest,AccountSearchCachingTest,Portal*Test,BankLocation*Test,LocationBased*Test,*Filter*Test,CustomerRateLimiterTest,AccountStatusDemoSeederTest'
 pip install openapi-spec-validator && openapi-spec-validator src/main/resources/static/openapi/banking-openapi.yaml

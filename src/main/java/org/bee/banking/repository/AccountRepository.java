@@ -64,7 +64,7 @@ public class AccountRepository {
             validateSortProperty(order.getProperty());
         }
 
-        Specification<AccountEntity> spec = Specification.where(null);
+        Specification<AccountEntity> spec = Specification.unrestricted();
         if (accountNumber != null) {
             String needle = accountNumber;
             spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("accountNumber")), needle.toLowerCase()));

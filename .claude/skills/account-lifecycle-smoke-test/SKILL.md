@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Account lifecycle smoke test (writes to the local MySQL, then cleans up)
 
-Prereqs: MySQL up on 3306 (`db_example`), the app running on `http://localhost:8081/brite` (`mvn spring-boot:run`), and `db/ddl/03_account_suspension_migration.sql` applied if the database predates suspension (it is idempotent). Every call needs `X-Customer-Id`. Tell the user before starting that this creates and then deletes rows.
+Prereqs: JDK 25 for Maven/the app (`mvn -v`), MySQL up on 3306 (`db_example`), the app running on `http://localhost:8081/brite` (`mvn spring-boot:run`), and `db/ddl/03_account_suspension_migration.sql` applied if the database predates suspension (it is idempotent). Every call needs `X-Customer-Id`. Tell the user before starting that this creates and then deletes rows.
 
 ```bash
 B=http://localhost:8081/brite; H='X-Customer-Id: smoke-1'; J='Content-Type: application/json'

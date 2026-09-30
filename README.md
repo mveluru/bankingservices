@@ -28,10 +28,10 @@ A Spring Boot 3 REST application demonstrating configuration properties binding 
 
 ## 🛠️ Prerequisites & Technology Stack
 
-- **Java**: 21
-- **Spring Boot**: 3.4.3
-- **Build Tool**: Maven 3.9+
-- **Lombok**: 1.18.48
+- **Java**: 25 (JDK 25 is required to build and run; `java.version` in `pom.xml` is 25, so the classes are Java 25 bytecode and older JDKs can't load them)
+- **Spring Boot**: 3.5.16 (Spring Framework 6.2.x, Hibernate 6.6.x, Spring Cloud 2025.0.3) — 3.5.x is the line that supports Java 25; Boot 3.4 can't read Java 25 class files
+- **Build Tool**: Maven 3.9+ (run it on JDK 25: `mvn -v` should report `Java version: 25.x`)
+- **Lombok**: 1.18.48, **MapStruct**: 1.6.3, **JaCoCo**: 0.8.15 (pinned in `pom.xml`)
 - **Database**: MySQL 8.x
 
 ---
@@ -248,6 +248,13 @@ The spec is hand-written (not generated from the code), so update `src/main/reso
 ---
 
 ## 🧪 Building & Running
+
+### 0. Use JDK 25
+```bash
+export JAVA_HOME=$(/usr/libexec/java_home -v 25)   # macOS; any JDK 25 home works
+mvn -v                                              # must say: Java version: 25.x
+```
+In IntelliJ: *Project Structure → SDKs → add JDK 25*, then set the project SDK and language level to 25.
 
 ### 1. Compile the Project
 ```bash
