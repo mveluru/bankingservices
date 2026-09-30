@@ -7,6 +7,7 @@ import org.bee.banking.domain.Address;
 import org.bee.banking.domain.Customer;
 import org.bee.banking.exception.AccountClosedException;
 import org.bee.banking.exception.AccountNotFoundException;
+import org.bee.banking.exception.AccountSuspendedException;
 import org.bee.banking.exception.InsufficientFundsException;
 import org.bee.banking.exception.MinBalanceException;
 import org.bee.banking.repository.jpa.AccountJpaRepository;
@@ -24,6 +25,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -332,5 +334,174 @@ class AccountRepositoryTest {
         assertThatThrownBy(() -> accountRepository.search(null, null, null, null, null, null,
                 PageRequest.of(0, 10, Sort.by("bogusField"))))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // ---- suspension ----
+
+    private String savedCheckingNumber() {
+        return accountRepository.save(newCheckingAccount()).getCheckingAccountNumber();
+    }
+
+    @Test
+    void suspend_activeAccount_setsStatusFlagDatesAndNotes() {
+        String accountNumber = savedCheckingNumber();
+        LocalDateTime start = LocalDateTime.now().minusHours(1);
+        LocalDateTime end = LocalDateTime.now().plusDays(7);
+
+        Account suspended = accountRepository.suspend(accountNumber, start, end, "Fraud review");
+
+        assertThat(suspended.getAccountStatus()).isEqualTo(AccountStatus.SUSPENDED);
+        assertThat(suspended.isSuspended()).isTrue();
+        assertThat(suspended.getSuspendedStart()).isEqualTo(start);
+        assertThat(suspended.getSuspendedEnd()).isEqualTo(end);
+        assertThat(suspended.getSuspensionNotes()).isEqualTo("Fraud review");
+    }
+
+    @Test
+    void suspend_alreadySuspended_throwsAccountSuspendedException() {
+        String accountNumber = savedCheckingNumber();
+        accountRepository.suspend(accountNumber, LocalDateTime.now(), null, "first");
+
+        assertThatThrownBy(() -> accountRepository.suspend(accountNumber, LocalDateTime.now(), null, "second"))
+                .isInstanceOf(AccountSuspendedException.class)
+                .hasMessage("Account " + accountNumber + " is already suspended");
+    }
+
+    @Test
+    void suspend_closedAccount_throwsAccountClosedException() {
+        String accountNumber = savedCheckingNumber();
+        accountRepository.closeAccount(accountNumber);
+
+        assertThatThrownBy(() -> accountRepository.suspend(accountNumber, LocalDateTime.now(), null, "n"))
+                .isInstanceOf(AccountClosedException.class)
+                .hasMessageContaining("cannot be suspended");
+    }
+
+    @Test
+    void suspend_unknownAccount_throwsAccountNotFoundException() {
+        assertThatThrownBy(() -> accountRepository.suspend("CH-9999999999", LocalDateTime.now(), null, "n"))
+                .isInstanceOf(AccountNotFoundException.class);
+    }
+
+    @Test
+    void withdrawAndDeposit_suspendedAccount_areRejectedAndBalanceIsUnchanged() {
+        String accountNumber = savedCheckingNumber();
+        accountRepository.deposit(accountNumber, AccountType.CHECKING, new BigDecimal("500.00"));
+        accountRepository.suspend(accountNumber, LocalDateTime.now(), null, "hold");
+
+        assertThatThrownBy(() -> accountRepository.withdraw(accountNumber, AccountType.CHECKING, BigDecimal.TEN))
+                .isInstanceOf(AccountSuspendedException.class)
+                .hasMessageContaining("suspended");
+        assertThatThrownBy(() -> accountRepository.deposit(accountNumber, AccountType.CHECKING, BigDecimal.TEN))
+                .isInstanceOf(AccountSuspendedException.class);
+
+        assertThat(accountRepository.findByAccountNumber(accountNumber).orElseThrow().getCheckingBalance())
+                .isEqualByComparingTo("500.00");
+    }
+
+    @Test
+    void reactivate_suspendedAccount_clearsSuspensionAndAllowsTransactionsAgain() {
+        String accountNumber = savedCheckingNumber();
+        accountRepository.suspend(accountNumber, LocalDateTime.now(), LocalDateTime.now().plusDays(1), "hold");
+
+        Account active = accountRepository.reactivate(accountNumber);
+
+        assertThat(active.getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(active.isSuspended()).isFalse();
+        assertThat(active.getSuspendedStart()).isNull();
+        assertThat(active.getSuspendedEnd()).isNull();
+        assertThat(active.getSuspensionNotes()).isNull();
+        assertThat(accountRepository.deposit(accountNumber, AccountType.CHECKING, BigDecimal.TEN).getCheckingBalance())
+                .isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void reactivate_accountThatIsNotSuspended_throwsIllegalArgumentException() {
+        String accountNumber = savedCheckingNumber();
+
+        assertThatThrownBy(() -> accountRepository.reactivate(accountNumber))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Account " + accountNumber + " is not suspended");
+    }
+
+    @Test
+    void updateSuspension_changesOnlySuppliedFields() {
+        String accountNumber = savedCheckingNumber();
+        LocalDateTime start = LocalDateTime.now().minusDays(1);
+        accountRepository.suspend(accountNumber, start, LocalDateTime.now().plusDays(2), "original");
+        LocalDateTime newEnd = LocalDateTime.now().plusDays(30);
+
+        Account endOnly = accountRepository.updateSuspension(accountNumber, newEnd, null);
+        assertThat(endOnly.getSuspendedEnd()).isEqualTo(newEnd);
+        assertThat(endOnly.getSuspensionNotes()).isEqualTo("original");
+
+        Account notesOnly = accountRepository.updateSuspension(accountNumber, null, "extended after review");
+        assertThat(notesOnly.getSuspensionNotes()).isEqualTo("extended after review");
+        assertThat(notesOnly.getSuspendedEnd()).isEqualTo(newEnd);
+        assertThat(notesOnly.getSuspendedStart()).isEqualTo(start);
+    }
+
+    @Test
+    void updateSuspension_endNotAfterStoredStart_throwsIllegalArgumentException() {
+        String accountNumber = savedCheckingNumber();
+        LocalDateTime start = LocalDateTime.now().minusDays(1);
+        accountRepository.suspend(accountNumber, start, null, "n");
+
+        assertThatThrownBy(() -> accountRepository.updateSuspension(accountNumber, start.minusHours(1), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be after suspension start");
+    }
+
+    @Test
+    void updateSuspension_accountNotSuspended_throwsIllegalArgumentException() {
+        String accountNumber = savedCheckingNumber();
+
+        assertThatThrownBy(() -> accountRepository.updateSuspension(accountNumber, null, "n"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("is not suspended");
+    }
+
+    @Test
+    void closeAccount_suspendedAccount_closesItAndClearsTheSuspension() {
+        String accountNumber = savedCheckingNumber();
+        accountRepository.suspend(accountNumber, LocalDateTime.now(), null, "hold");
+
+        Account closed = accountRepository.closeAccount(accountNumber);
+
+        assertThat(closed.getAccountStatus()).isEqualTo(AccountStatus.CLOSED);
+        assertThat(closed.isSuspended()).isFalse();
+        assertThat(closed.getSuspensionNotes()).isNull();
+    }
+
+    @Test
+    void reactivateExpiredSuspensions_reactivatesOnlyFinishedOnes() {
+        String expired = savedCheckingNumber();
+        String running = savedCheckingNumber();
+        String indefinite = savedCheckingNumber();
+        LocalDateTime now = LocalDateTime.now();
+        // bypass the service's "end must be in the future" rule to model a suspension that has since lapsed
+        accountRepository.suspend(expired, now.minusDays(2), now.minusMinutes(1), "lapsed");
+        accountRepository.suspend(running, now.minusDays(1), now.plusDays(1), "running");
+        accountRepository.suspend(indefinite, now.minusDays(1), null, "indefinite");
+
+        int reactivated = accountRepository.reactivateExpiredSuspensions(now);
+
+        assertThat(reactivated).isEqualTo(1);
+        assertThat(accountRepository.findByAccountNumber(expired).orElseThrow().getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
+        assertThat(accountRepository.findByAccountNumber(running).orElseThrow().getAccountStatus()).isEqualTo(AccountStatus.SUSPENDED);
+        assertThat(accountRepository.findByAccountNumber(indefinite).orElseThrow().getAccountStatus()).isEqualTo(AccountStatus.SUSPENDED);
+    }
+
+    @Test
+    void search_filtersBySuspendedStatus() {
+        String suspended = savedCheckingNumber();
+        savedCheckingNumber();
+        accountRepository.suspend(suspended, LocalDateTime.now(), null, "hold");
+
+        Page<Account> page = accountRepository.search(null, AccountStatus.SUSPENDED, null, null, null, null, PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent().get(0).getCheckingAccountNumber()).isEqualTo(suspended);
+        assertThat(page.getContent().get(0).getSuspensionNotes()).isEqualTo("hold");
     }
 }

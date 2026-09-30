@@ -45,8 +45,9 @@ public class AccountStatusStatementService {
      * <p>
      * Cached for 10 minutes (see {@code spring.cache.caffeine.spec} in application.yml)
      * since {@link AccountStatusView} never exposes balance - it's only invalidated by
-     * {@code ClientAccountService.registerNewClientAccount}/{@code closeAccount}, the
-     * only operations that change a field this view actually shows.
+     * {@code ClientAccountService.registerNewClientAccount}/{@code closeAccount} and the
+     * {@code AccountSuspensionService} mutations, the only operations that change a field
+     * this view actually shows.
      */
     @Cacheable(cacheNames = ACCOUNT_SEARCH_CACHE)
     public Page<AccountStatusView> listAccountStatuses(String accountNumber, AccountStatus status,
@@ -92,6 +93,10 @@ public class AccountStatusStatementService {
                 .accountStatus(account.getAccountStatus())
                 .createdDate(account.getCreatedDate())
                 .closedDate(account.getClosedDate())
+                .suspended(account.isSuspended())
+                .suspendedStart(account.getSuspendedStart())
+                .suspendedEnd(account.getSuspendedEnd())
+                .suspensionNotes(account.getSuspensionNotes())
                 .firstName(account.getCustomer() != null ? account.getCustomer().getFirstName() : null)
                 .lastName(account.getCustomer() != null ? account.getCustomer().getLastName() : null)
                 .build();

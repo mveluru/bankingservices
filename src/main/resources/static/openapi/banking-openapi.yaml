@@ -51,6 +51,8 @@ servers:
 tags:
   - name: Accounts
     description: Account registration, lookup, transactions, closing, search and statements.
+  - name: Account suspension
+    description: Suspend, update and reactivate accounts. A suspended account can't transact.
   - name: Locations
     description: Bank offices and ATMs.
   - name: Portal (BFF)
@@ -307,8 +309,8 @@ paths:
         '400':
           description: >-
             Validation failure (JSON), or a business rule failed (plain text): non-positive
-            amount, unrecognized prefix, type/prefix mismatch, account closed, insufficient
-            funds, or minimum balance would be violated.
+            amount, unrecognized prefix, type/prefix mismatch, account closed or suspended,
+            insufficient funds, or minimum balance would be violated.
           content:
             application/json:
               schema: {$ref: '#/components/schemas/SpringErrorResponse'}
@@ -321,6 +323,8 @@ paths:
                   value: 'Withdrawal declined: account CH-0000088291 must retain a minimum balance of 25.00'
                 closed:
                   value: Account CH-0000010004 is closed and cannot be used for transactions
+                suspended:
+                  value: Account CH-0000050001 is suspended and cannot be used for transactions until it is reactivated
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -337,7 +341,7 @@ paths:
 
         `depositType` must be `cash` or `check` (case-insensitive). **Cash deposits are
         capped** at `banking.constraints.maximum-deposit-amount-by-cash` (default 5000.00);
-        check deposits are not. A `CLOSED` account rejects deposits. Unlike withdrawals,
+        check deposits are not. A `CLOSED` or `SUSPENDED` account rejects deposits (`400`). Unlike withdrawals,
         deposits do not trigger a notification.
       requestBody:
         required: true
@@ -388,8 +392,8 @@ paths:
       operationId: closeAccount
       summary: Close one account
       description: >-
-        Transitions an `ACTIVE` account to `CLOSED` and stamps `closedDate` with today.
-        There is no reopen operation. Evicts the account-search cache.
+        Transitions an `ACTIVE` or `SUSPENDED` account to `CLOSED` and stamps `closedDate` with
+        today (a suspension is cleared). There is no reopen operation. Evicts the account-search cache.
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
       responses:
@@ -404,6 +408,122 @@ paths:
             text/plain:
               schema: {type: string}
               example: Account CH-0000010004 is already closed
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/accounts/{accountNumber}/suspend:
+    post:
+      tags: [Account suspension]
+      operationId: suspendAccount
+      summary: Suspend an account
+      description: |
+        `ACTIVE` -> `SUSPENDED`. While suspended the account rejects **every** withdraw and
+        deposit (`400`) until it is reactivated, or until `endDateTime` passes and the expiry job
+        (`banking.suspension.expiry-job`, every 60s) reactivates it. `endDateTime` omitted = indefinite.
+
+        `startDateTime` defaults to now and must not be in the future (backdating is allowed).
+        `endDateTime`, if given, must be after the start and in the future. Both are ISO local
+        date-times (`2026-10-01T09:30:00`). Evicts the account-search cache.
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SuspendAccountRequest'}
+            example:
+              notes: Suspected fraudulent card activity - under review
+              endDateTime: '2026-12-31T17:00:00'
+      responses:
+        '200':
+          description: 'Account suspended; returned with `accountStatus: SUSPENDED` and the suspension fields.'
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: >-
+            Validation failure (JSON, e.g. blank notes), or a business rule failed (plain text):
+            account closed, already suspended, start in the future, end not after start or in the past.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+              examples:
+                alreadySuspended:
+                  value: Account CH-0000050001 is already suspended
+                closed:
+                  value: Account CH-0000010004 is closed and cannot be suspended
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/accounts/{accountNumber}/suspension:
+    patch:
+      tags: [Account suspension]
+      operationId: updateSuspension
+      summary: Update a current suspension
+      description: |
+        Changes the end and/or notes of a suspension; only the fields supplied change, and at
+        least one is required. The new `endDateTime` must be in the future and after the stored
+        start. The suspension's start can't be changed, and an end can't be removed once set
+        (reactivate instead). Evicts the account-search cache.
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateSuspensionRequest'}
+            example:
+              endDateTime: '2027-01-31T17:00:00'
+              notes: Extended pending compliance review
+      responses:
+        '200':
+          description: Updated account.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: >-
+            Validation failure (JSON), or a business rule failed (plain text): nothing to update,
+            account isn't suspended, new end in the past or not after the start.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+              example: Account CH-0000010001 is not suspended
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/accounts/{accountNumber}/reactivate:
+    post:
+      tags: [Account suspension]
+      operationId: reactivateAccount
+      summary: Reactivate a suspended account
+      description: |
+        `SUSPENDED` -> `ACTIVE`; the suspension flag, dates and notes are cleared and the
+        account can transact again. Evicts the account-search cache.
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+      responses:
+        '200':
+          description: Account is `ACTIVE` again.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: Account isn't suspended. Plain-text body.
+          content:
+            text/plain:
+              schema: {type: string}
+              example: Account CH-0000010001 is not suspended
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -951,7 +1071,10 @@ components:
 
     AccountStatus:
       type: string
-      enum: [ACTIVE, CLOSED]
+      enum: [ACTIVE, SUSPENDED, CLOSED]
+      description: |
+        `SUSPENDED` accounts reject every withdraw and deposit until reactivated (or until
+        `suspendedEnd` passes and the expiry job reactivates them). `CLOSED` is final.
 
     TransactionType:
       type: string
@@ -999,6 +1122,15 @@ components:
         accountStatus: {$ref: '#/components/schemas/AccountStatus'}
         createdDate: {type: string, format: date, nullable: true}
         closedDate: {type: string, format: date, nullable: true}
+        suspended: {type: boolean, description: 'True exactly while `accountStatus` is `SUSPENDED`.'}
+        suspendedStart: {type: string, format: date-time, nullable: true, example: '2026-10-01T09:30:00'}
+        suspendedEnd:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the suspension lifts automatically; null = indefinite.
+          example: '2026-10-15T17:00:00'
+        suspensionNotes: {type: string, nullable: true, maxLength: 500, example: Fraud review}
         customer:
           nullable: true
           allOf:
@@ -1013,6 +1145,10 @@ components:
         accountStatus: {$ref: '#/components/schemas/AccountStatus'}
         createdDate: {type: string, format: date}
         closedDate: {type: string, format: date, nullable: true}
+        suspended: {type: boolean}
+        suspendedStart: {type: string, format: date-time, nullable: true}
+        suspendedEnd: {type: string, format: date-time, nullable: true, description: Null = indefinite.}
+        suspensionNotes: {type: string, nullable: true}
         firstName: {type: string, example: Jane}
         lastName: {type: string, example: Doe}
 
@@ -1370,6 +1506,8 @@ components:
         accountType: {$ref: '#/components/schemas/AccountType'}
         accountStatus: {$ref: '#/components/schemas/AccountStatus'}
         balance: {type: number}
+        suspended: {type: boolean, description: While true the account can't transact.}
+        suspendedUntil: {type: string, format: date-time, nullable: true, description: Null for an indefinite suspension.}
         createdDate: {type: string, format: date}
         closedDate: {type: string, format: date, nullable: true}
         firstName: {type: string, nullable: true}
@@ -1395,6 +1533,33 @@ components:
         nearbyLocations:
           type: array
           items: {$ref: '#/components/schemas/PortalLocation'}
+    SuspendAccountRequest:
+      type: object
+      required: [notes]
+      properties:
+        notes:
+          type: string
+          maxLength: 500
+          description: Why the account is being suspended.
+        startDateTime:
+          type: string
+          format: date-time
+          description: ISO local date-time. Defaults to now; must not be in the future.
+          example: '2026-10-01T09:30:00'
+        endDateTime:
+          type: string
+          format: date-time
+          description: ISO local date-time. Omit for an indefinite suspension; must be after the start and in the future.
+          example: '2026-12-31T17:00:00'
+    UpdateSuspensionRequest:
+      type: object
+      description: Partial update; provide at least one property.
+      properties:
+        notes: {type: string, maxLength: 500}
+        endDateTime:
+          type: string
+          format: date-time
+          description: Must be in the future and after the stored suspension start.
     SpringErrorResponse:
       type: object
       description: >-

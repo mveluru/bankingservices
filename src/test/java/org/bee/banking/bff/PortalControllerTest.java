@@ -50,13 +50,14 @@ class PortalControllerTest {
     @Test
     void overviewBindsDaysAndReturnsJson() throws Exception {
         when(service.overview("CH-0000088291", 7)).thenReturn(new AccountOverviewResponse("CH-0000088291", AccountType.CHECKING,
-                AccountStatus.ACTIVE, new BigDecimal("500.00"), LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", 7, List.of()));
+                AccountStatus.ACTIVE, new BigDecimal("500.00"), false, null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", 7, List.of()));
 
         mockMvc.perform(get("/bff/v1/portal/accounts/CH-0000088291/overview").param("days", "7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountNumber").value("CH-0000088291"))
                 .andExpect(jsonPath("$.balance").value(500.00))
                 .andExpect(jsonPath("$.createdDate").value("2026-01-05"))
+                .andExpect(jsonPath("$.suspended").value(false))
                 .andExpect(jsonPath("$.activityDays").value(7));
     }
 

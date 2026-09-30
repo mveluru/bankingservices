@@ -46,3 +46,8 @@ HTTP → gateway filters (btid → rate limit → request log)
 - Every new banking endpoint path must be added to `BankingGatewayConfig.BANKING_URL_PATTERNS`.
 - Anything that changes a field in `AccountStatusView` must evict `AccountStatusStatementService.ACCOUNT_SEARCH_CACHE`.
 - Schema or seed change → update `db/` scripts and `banking-openapi.yaml` in the same change.
+
+## Account lifecycle (see `account-lifecycle.md`)
+- `AccountStatus` is `ACTIVE`/`SUSPENDED`/`CLOSED`. A **suspended account can't transact** until it is ACTIVE again; suspension data (`suspended` flag, start/end, notes) is cleared on reactivate/close.
+- `AccountSuspensionService` owns suspend/update/reactivate (+ the scheduled expiry job); `ClientAccountService` keeps registration, withdraw/deposit and close.
+- Changing an enum column needs a hand-written `db/ddl` migration; `ddl-auto: update` won't alter existing enum columns.

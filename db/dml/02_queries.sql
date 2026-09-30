@@ -23,7 +23,7 @@ SELECT a.account_number, a.account_type, a.account_status, a.balance, a.created_
 --    bound switches that default off, exactly like the endpoint. Sortable columns are
 --    created_date, closed_date, account_status, account_number. Balance is never exposed.
 -- -----------------------------------------------------------------------------
-SET @acct = NULL, @status = NULL;                         -- @status: 'ACTIVE' | 'CLOSED'
+SET @acct = NULL, @status = NULL;                         -- @status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED'
 SET @created_from = NULL, @created_to = NULL, @closed_from = NULL, @closed_to = NULL;
 SET @months = NULL;
 SET @page = 0, @size = 20;

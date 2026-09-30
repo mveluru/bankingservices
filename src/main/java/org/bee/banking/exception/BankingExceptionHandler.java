@@ -37,6 +37,15 @@ public class BankingExceptionHandler {
                 .body(ex.getMessage());
     }
 
+    @ExceptionHandler(AccountSuspendedException.class)
+    public ResponseEntity<String> handleAccountSuspended(
+            AccountSuspendedException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_ACCOUNT_SUSPENDED, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(InsufficientFundsException.class)
     public ResponseEntity<String> handleInsufficientFunds(
             InsufficientFundsException ex) {

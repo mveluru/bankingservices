@@ -120,6 +120,7 @@ public class PortalOrchestrationService {
                 checking ? a.getCheckingAccountNumber() : a.getSavingAccountNumber(),
                 a.getAccountType(), a.getAccountStatus(),
                 checking ? a.getCheckingBalance() : a.getSavingBalance(),
+                a.isSuspended(), a.getSuspendedEnd(),
                 a.getCreatedDate(), a.getClosedDate(),
                 c == null ? null : c.getFirstName(), c == null ? null : c.getLastName(),
                 days, activity);

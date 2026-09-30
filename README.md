@@ -88,6 +88,10 @@ banking:
     enabled: true
     requests-per-day: 1000
     customer-header-name: X-Customer-Id
+  suspension:
+    expiry-job:
+      enabled: true        # reactivates suspensions whose end has passed
+      interval-ms: 60000
 
 resilience4j:
   circuitbreaker:
@@ -142,9 +146,12 @@ All REST endpoints are prefixed with `http://localhost:8081/brite`:
 | `GET` | `/v1/api/accounts?accountNumber=&status=&createdFrom=&createdTo=&closedFrom=&closedTo=&months=&page=&size=&sort=` | Retrieves account ids/details within a createdDate/closedDate range, paginated (backed by a real JPA `Specification` query, cached for 10 minutes). All filters optional. **Default lookback**: if neither `createdFrom` nor `createdTo` is given, defaults to "as of today minus `months` months" (18 months if `months` is also omitted); supplying either explicit created-date bound disables this default and `months` is ignored (`400` if `months` isn't positive). **Conditional lookup**: if `accountNumber` is given, only that account is returned (still subject to the other filters — an out-of-range match yields an empty page, not a bypass); if omitted/null, every matching account is returned. Other filters: `status` (`ACTIVE`/`CLOSED`), `closedFrom`/`closedTo` (inclusive `yyyy-MM-dd` range), standard Spring Data `page`/`size`/`sort` (sortable by `createdDate`, `closedDate`, `accountStatus`, `accountNumber`; default `size=20`, sorted by `createdDate` ascending). Returns a Spring Data `Page<AccountStatusView>` envelope (`content`, `totalElements`, `totalPages`, etc) — each row is flattened to `accountNumber`, `accountType`, `accountStatus`, `createdDate`, `closedDate`, `firstName`, `lastName`, not the full nested `Account`/`Customer`. `400` if a `*From` date is after its `*To` date or an unsupported `sort` property is given |
 | `POST` | `/v1/api/accounts/lookup` | Looks up an account by account number; `404` if not found |
 | `POST` | `/v1/api/accounts/newaccount` | Registers a new customer + account |
-| `POST` | `/v1/api/accounts/withdraw` | Withdraws funds from a checking/savings account; `400` on insufficient funds, mismatched account type, or a `CLOSED` account, `404` if the account doesn't exist |
-| `POST` | `/v1/api/accounts/deposit` | Deposits funds into a checking/savings account; `400` on invalid amount/deposit type, mismatched account type, a cash amount over the configured maximum, or a `CLOSED` account, `404` if the account doesn't exist |
-| `POST` | `/v1/api/accounts/{accountNumber}/close` | Closes a checking/savings account (status `ACTIVE` → `CLOSED`, stamps `closedDate`); `400` if already closed, `404` if the account doesn't exist |
+| `POST` | `/v1/api/accounts/withdraw` | Withdraws funds from a checking/savings account; `400` on insufficient funds, mismatched account type, a `CLOSED` or `SUSPENDED` account, `404` if the account doesn't exist |
+| `POST` | `/v1/api/accounts/deposit` | Deposits funds into a checking/savings account; `400` on invalid amount/deposit type, mismatched account type, a cash amount over the configured maximum, or a `CLOSED` or `SUSPENDED` account, `404` if the account doesn't exist |
+| `POST` | `/v1/api/accounts/{accountNumber}/close` | Closes a checking/savings account (status `ACTIVE` or `SUSPENDED` → `CLOSED`, stamps `closedDate`, clears any suspension); `400` if already closed, `404` if the account doesn't exist |
+| `POST` | `/v1/api/accounts/{accountNumber}/suspend` | Suspends an `ACTIVE` account. Body: `notes` (required, max 500), optional `startDateTime` (ISO local date-time; defaults to now, not in the future) and `endDateTime` (omit = indefinite; must be after the start and in the future). **A suspended account rejects every withdraw and deposit (`400`) until it is reactivated** or `endDateTime` passes (the expiry job, every 60 s, reactivates it). `400` if closed, already suspended, or the window is invalid; `404` unknown account |
+| `PATCH` | `/v1/api/accounts/{accountNumber}/suspension` | Updates a current suspension: `notes` and/or `endDateTime` (only supplied fields change, at least one required; new end must be in the future and after the stored start). `400` if the account isn't suspended |
+| `POST` | `/v1/api/accounts/{accountNumber}/reactivate` | `SUSPENDED` → `ACTIVE`; clears the suspension flag, dates and notes so the account can transact again. `400` if not suspended |
 | `POST` | `/v1/api/accounts/close` | Bulk-closes multiple accounts in one call (body: `{"accountNumbers": [...]}`). Best-effort — an invalid/already-closed account number doesn't block the others; the `200` response carries `closedAccounts` (the ones that succeeded) and `failures` (`accountNumber` + `reason` for the rest). `400` if `accountNumbers` is empty/missing |
 | `GET` | `/v1/api/accounts/{accountNumber}/statement?beginDate=yyyy-MM-dd&endDate=yyyy-MM-dd` | Returns a bank statement (deposit/withdrawal history) for the account in the given range; each transaction includes `depositType` (`"cash"`/`"check"` for deposits, `null` for withdrawals); `400` if the range exceeds the configured maximum months, `404` if the account doesn't exist |
 | `GET` | `/v1/api/locations?type=&city=&state=&zip=&service=&page=&size=&sort=` | Searches bank offices/ATMs, paginated (real JPA `Specification` query, not cached). All filters optional and AND'd; `city`/`state`/`zip` are case-insensitive exact matches. `type` matches by capability: `OFFICE` returns offices **and** office+ATM branches, `ATM` returns ATMs **and** office+ATM branches, `BOTH` only the branches with both. `service` is one of `BANKING`, `SAFE_DEPOSIT_LOCKER`, `LOANS_MORTGAGES`, `NOTARY`, `WIRE_TRANSFER`, `FOREIGN_EXCHANGE`, `ATM_CASH_WITHDRAWAL`, `ATM_DEPOSIT`. Sortable by `name` (default), `locationType`, `city`, `state`; default `size=20`. Each row has `name`, `bankAddress`, `locationType`, office `opensAt`/`closesAt` (`08:00:00`/`16:00:00`, wall clock in `timeZone` `America/Chicago`), office `phoneNumber` and `services` — hours and phone are `null` for ATM-only rows. `400` for an unsupported `sort` property or unknown `type`/`service` |
@@ -172,7 +179,7 @@ Banking used to be a `ConcurrentHashMap`-backed mock store; it's now backed by r
 
 | Entity (`org.bee.banking.entity`) | Table | Notes |
 | :--- | :--- | :--- |
-| `AccountEntity` | `accounts` | One row per real account (checking **or** savings) — not one row per customer pairing. `@Version` column for optimistic locking on concurrent withdraw/deposit. |
+| `AccountEntity` | `accounts` | One row per real account (checking **or** savings) — not one row per customer pairing. `@Version` column for optimistic locking on concurrent withdraw/deposit. Status is `ACTIVE`, `SUSPENDED` or `CLOSED`; suspension is stored in `suspended` (flag), `suspended_start`/`suspended_end` (datetimes, end null = indefinite) and `suspension_notes`. |
 | `CustomerEntity` | `customers` | `@ManyToOne` from `AccountEntity`, cascades on save. |
 | `AddressEmbeddable` | — | `@Embeddable`, inlined as columns on `CustomerEntity`/`WithdrawalHistoryEntity` — no separate table. |
 | `AccountTransactionEntity` | `account_transactions` | One row per deposit/withdrawal, including `depositType`. |
@@ -181,7 +188,7 @@ Banking used to be a `ConcurrentHashMap`-backed mock store; it's now backed by r
 
 Raw Spring Data repositories live in `org.bee.banking.repository.jpa` (`AccountJpaRepository` — extends `JpaSpecificationExecutor` for the dynamic account-search filtering — plus `CustomerJpaRepository`, `AccountTransactionJpaRepository`, `WithdrawalHistoryJpaRepository`); application code never touches them directly. `AccountRepository`/`TransactionRepository`/`WithdrawalRepository` (same names/packages as before) wrap them and keep their old public method signatures.
 
-`BankLocationDataSeeder` likewise seeds 20 demo bank locations (8 office, 6 ATM, 6 office+ATM across Central-time cities) when `bank_locations` is empty. `AccountDataSeeder` seeds the 52 demo accounts on first startup, but only if the `accounts` table is empty — since data now persists across restarts, unconditional reseeding would create duplicates every time the app starts. Account numbers are still generated the same way as before (zero-padded 10-digit `CH-`/`SV-` numbers, starting from a `10001` counter), so previously-documented account numbers remain valid.
+`BankLocationDataSeeder` likewise seeds 20 demo bank locations (8 office, 6 ATM, 6 office+ATM across Central-time cities) when `bank_locations` is empty. `AccountDataSeeder` seeds the 52 demo accounts on first startup, but only if the `accounts` table is empty. `AccountStatusDemoSeeder` then adds 40 more — 20 `CLOSED` (`CH-0000030001..30010`, `SV-0000040001..40010`) and 20 `SUSPENDED` (`CH-0000050001..50010`, `SV-0000060001..60010`, 14 with an end date and 6 indefinite, all with notes) — for any of those numbers that don't exist yet, so an existing database gets them on the next start (92 accounts in total). The base seeder only runs on an empty table because data now persists across restarts, so unconditional reseeding would create duplicates every time the app starts. Account numbers are still generated the same way as before (zero-padded 10-digit `CH-`/`SV-` numbers, starting from a `10001` counter), so previously-documented account numbers remain valid.
 
 ### Resilience demo — `/v1/payment`
 
@@ -282,10 +289,23 @@ curl -s -X POST http://localhost:8081/brite/v1/product/addproduct \
   -H "Content-Type: application/json" \
   -d '{"productId":"200","productName":"Test Widget","quantity":"5","price":42.5}'
 
-# List/Search Accounts (paginated; all filters optional). The two seeded CLOSED
-# accounts are ~24-30 months old, so months must be widened to see them.
+# List/Search Accounts (paginated; all filters optional). The seeded CLOSED accounts are
+# 26-40 months old (created), so months must be widened to see them (22 CLOSED in total).
 curl -s -H "X-Customer-Id: demo-customer-1" \
-  "http://localhost:8081/brite/v1/api/accounts?status=CLOSED&months=36&page=0&size=10&sort=createdDate,desc"
+  "http://localhost:8081/brite/v1/api/accounts?status=CLOSED&months=48&page=0&size=10&sort=createdDate,desc"
+
+# The 20 seeded SUSPENDED accounts (inside the default window), with flag, start/end and notes
+curl -s -H "X-Customer-Id: demo-customer-1" \
+  "http://localhost:8081/brite/v1/api/accounts?status=SUSPENDED&size=25"
+
+# Suspend, update, reactivate (a suspended account rejects withdraw/deposit with 400)
+curl -s -X POST -H "X-Customer-Id: demo-customer-1" -H "Content-Type: application/json" \
+  http://localhost:8081/brite/v1/api/accounts/CH-0000010001/suspend \
+  -d '{"notes":"Fraud review","endDateTime":"2027-01-31T17:00:00"}'
+curl -s -X PATCH -H "X-Customer-Id: demo-customer-1" -H "Content-Type: application/json" \
+  http://localhost:8081/brite/v1/api/accounts/CH-0000010001/suspension -d '{"notes":"Extended after review"}'
+curl -s -X POST -H "X-Customer-Id: demo-customer-1" \
+  http://localhost:8081/brite/v1/api/accounts/CH-0000010001/reactivate
 
 # Same endpoint, narrowed to one account (still checked against the resolved date range)
 curl -s -H "X-Customer-Id: demo-customer-1" \
@@ -392,7 +412,10 @@ mvn test
 | `ProductControllerTest` | `/v1/product` endpoints — list, get by ID (found + `404` not-found), add, product message |
 | `BriteConfigValuesControllerTest` | `/v1/configs` config endpoints — app, email, SMS |
 | `SpringBootProjectsApplicationTests` | Application context load + actuator health, liveness, and readiness probes |
-| `AccountRepositoryTest` | `@DataJpaTest` against embedded H2 (no live MySQL needed — see [Data Model](#-banking-data-model-jpa)) — account creation defaults, ACTIVE/CLOSED status lifecycle, withdraw/deposit balance rules, account search/pagination/sorting/date-range filters, conditional accountNumber filter, all as real SQL |
+| `AccountRepositoryTest` | `@DataJpaTest` against embedded H2 (no live MySQL needed — see [Data Model](#-banking-data-model-jpa)) — account creation defaults, ACTIVE/SUSPENDED/CLOSED status lifecycle (suspend/update/reactivate/expire, suspended accounts rejecting withdraw/deposit), withdraw/deposit balance rules, account search/pagination/sorting/date-range filters, conditional accountNumber filter, all as real SQL |
+| `AccountSuspensionServiceTest` / `AccountSuspensionExpiryJobTest` | Plain unit tests (no Spring context/MySQL) — the start/end window rules (default start, no future start, end after start and in the future), partial update, reactivation, and the scheduled expiry hook |
+| `AccountSuspensionControllerTest` | Standalone MockMvc — suspend/update/reactivate binding, `@Valid` (blank/too-long notes → 400), plain-text 400/404 mapping |
+| `AccountStatusDemoSeederTest` | `@DataJpaTest` on H2 — 92 accounts after seeding (22 CLOSED, 20 SUSPENDED), suspended rows carry flag/start/notes and aren't already expired, re-running never duplicates |
 | `ClientAccountServiceTest` | Plain unit test (no Spring context/MySQL) — registration age gating, withdraw/deposit input validation, deposit records a transaction with the correct `depositType`, bulk close (all succeed; partial failure doesn't block the rest) |
 | `AccountStatusStatementServiceTest` | Plain unit test (no Spring context/MySQL) — account search date-range validation, Account → AccountStatusView mapping (checking vs savings account number, customer name), conditional accountNumber pass-through, default/overridden `months` lookback window |
 | `CustomerRateLimiterTest` | Plain unit test (no Spring context/MySQL) — per-customer daily counter: decrements, blocks past the limit, independent per customer |

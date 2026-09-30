@@ -9,10 +9,12 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication(scanBasePackages = {"org.bee.configs", "org.bee.retail", "org.bee.banking", "org.bee.events", "org.bee.restapi", "org.bee.sample", "org.bee.common"})
 @EnableAsync
 @EnableCaching
+@EnableScheduling
 @ConfigurationPropertiesScan(basePackages = {"org.bee.configs", "org.bee.retail", "org.bee.banking", "org.bee.events", "org.bee.restapi", "org.bee.sample"})
 @EnableJpaRepositories(basePackages = {"org.bee.configs", "org.bee.retail", "org.bee.banking", "org.bee.events"})
 @EntityScan(basePackages = {"org.bee.configs", "org.bee.retail", "org.bee.banking", "org.bee.events"})

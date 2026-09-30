@@ -10,10 +10,13 @@ import org.bee.banking.domain.DepositForm;
 import org.bee.banking.request.AccountLookupRequest;
 import org.bee.banking.request.AccountRegistrationRequest;
 import org.bee.banking.request.BulkCloseAccountsRequest;
+import org.bee.banking.request.SuspendAccountRequest;
+import org.bee.banking.request.UpdateSuspensionRequest;
 import org.bee.banking.request.WithdrawalRequest;
 import org.bee.banking.service.BankStatementService;
 import org.bee.banking.service.ClientAccountService;
 import org.bee.banking.service.AccountStatusStatementService;
+import org.bee.banking.service.AccountSuspensionService;
 import org.bee.banking.domain.AccountStatusView;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +25,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,6 +42,7 @@ public class ClientAccountController {
     private final ClientAccountService accountService;
     private final BankStatementService bankStatementService;
     private final AccountStatusStatementService accountStatusStatementService;
+    private final AccountSuspensionService accountSuspensionService;
 
     /**
      * Scenario G: Retrieve account ids/details within a createdDate/closedDate range.
@@ -117,6 +122,36 @@ public class ClientAccountController {
     public ResponseEntity<Account> closeAccount(@PathVariable String accountNumber) {
         Account closedAccount = accountService.closeAccount(accountNumber);
         return ResponseEntity.ok(closedAccount);
+    }
+
+    /**
+     * Scenario J: Suspend an account. While suspended it rejects every withdraw/deposit (400)
+     * until reactivated or {@code endDateTime} passes. {@code startDateTime} defaults to now.
+     * POST /api/accounts/{accountNumber}/suspend
+     */
+    @PostMapping("/{accountNumber}/suspend")
+    public ResponseEntity<Account> suspendAccount(@PathVariable String accountNumber,
+                                                  @Valid @RequestBody SuspendAccountRequest request) {
+        return ResponseEntity.ok(accountSuspensionService.suspendAccount(accountNumber, request));
+    }
+
+    /**
+     * Scenario K: Change the end and/or notes of a current suspension (only supplied fields change).
+     * PATCH /api/accounts/{accountNumber}/suspension
+     */
+    @PatchMapping("/{accountNumber}/suspension")
+    public ResponseEntity<Account> updateSuspension(@PathVariable String accountNumber,
+                                                    @Valid @RequestBody UpdateSuspensionRequest request) {
+        return ResponseEntity.ok(accountSuspensionService.updateSuspension(accountNumber, request));
+    }
+
+    /**
+     * Scenario L: Lift a suspension, returning the account to ACTIVE so it can transact again.
+     * POST /api/accounts/{accountNumber}/reactivate
+     */
+    @PostMapping("/{accountNumber}/reactivate")
+    public ResponseEntity<Account> reactivateAccount(@PathVariable String accountNumber) {
+        return ResponseEntity.ok(accountSuspensionService.reactivateAccount(accountNumber));
     }
 
     /**

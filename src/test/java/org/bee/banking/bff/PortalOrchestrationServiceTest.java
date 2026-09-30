@@ -29,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -146,5 +147,22 @@ class PortalOrchestrationServiceTest {
         assertEquals("CH-0000010053", response.account().accountNumber());
         assertEquals(0, response.account().recentActivity().size());
         assertEquals("Austin Downtown Branch", response.nearbyLocations().get(0).name());
+    }
+
+    @Test
+    void overviewShowsSuspensionState() {
+        LocalDateTime until = LocalDateTime.now().plusDays(5);
+        Account suspended = checking("CH-0000010001", new BigDecimal("75.00"));
+        suspended.setAccountStatus(AccountStatus.SUSPENDED);
+        suspended.setSuspended(true);
+        suspended.setSuspendedEnd(until);
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(suspended));
+        when(transactionRepository.findByAccountNumber("CH-0000010001")).thenReturn(List.of());
+
+        AccountOverviewResponse overview = service.overview("CH-0000010001", null);
+
+        assertEquals(AccountStatus.SUSPENDED, overview.accountStatus());
+        assertEquals(true, overview.suspended());
+        assertEquals(until, overview.suspendedUntil());
     }
 }

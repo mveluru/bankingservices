@@ -36,9 +36,13 @@ CREATE TABLE IF NOT EXISTS accounts (
     created_date date,
     customer_id bigint,
     id bigint not null auto_increment,
+    suspended bit not null default b'0',  -- Hibernate emits no DEFAULT; it keeps hand-run INSERTs that omit the column valid
+    suspended_end datetime(6),
+    suspended_start datetime(6),
     version bigint,
     account_number varchar(20) not null,
-    account_status enum ('ACTIVE','CLOSED'),
+    account_status enum ('ACTIVE','CLOSED','SUSPENDED'),
+    suspension_notes varchar(500),
     account_type enum ('CHECKING','CREDIT_OR_LOAN','INVESTMENT','RETIREMENT','SAVINGS'),
     primary key (id)
 ) engine=InnoDB;

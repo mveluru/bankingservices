@@ -20,6 +20,7 @@ bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 - **No business rules in the BFF.** Validation, limits, status checks and notifications stay in the banking services it calls. The BFF only composes, shapes and applies UI limits (`banking.portal.*`).
 - **Reads must be side-effect free.** Don't call `BankStatementService.generateStatement` from a read path: it sends email/SMS. Use the repository facade for activity.
 - DTOs are Java `record`s in `bff.dto`; never return entities or reuse full domain graphs when a slimmer UI shape exists (`PortalLocation`, `PortalAccountSummary`). No balances in anything derived from the cached `AccountStatusView`.
+- The account overview shows `suspended`/`suspendedUntil` so the portal can disable transact buttons; don't expose `suspensionNotes` (internal) there.
 - One endpoint per portal screen; add fields to the screen's DTO rather than adding chatty endpoints.
 - Errors: throw the existing typed exceptions with `BankingMessages` text; `BankingExceptionHandler` already covers `org.bee.banking.bff` (plain text 400/404). Add `PORTAL_*`/`LOG_PORTAL_*` constants, no inline strings.
 - Tunables (limits, allowed origins) go in `PortalProperties` + `application.yml` under `banking.portal`, not literals.

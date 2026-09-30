@@ -27,3 +27,9 @@ paths:
 - `ddl-auto: update` builds the schema, but `db/ddl/01_create_tables.sql` must mirror the entities (keep Hibernate's FK constraint names). Any column/table/type change → update `db/ddl`, `db/data` (if seeded), `db/dml` (if referenced), and `db/README.md`.
 - Never edit an entity column type/name without checking existing MySQL data compatibility.
 - No native SQL in Java unless a `Specification` cannot express it; if used, bind parameters.
+
+## Suspension and enum columns
+- Suspension writes (`suspend`, `updateSuspension`, `reactivate`, `reactivateExpiredSuspensions`, and `closeAccount`'s `clearSuspension`) keep status and the `suspended` flag in step; withdraw/deposit reject when *either* says suspended, after the closed check and before balance checks.
+- `AccountJpaRepository.findBySuspendedTrueAndSuspendedEndLessThanEqual(now)` backs expiry; indefinite suspensions (null end) never match.
+- **Enum columns are not altered by `ddl-auto: update`.** Widening `account_status` needs `db/ddl/03_account_suspension_migration.sql`-style `MODIFY COLUMN`, applied to live databases.
+- Extra demo data goes in its own seeder, idempotent *per account number* (`AccountStatusDemoSeeder`), injecting `AccountDataSeeder` by constructor so the base seed runs first on an empty DB. (`@DependsOn("accountDataSeeder")` breaks under `@Import` test contexts.)

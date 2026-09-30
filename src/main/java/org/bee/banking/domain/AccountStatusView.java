@@ -6,6 +6,7 @@ import lombok.Getter;
 import org.bee.banking.service.AccountStatusStatementService;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Flattened per-account row returned by {@link AccountStatusStatementService} - the
@@ -21,6 +22,10 @@ public class AccountStatusView {
     private final AccountStatus accountStatus;
     private final LocalDate createdDate;
     private final LocalDate closedDate;
+    private final boolean suspended;
+    private final LocalDateTime suspendedStart;
+    private final LocalDateTime suspendedEnd;
+    private final String suspensionNotes;
     private final String firstName;
     private final String lastName;
 }

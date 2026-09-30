@@ -55,4 +55,21 @@ class AccountSearchCachingTest {
         assertThat(cacheEvict.cacheNames()).containsExactly(AccountStatusStatementService.ACCOUNT_SEARCH_CACHE);
         assertThat(cacheEvict.allEntries()).isTrue();
     }
+
+    @Test
+    void everySuspensionMutationEvictsTheAccountSearchCache() throws NoSuchMethodException {
+        Method[] mutations = {
+                AccountSuspensionService.class.getMethod("suspendAccount", String.class, org.bee.banking.request.SuspendAccountRequest.class),
+                AccountSuspensionService.class.getMethod("updateSuspension", String.class, org.bee.banking.request.UpdateSuspensionRequest.class),
+                AccountSuspensionService.class.getMethod("reactivateAccount", String.class),
+                AccountSuspensionService.class.getMethod("reactivateExpiredSuspensions")
+        };
+
+        for (Method method : mutations) {
+            CacheEvict cacheEvict = method.getAnnotation(CacheEvict.class);
+            assertThat(cacheEvict).as(method.getName()).isNotNull();
+            assertThat(cacheEvict.cacheNames()).containsExactly(AccountStatusStatementService.ACCOUNT_SEARCH_CACHE);
+            assertThat(cacheEvict.allEntries()).isTrue();
+        }
+    }
 }

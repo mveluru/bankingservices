@@ -12,6 +12,7 @@ import org.bee.banking.entity.AddressEmbeddable;
 import org.bee.banking.entity.CustomerEntity;
 import org.bee.banking.exception.AccountClosedException;
 import org.bee.banking.exception.AccountNotFoundException;
+import org.bee.banking.exception.AccountSuspendedException;
 import org.bee.banking.exception.InsufficientFundsException;
 import org.bee.banking.exception.MinBalanceException;
 import org.bee.banking.messages.BankingMessages;
@@ -26,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -140,6 +143,10 @@ public class AccountRepository {
             log.warn(BankingMessages.LOG_WITHDRAWAL_REJECTED_CLOSED, accountNumber);
             throw new AccountClosedException(String.format(BankingMessages.ACCOUNT_CLOSED, accountNumber));
         }
+        if (isSuspended(entity)) {
+            log.warn(BankingMessages.LOG_WITHDRAWAL_REJECTED_SUSPENDED, accountNumber);
+            throw new AccountSuspendedException(String.format(BankingMessages.ACCOUNT_SUSPENDED, accountNumber));
+        }
         BigDecimal currentBalance = entity.getBalance();
         if (currentBalance == null || currentBalance.compareTo(amount) < 0) {
             log.warn(BankingMessages.LOG_WITHDRAWAL_INSUFFICIENT_FUNDS, amount, accountNumber, currentBalance);
@@ -170,6 +177,10 @@ public class AccountRepository {
             log.warn(BankingMessages.LOG_DEPOSIT_REJECTED_CLOSED, accountNumber);
             throw new AccountClosedException(String.format(BankingMessages.ACCOUNT_CLOSED, accountNumber));
         }
+        if (isSuspended(entity)) {
+            log.warn(BankingMessages.LOG_DEPOSIT_REJECTED_SUSPENDED, accountNumber);
+            throw new AccountSuspendedException(String.format(BankingMessages.ACCOUNT_SUSPENDED, accountNumber));
+        }
         BigDecimal currentBalance = entity.getBalance() != null ? entity.getBalance() : BigDecimal.ZERO;
         entity.setBalance(currentBalance.add(amount));
         AccountEntity saved = accountJpaRepository.save(entity);
@@ -190,9 +201,109 @@ public class AccountRepository {
         }
         entity.setAccountStatus(AccountStatus.CLOSED);
         entity.setClosedDate(LocalDate.now());
+        clearSuspension(entity); // a closed account is no longer "suspended"
         AccountEntity saved = accountJpaRepository.save(entity);
         log.info(BankingMessages.LOG_ACCOUNT_CLOSED, accountNumber);
         return toDomain(saved);
+    }
+
+    /**
+     * ACTIVE -> SUSPENDED. The caller (service) has already resolved {@code start} and validated the
+     * time window; this checks the account's state. A CLOSED account can't be suspended and an
+     * already-suspended one must be updated or reactivated first.
+     */
+    @Transactional
+    public Account suspend(String accountNumber, LocalDateTime start, LocalDateTime end, String notes) {
+        AccountEntity entity = accountJpaRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> {
+                    log.warn(BankingMessages.LOG_ACCOUNT_SUSPEND_ACCOUNT_NOT_FOUND, accountNumber);
+                    return new AccountNotFoundException(String.format(BankingMessages.ACCOUNT_NOT_FOUND, accountNumber));
+                });
+        if (entity.getAccountStatus() == AccountStatus.CLOSED) {
+            log.warn(BankingMessages.LOG_ACCOUNT_SUSPEND_REJECTED, accountNumber, "closed");
+            throw new AccountClosedException(String.format(BankingMessages.ACCOUNT_CLOSED_CANNOT_SUSPEND, accountNumber));
+        }
+        if (isSuspended(entity)) {
+            log.warn(BankingMessages.LOG_ACCOUNT_SUSPEND_REJECTED, accountNumber, "already suspended");
+            throw new AccountSuspendedException(String.format(BankingMessages.ACCOUNT_ALREADY_SUSPENDED, accountNumber));
+        }
+        entity.setAccountStatus(AccountStatus.SUSPENDED);
+        entity.setSuspended(true);
+        entity.setSuspendedStart(start);
+        entity.setSuspendedEnd(end);
+        entity.setSuspensionNotes(notes);
+        AccountEntity saved = accountJpaRepository.save(entity);
+        log.info(BankingMessages.LOG_ACCOUNT_SUSPENDED, accountNumber, start, end);
+        return toDomain(saved);
+    }
+
+    /**
+     * Changes the end and/or notes of a current suspension (null = leave unchanged). The new end must
+     * be after the stored start, which only the stored row knows, so that check lives here.
+     */
+    @Transactional
+    public Account updateSuspension(String accountNumber, LocalDateTime newEnd, String newNotes) {
+        AccountEntity entity = requireSuspended(accountNumber);
+        if (newEnd != null) {
+            if (!newEnd.isAfter(entity.getSuspendedStart())) {
+                throw new IllegalArgumentException(String.format(
+                        BankingMessages.SUSPENSION_END_NOT_AFTER_START, newEnd, entity.getSuspendedStart()));
+            }
+            entity.setSuspendedEnd(newEnd);
+        }
+        if (newNotes != null) {
+            entity.setSuspensionNotes(newNotes);
+        }
+        AccountEntity saved = accountJpaRepository.save(entity);
+        log.info(BankingMessages.LOG_SUSPENSION_UPDATED, accountNumber, saved.getSuspendedEnd(), newNotes != null);
+        return toDomain(saved);
+    }
+
+    /** SUSPENDED -> ACTIVE; clears the suspension fields. */
+    @Transactional
+    public Account reactivate(String accountNumber) {
+        AccountEntity entity = requireSuspended(accountNumber);
+        entity.setAccountStatus(AccountStatus.ACTIVE);
+        clearSuspension(entity);
+        AccountEntity saved = accountJpaRepository.save(entity);
+        log.info(BankingMessages.LOG_ACCOUNT_REACTIVATED, accountNumber);
+        return toDomain(saved);
+    }
+
+    /** Reactivates every suspension whose end is at or before {@code now}; returns how many. */
+    @Transactional
+    public int reactivateExpiredSuspensions(LocalDateTime now) {
+        List<AccountEntity> expired = accountJpaRepository.findBySuspendedTrueAndSuspendedEndLessThanEqual(now);
+        for (AccountEntity entity : expired) {
+            entity.setAccountStatus(AccountStatus.ACTIVE);
+            clearSuspension(entity);
+        }
+        accountJpaRepository.saveAll(expired);
+        if (!expired.isEmpty()) {
+            log.info(BankingMessages.LOG_SUSPENSIONS_EXPIRED, expired.size());
+        }
+        return expired.size();
+    }
+
+    private AccountEntity requireSuspended(String accountNumber) {
+        AccountEntity entity = accountJpaRepository.findByAccountNumber(accountNumber)
+                .orElseThrow(() -> new AccountNotFoundException(String.format(BankingMessages.ACCOUNT_NOT_FOUND, accountNumber)));
+        if (!isSuspended(entity)) {
+            throw new IllegalArgumentException(String.format(BankingMessages.ACCOUNT_NOT_SUSPENDED, accountNumber));
+        }
+        return entity;
+    }
+
+    /** Status and flag are always written together; either one being set blocks transactions. */
+    private boolean isSuspended(AccountEntity entity) {
+        return entity.getAccountStatus() == AccountStatus.SUSPENDED || entity.isSuspended();
+    }
+
+    private void clearSuspension(AccountEntity entity) {
+        entity.setSuspended(false);
+        entity.setSuspendedStart(null);
+        entity.setSuspendedEnd(null);
+        entity.setSuspensionNotes(null);
     }
 
     private Account toDomain(AccountEntity entity) {
@@ -201,6 +312,10 @@ public class AccountRepository {
                 .accountStatus(entity.getAccountStatus())
                 .createdDate(entity.getCreatedDate())
                 .closedDate(entity.getClosedDate())
+                .suspended(entity.isSuspended())
+                .suspendedStart(entity.getSuspendedStart())
+                .suspendedEnd(entity.getSuspendedEnd())
+                .suspensionNotes(entity.getSuspensionNotes())
                 .customer(toDomain(entity.getCustomer()));
         if (entity.getAccountType() == AccountType.SAVINGS) {
             builder.savingAccountNumber(entity.getAccountNumber()).savingBalance(entity.getBalance());

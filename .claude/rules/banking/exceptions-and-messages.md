@@ -12,7 +12,7 @@ paths:
 | Exception | Status |
 |---|---|
 | `AccountNotFoundException`, `LocationNotFoundException` | 404 |
-| `AccountClosedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `IllegalArgumentException` | 400 |
+| `AccountClosedException`, `AccountSuspendedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `IllegalArgumentException` | 400 |
 | `BankServiceUnavailableException` | no handler; thrown by `BankClient` in the payment resilience demo |
 
 - New exception → add class, handler, `LOG_HANDLER_*` constant, and the response in `banking-openapi.yaml` (as `text/plain`).

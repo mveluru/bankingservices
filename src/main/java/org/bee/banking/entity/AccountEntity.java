@@ -24,6 +24,7 @@ import org.bee.banking.domain.AccountType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * One row per real account (checking OR savings) - unlike the in-memory-era
@@ -58,6 +59,21 @@ public class AccountEntity {
 
     private LocalDate createdDate;
     private LocalDate closedDate;
+
+    /** True exactly while {@code accountStatus == SUSPENDED}; kept as its own column for cheap filtering/reporting. */
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean suspended = false;
+
+    /** When the current suspension began; null unless suspended. */
+    private LocalDateTime suspendedStart;
+
+    /** When the suspension lifts automatically; null = indefinite (until reactivated by hand). */
+    private LocalDateTime suspendedEnd;
+
+    /** Why the account was suspended (and any later updates); null unless suspended. */
+    @Column(length = 500)
+    private String suspensionNotes;
 
     @ManyToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id")

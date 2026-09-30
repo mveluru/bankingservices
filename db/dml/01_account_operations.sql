@@ -12,7 +12,7 @@
 --
 -- Rules mirrored (defaults from application.yml `banking.*`):
 --   minimum age 18 | checking must keep >= 25.00 after a withdrawal | savings >= 100.00
---   cash deposit <= 5000.00 | CLOSED accounts reject withdraw/deposit | no reopen
+--   cash deposit <= 5000.00 | CLOSED and SUSPENDED accounts reject withdraw/deposit | no reopen of CLOSED (see 04_account_suspension.sql for suspend/reactivate)
 -- =============================================================================
 
 USE db_example;
@@ -83,14 +83,15 @@ COMMIT;
 
 -- -----------------------------------------------------------------------------
 -- 4. Close one account (POST /v1/api/accounts/{accountNumber}/close)
---    ACTIVE -> CLOSED with closed_date = today. There is no reopen path in the app.
---    rows_updated = 0 means the account doesn't exist or is already closed.
+--    ACTIVE or SUSPENDED -> CLOSED with closed_date = today (a suspension is cleared on close).
+--    There is no reopen path in the app. rows_updated = 0 means the account doesn't exist or is already closed.
 -- -----------------------------------------------------------------------------
 SET @acct = 'CH-0000010001';
 
 UPDATE accounts
-   SET account_status = 'CLOSED', closed_date = CURDATE(), version = version + 1
- WHERE account_number = @acct AND account_status = 'ACTIVE';
+   SET account_status = 'CLOSED', closed_date = CURDATE(), version = version + 1,
+       suspended = 0, suspended_start = NULL, suspended_end = NULL, suspension_notes = NULL
+ WHERE account_number = @acct AND account_status IN ('ACTIVE', 'SUSPENDED');
 SELECT ROW_COUNT() AS rows_updated;
 
 -- -----------------------------------------------------------------------------
@@ -98,9 +99,10 @@ SELECT ROW_COUNT() AS rows_updated;
 --    that don't exist or are already closed are simply skipped.
 -- -----------------------------------------------------------------------------
 UPDATE accounts
-   SET account_status = 'CLOSED', closed_date = CURDATE(), version = version + 1
+   SET account_status = 'CLOSED', closed_date = CURDATE(), version = version + 1,
+       suspended = 0, suspended_start = NULL, suspended_end = NULL, suspension_notes = NULL
  WHERE account_number IN ('CH-0000010002', 'CH-0000010003', 'SV-0000020001')
-   AND account_status = 'ACTIVE';
+   AND account_status IN ('ACTIVE', 'SUSPENDED');
 SELECT ROW_COUNT() AS accounts_closed;
 
 -- NOTE: if the app is running, GET /v1/api/accounts results are cached for 10 minutes

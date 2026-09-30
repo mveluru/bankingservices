@@ -14,6 +14,14 @@ public final class BankingMessages {
     public static final String DEPOSIT_TYPE_INVALID = "Deposit type must be 'cash' or 'check'";
     public static final String INSUFFICIENT_FUNDS = "Insufficient funds in account %s";
     public static final String ACCOUNT_NOT_FOUND = "Account not found: %s";
+    public static final String ACCOUNT_SUSPENDED = "Account %s is suspended and cannot be used for transactions until it is reactivated";
+    public static final String ACCOUNT_ALREADY_SUSPENDED = "Account %s is already suspended";
+    public static final String ACCOUNT_NOT_SUSPENDED = "Account %s is not suspended";
+    public static final String ACCOUNT_CLOSED_CANNOT_SUSPEND = "Account %s is closed and cannot be suspended";
+    public static final String SUSPENSION_START_IN_FUTURE = "Suspension start (%s) cannot be in the future";
+    public static final String SUSPENSION_END_NOT_AFTER_START = "Suspension end (%s) must be after suspension start (%s)";
+    public static final String SUSPENSION_END_IN_PAST = "Suspension end (%s) must be in the future";
+    public static final String SUSPENSION_UPDATE_EMPTY = "Provide notes and/or endDateTime to update the suspension";
     public static final String PORTAL_ACTIVITY_DAYS_INVALID = "days must be between 1 and %d";
     public static final String LOCATION_NOT_FOUND = "Bank location not found: %s";
     public static final String ACCOUNT_CLOSED = "Account %s is closed and cannot be used for transactions";
@@ -75,6 +83,15 @@ public final class BankingMessages {
     public static final String LOG_ACCOUNT_SEARCH_REJECTED_MONTHS = "Account search rejected: invalid months value {}";
     public static final String LOG_ACCOUNT_SEARCH_DEFAULT_LOOKBACK_APPLIED = "No createdFrom/createdTo given; defaulting to a {}-month lookback window ({} to {})";
     public static final String LOG_ACCOUNT_SEARCH = "Searching accounts: accountNumber={}, status={}, createdFrom={}, createdTo={}, closedFrom={}, closedTo={}, page={}";
+    public static final String LOG_WITHDRAWAL_REJECTED_SUSPENDED = "Withdrawal rejected: account {} is suspended";
+    public static final String LOG_DEPOSIT_REJECTED_SUSPENDED = "Deposit rejected: account {} is suspended";
+    public static final String LOG_ACCOUNT_SUSPEND_ACCOUNT_NOT_FOUND = "Suspend failed: account {} not found";
+    public static final String LOG_ACCOUNT_SUSPEND_REJECTED = "Suspend rejected for account {}: {}";
+    public static final String LOG_ACCOUNT_SUSPENDED = "Suspended account {} from {} until {}";
+    public static final String LOG_SUSPENSION_UPDATED = "Updated suspension of account {}: end={}, notes changed={}";
+    public static final String LOG_ACCOUNT_REACTIVATED = "Reactivated account {}";
+    public static final String LOG_SUSPENSIONS_EXPIRED = "Reactivated {} account(s) whose suspension ended";
+    public static final String LOG_HANDLER_ACCOUNT_SUSPENDED = "Account suspended: {}";
     public static final String LOG_PORTAL_HOME = "Portal home requested: state={}";
     public static final String LOG_PORTAL_OVERVIEW = "Portal overview requested: account={}, days={}";
     public static final String LOG_PORTAL_ACCOUNT_OPENED = "Portal opened an account: state={}";
@@ -132,6 +149,8 @@ public final class BankingMessages {
     public static final String VALIDATION_ZIP_REQUIRED = "Zip code is required";
 
     // AccountLookupRequest-specific validation messages
+    public static final String VALIDATION_SUSPENSION_NOTES_REQUIRED = "Suspension notes are required";
+    public static final String VALIDATION_SUSPENSION_NOTES_MAX_LENGTH = "Suspension notes must be at most 500 characters";
     public static final String VALIDATION_ACCOUNT_NUMBER_REQUIRED = "Account number is required";
 
     // BulkCloseAccountsRequest-specific validation messages

@@ -76,6 +76,10 @@ banking:
   request-logging:
     enabled: true
     max-payload-length: 2000
+  suspension:
+    expiry-job:
+      enabled: true
+      interval-ms: 60000
   portal:
     allowed-origins: http://localhost:5173,http://localhost:3000
     home-account-limit: 5

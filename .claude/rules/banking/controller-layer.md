@@ -6,7 +6,7 @@ paths:
 
 - `@RestController @RequestMapping("/v1/...") @RequiredArgsConstructor`. Only routing, binding, `@Valid`, and wrapping in `ResponseEntity`.
 - No business rules, no repository access, no try/catch. Throw from the service; `BankingExceptionHandler` maps it.
-- Path roots in use: `/v1/api/accounts`, `/v1/api/locations`, `/v1/client`, `/v1/payment`, plus `/notify`, `/notify-sms`, `/report`. New endpoints follow `/v1/api/<resource>`.
+- Path roots in use: `/v1/api/accounts` (incl. `/{n}/suspend`, `PATCH /{n}/suspension`, `/{n}/reactivate`), `/v1/api/locations`, `/v1/client`, `/v1/payment`, plus `/notify`, `/notify-sms`, `/report`. New endpoints follow `/v1/api/<resource>`.
 - Bodies: `@Valid @RequestBody <X>Request`. Query filters: `@RequestParam(required = false)` with typed enums/`LocalDate` (`@DateTimeFormat(iso = ISO.DATE)`).
 - Lists: return `Page<T>` with `@PageableDefault(size = 20, sort = "<key>")`. Never return unbounded lists.
 - One canonical way to fetch a record. Do not add a path-variable status endpoint for accounts; `GET /v1/api/accounts?accountNumber=` is the way. Locations do have `GET /{id}` (stable numeric id).
