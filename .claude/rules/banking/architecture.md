@@ -9,7 +9,7 @@ Vertical slice under `org.bee.banking`. Request flow:
 
 ```
 HTTP → gateway filters (btid → rate limit → request log)
-     → contoller (REST, validation, no logic)
+     → contoller (REST, validation, no logic)      or  bff.controller (UI-shaped, one call per screen)
      → service (business rules, cache, notifications)
      → repository facade (entity ↔ domain mapping, Specifications)
      → repository.jpa (raw Spring Data, never used outside the facade)
@@ -29,6 +29,7 @@ HTTP → gateway filters (btid → rate limit → request log)
 | `exception` | Typed exceptions + `BankingExceptionHandler` | `messages` |
 | `messages` | `BankingMessages` constants | nothing |
 | `rules` | `@ConfigurationProperties` business limits (`banking.constraints.*`) | nothing |
+| `bff` | Portal orchestration: controller + service + record DTOs + CORS/config; composes services in process | `service`, `repository` (read-only facades), `domain`, `request`, `messages` |
 | `gateway` | Servlet filters + config (not controllers) | `messages` |
 
 ## Dependency rules

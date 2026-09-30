@@ -53,6 +53,8 @@ tags:
     description: Account registration, lookup, transactions, closing, search and statements.
   - name: Locations
     description: Bank offices and ATMs.
+  - name: Portal (BFF)
+    description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call.
   - name: Clients
     description: Sample client record.
   - name: Payments
@@ -654,6 +656,91 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/portal/home:
+    get:
+      tags: [Portal (BFF)]
+      operationId: portalHome
+      summary: Portal home screen bundle
+      description: |
+        One call for the portal home screen: the newest `ACTIVE` accounts (at most
+        `banking.portal.home-account-limit`, default 5, no balances) plus branches/ATMs
+        sorted by name (at most `banking.portal.nearby-location-limit`, default 5).
+        `state` is optional; without it locations are not filtered.
+      parameters:
+        - name: state
+          in: query
+          required: false
+          description: Two-letter state used to filter nearby locations (case-insensitive).
+          schema: {type: string}
+          example: TX
+      responses:
+        '200':
+          description: The home bundle.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PortalHomeResponse'}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/{accountNumber}/overview:
+    get:
+      tags: [Portal (BFF)]
+      operationId: portalAccountOverview
+      summary: Account detail with balance and recent activity
+      description: |
+        Balance plus the account's transactions from the last `days` days, newest first, capped
+        at `banking.portal.activity-limit` (default 20). Read-only: unlike the statement
+        endpoint it sends no email/SMS.
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+        - name: days
+          in: query
+          required: false
+          description: Activity window in days, 1 to `banking.portal.max-activity-days` (default 90). Defaults to 30.
+          schema: {type: integer, minimum: 1, maximum: 90, default: 30}
+      responses:
+        '200':
+          description: The account overview.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/open:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalOpenAccount
+      summary: Open an account and get nearby branches
+      description: |
+        Same rules, validation and side effects as `POST /v1/api/accounts/newaccount`, plus
+        the branches/ATMs in the customer's `state` in the same response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AccountRegistrationRequest'}
+      responses:
+        '201':
+          description: Account created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OpenAccountResponse'}
+        '400':
+          description: >-
+            Validation failure (JSON body), or a business rule was violated (plain-text body).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/client/name:
     get:
       tags: [Clients]
@@ -1239,6 +1326,75 @@ components:
           type: array
           items: {$ref: '#/components/schemas/AccountTransaction'}
 
+    PortalAccountSummary:
+      type: object
+      description: Account row on the portal home screen (no balance).
+      properties:
+        accountNumber: {type: string, example: CH-0000088291}
+        accountType: {$ref: '#/components/schemas/AccountType'}
+        accountStatus: {$ref: '#/components/schemas/AccountStatus'}
+        createdDate: {type: string, format: date}
+        closedDate: {type: string, format: date, nullable: true}
+        firstName: {type: string}
+        lastName: {type: string}
+    PortalLocation:
+      type: object
+      description: Flattened branch/ATM card. Hours and phone are null for ATMs.
+      properties:
+        id: {type: integer, format: int64}
+        name: {type: string}
+        locationType: {$ref: '#/components/schemas/LocationType'}
+        addressLine1: {type: string}
+        city: {type: string}
+        state: {type: string}
+        zip: {type: string}
+        opensAt: {type: string, format: time, nullable: true, example: '08:00:00'}
+        closesAt: {type: string, format: time, nullable: true, example: '16:00:00'}
+        timeZone: {type: string, example: America/Chicago}
+        phoneNumber: {type: string, nullable: true}
+        services:
+          type: array
+          items: {$ref: '#/components/schemas/BankOperationServices'}
+    PortalActivityItem:
+      type: object
+      properties:
+        transactionType: {$ref: '#/components/schemas/TransactionType'}
+        amount: {type: number}
+        balanceAfter: {type: number}
+        transactionDate: {type: string, format: date}
+        depositType: {type: string, nullable: true, description: '`cash` or `check`; null for withdrawals.'}
+    AccountOverviewResponse:
+      type: object
+      properties:
+        accountNumber: {type: string, example: CH-0000088291}
+        accountType: {$ref: '#/components/schemas/AccountType'}
+        accountStatus: {$ref: '#/components/schemas/AccountStatus'}
+        balance: {type: number}
+        createdDate: {type: string, format: date}
+        closedDate: {type: string, format: date, nullable: true}
+        firstName: {type: string, nullable: true}
+        lastName: {type: string, nullable: true}
+        activityDays: {type: integer, description: Window actually applied.}
+        recentActivity:
+          type: array
+          items: {$ref: '#/components/schemas/PortalActivityItem'}
+    PortalHomeResponse:
+      type: object
+      properties:
+        totalActiveAccounts: {type: integer, format: int64}
+        accounts:
+          type: array
+          items: {$ref: '#/components/schemas/PortalAccountSummary'}
+        nearbyLocations:
+          type: array
+          items: {$ref: '#/components/schemas/PortalLocation'}
+    OpenAccountResponse:
+      type: object
+      properties:
+        account: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        nearbyLocations:
+          type: array
+          items: {$ref: '#/components/schemas/PortalLocation'}
     SpringErrorResponse:
       type: object
       description: >-

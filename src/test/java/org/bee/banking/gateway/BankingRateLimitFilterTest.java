@@ -80,4 +80,15 @@ class BankingRateLimitFilterTest {
         assertThat(body.toString()).contains("cust-1");
         verify(filterChain, org.mockito.Mockito.times(1)).doFilter(request, response);
     }
+
+    @Test
+    void doFilter_corsPreflight_chainsWithoutRequiringCustomerHeaderOrConsumingQuota() throws Exception {
+        when(request.getMethod()).thenReturn("OPTIONS");
+        when(request.getHeader("Access-Control-Request-Method")).thenReturn("GET");
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(filterChain).doFilter(request, response);
+        verify(response, never()).setStatus(400);
+    }
 }

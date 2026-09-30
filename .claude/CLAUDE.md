@@ -8,7 +8,7 @@ A Spring Boot 3 (Java 21) REST application (`org.bee`, artifact `SBProjects`) th
 
 ## Banking module rules
 
-Path-scoped guidance for the banking module lives in `.claude/rules/banking/` and loads when working on matching files: `architecture.md` (layers, dependency rules, invariants), `design.md` (domain/entity/request/mapping), `code-style.md`, `controller-layer.md`, `service-layer.md`, `repository-layer.md`, `gateway-layer.md`, `exceptions-and-messages.md`, `testing.md`, `security.md`, `api-design.md` (incl. OpenAPI sync). Read the relevant file before changing that layer.
+Path-scoped guidance for the banking module lives in `.claude/rules/banking/` and loads when working on matching files: `architecture.md` (layers, dependency rules, invariants), `design.md` (domain/entity/request/mapping), `code-style.md`, `controller-layer.md`, `service-layer.md`, `repository-layer.md`, `gateway-layer.md`, `bff-layer.md` (portal BFF/orchestration), `exceptions-and-messages.md`, `testing.md`, `security.md`, `api-design.md` (incl. OpenAPI sync). Read the relevant file before changing that layer.
 
 ## Commands
 
@@ -33,6 +33,7 @@ Base URL for every endpoint: `http://localhost:8081/brite` (context path `/brite
 Each top-level package under `org.bee` is a self-contained vertical slice (controller → service → repository), independently scanned via `scanBasePackages`/`@ConfigurationPropertiesScan` in `SpringBootProjectsApplication`:
 
 - `org.bee.banking` — client/account registration, withdraw/deposit, bank statements, async notifications, Resilience4j payment demo, a `Filter`-based API gateway (`org.bee.banking.gateway`: btid tracing, per-customer rate limiting, request-body logging) fronting the whole module, a hand-written OpenAPI spec + Swagger UI (`src/main/resources/static/openapi`, `static/swagger-ui`), paginated/single account-status lookup (`AccountStatusStatementService` in `org.bee.banking.service`, view DTO in `org.bee.banking.domain`), and a real JPA data model (`org.bee.banking.entity` + `org.bee.banking.repository.jpa`) persisted to MySQL — see "JPA-backed persistence" below
+  - **BFF for the banking UI portal**: `org.bee.banking.bff` (`/bff/v1/portal/*`: `home`, `accounts/{n}/overview`, `accounts/open`) composes the banking services in process into screen-shaped DTOs; tunables in `banking.portal.*`, CORS via `PortalCorsConfig`. See `.claude/rules/banking/bff-layer.md`.
 - `org.bee.retail` — in-memory product catalog
 - `org.bee.events` — JSON Schema-validated event ingestion, persisted via JPA
 - `org.bee.configs` — `@ConfigurationProperties` classes (`BriteEmailConfigValues`, `BriteSmsNotificationConfigValues`, `BriteApplicationConfigValues`) plus a read-only controller that echoes them back
@@ -90,7 +91,7 @@ All banking exception messages *and* Slf4j log templates live in `BankingMessage
 
 ### Banking API gateway / rate limiter runs as a `Filter`, not through controllers
 
-`org.bee.banking.gateway` implements a lightweight API-gateway ingress layer in front of *every* banking controller path (`/v1/api/accounts/*`, `/v1/api/locations`, `/v1/api/locations/*`, `/v1/client/*`, `/v1/payment/*`, `/notify`, `/notify-sms`, `/report` — see `BankingGatewayConfig.BANKING_URL_PATTERNS`, shared by all three filters below). None of the filters is a `@Component` — annotating one directly would make Spring Boot also auto-register it for `/*` — so each is registered via its own `FilterRegistrationBean` in `BankingGatewayConfig`. If you add a new banking controller or endpoint, add its path to `BANKING_URL_PATTERNS` or it won't get a `btid`/won't be rate-limited.
+`org.bee.banking.gateway` implements a lightweight API-gateway ingress layer in front of *every* banking controller path (`/v1/api/accounts/*`, `/v1/api/locations`, `/v1/api/locations/*`, `/v1/client/*`, `/v1/payment/*`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/*` — see `BankingGatewayConfig.BANKING_URL_PATTERNS`, shared by all three filters below). None of the filters is a `@Component` — annotating one directly would make Spring Boot also auto-register it for `/*` — so each is registered via its own `FilterRegistrationBean` in `BankingGatewayConfig`. If you add a new banking controller or endpoint, add its path to `BANKING_URL_PATTERNS` or it won't get a `btid`/won't be rate-limited.
 
 Three filters run in a fixed order (`BusinessTransactionIdFilter` at `Ordered.HIGHEST_PRECEDENCE`, `BankingRateLimitFilter` at `HIGHEST_PRECEDENCE + 1`, `BankingRequestLoggingFilter` at `HIGHEST_PRECEDENCE + 2` — lower value runs first):
 

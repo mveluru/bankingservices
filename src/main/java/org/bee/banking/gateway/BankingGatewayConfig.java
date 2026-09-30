@@ -29,7 +29,8 @@ public class BankingGatewayConfig {
             "/v1/payment/*",
             "/notify",
             "/notify-sms",
-            "/report"
+            "/report",
+            "/bff/v1/portal/*"
     };
 
     private final RateLimitProperties rateLimitProperties;

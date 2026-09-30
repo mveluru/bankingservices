@@ -76,6 +76,13 @@ banking:
   request-logging:
     enabled: true
     max-payload-length: 2000
+  portal:
+    allowed-origins: http://localhost:5173,http://localhost:3000
+    home-account-limit: 5
+    nearby-location-limit: 5
+    default-activity-days: 30
+    max-activity-days: 90
+    activity-limit: 20
 
 resilience4j:
   circuitbreaker:

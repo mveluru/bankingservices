@@ -14,6 +14,7 @@ public final class BankingMessages {
     public static final String DEPOSIT_TYPE_INVALID = "Deposit type must be 'cash' or 'check'";
     public static final String INSUFFICIENT_FUNDS = "Insufficient funds in account %s";
     public static final String ACCOUNT_NOT_FOUND = "Account not found: %s";
+    public static final String PORTAL_ACTIVITY_DAYS_INVALID = "days must be between 1 and %d";
     public static final String LOCATION_NOT_FOUND = "Bank location not found: %s";
     public static final String ACCOUNT_CLOSED = "Account %s is closed and cannot be used for transactions";
     public static final String ACCOUNT_ALREADY_CLOSED = "Account %s is already closed";
@@ -74,6 +75,9 @@ public final class BankingMessages {
     public static final String LOG_ACCOUNT_SEARCH_REJECTED_MONTHS = "Account search rejected: invalid months value {}";
     public static final String LOG_ACCOUNT_SEARCH_DEFAULT_LOOKBACK_APPLIED = "No createdFrom/createdTo given; defaulting to a {}-month lookback window ({} to {})";
     public static final String LOG_ACCOUNT_SEARCH = "Searching accounts: accountNumber={}, status={}, createdFrom={}, createdTo={}, closedFrom={}, closedTo={}, page={}";
+    public static final String LOG_PORTAL_HOME = "Portal home requested: state={}";
+    public static final String LOG_PORTAL_OVERVIEW = "Portal overview requested: account={}, days={}";
+    public static final String LOG_PORTAL_ACCOUNT_OPENED = "Portal opened an account: state={}";
     public static final String LOG_LOCATION_SEARCH = "Searching bank locations: type={}, city={}, state={}, zip={}, service={}, page={}";
 
     // BankStatementService log messages

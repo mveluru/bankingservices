@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bee.banking.messages.BankingMessages;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -31,6 +32,11 @@ public class BankingRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        // CORS preflights can't carry custom headers; let them through so the CORS mapping can answer.
+        if (HttpMethod.OPTIONS.matches(request.getMethod()) && request.getHeader("Access-Control-Request-Method") != null) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         if (!rateLimitProperties.isEnabled()) {
             filterChain.doFilter(request, response);
             return;
