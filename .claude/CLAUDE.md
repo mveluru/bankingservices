@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Spring Boot 3 (Java 21) REST application (`org.bee`, artifact `SBProjects`) that demonstrates several backend patterns in isolated modules: `@ConfigurationProperties` binding, async notification processing, JSON Schema-validated event ingestion, Resilience4j circuit breaking/retry, MapStruct mapping, and Spring Data JPA — see `../README.md` for the full endpoint table and sample `curl` requests.
 
+## Banking module rules
+
+Path-scoped guidance for the banking module lives in `.claude/rules/banking/` and loads when working on matching files: `architecture.md` (layers, dependency rules, invariants), `design.md` (domain/entity/request/mapping), `code-style.md`, `controller-layer.md`, `service-layer.md`, `repository-layer.md`, `gateway-layer.md`, `exceptions-and-messages.md`, `testing.md`, `security.md`, `api-design.md` (incl. OpenAPI sync). Read the relevant file before changing that layer.
+
 ## Commands
 
 ```bash
