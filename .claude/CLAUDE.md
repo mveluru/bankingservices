@@ -10,6 +10,8 @@ A Spring Boot 3 (Java 21) REST application (`org.bee`, artifact `SBProjects`) th
 
 Path-scoped guidance for the banking module lives in `.claude/rules/banking/` and loads when working on matching files: `architecture.md` (layers, dependency rules, invariants), `design.md` (domain/entity/request/mapping), `code-style.md`, `controller-layer.md`, `service-layer.md`, `repository-layer.md`, `gateway-layer.md`, `bff-layer.md` (portal BFF/orchestration), `exceptions-and-messages.md`, `testing.md`, `security.md`, `api-design.md` (incl. OpenAPI sync). Read the relevant file before changing that layer.
 
+Skills (`.claude/skills/`): `banking-change-checklist` (which code/`db/`/OpenAPI/README/test files move together for each kind of banking change) and `account-lifecycle-smoke-test` (user-invoked only: exercises suspend/update/reactivate/close/expiry against the running app with throwaway accounts, then deletes them). Hooks (`.claude/settings.json`): `banking-sync-reminder.py` (post-edit reminders + OpenAPI validation) and `db-destructive-guard.py` (asks before dropping/wiping tables).
+
 ## Commands
 
 ```bash
