@@ -19,7 +19,7 @@ public class PortalCorsConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/bff/**")
                 .allowedOrigins(properties.getAllowedOrigins().toArray(String[]::new))
-                .allowedMethods("GET", "POST", "OPTIONS")
+                .allowedMethods("GET", "POST", "PATCH", "OPTIONS")
                 .allowedHeaders("Content-Type", "X-Customer-Id")
                 .exposedHeaders("X-BTID", "X-RateLimit-Limit", "X-RateLimit-Remaining")
                 .maxAge(3600);

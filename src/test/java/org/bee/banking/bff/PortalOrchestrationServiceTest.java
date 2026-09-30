@@ -13,12 +13,18 @@ import org.bee.banking.domain.AccountType;
 import org.bee.banking.domain.BankAddress;
 import org.bee.banking.domain.BankLocations;
 import org.bee.banking.domain.Customer;
+import org.bee.banking.domain.DepositForm;
 import org.bee.banking.domain.LocationType;
 import org.bee.banking.domain.TransactionType;
 import org.bee.banking.exception.AccountNotFoundException;
+import org.bee.banking.exception.AccountSuspendedException;
 import org.bee.banking.repository.TransactionRepository;
 import org.bee.banking.request.AccountRegistrationRequest;
+import org.bee.banking.request.SuspendAccountRequest;
+import org.bee.banking.request.UpdateSuspensionRequest;
+import org.bee.banking.request.WithdrawalRequest;
 import org.bee.banking.service.AccountStatusStatementService;
+import org.bee.banking.service.AccountSuspensionService;
 import org.bee.banking.service.ClientAccountService;
 import org.bee.banking.service.LocationBasedOperationService;
 import org.junit.jupiter.api.Test;
@@ -37,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -45,12 +52,13 @@ import static org.mockito.Mockito.when;
 /** Plain unit test (no Spring context): the BFF only composes mocked banking services. */
 class PortalOrchestrationServiceTest {
     private final ClientAccountService clientAccountService = mock(ClientAccountService.class);
+    private final AccountSuspensionService suspensionService = mock(AccountSuspensionService.class);
     private final AccountStatusStatementService statusService = mock(AccountStatusStatementService.class);
     private final LocationBasedOperationService locationService = mock(LocationBasedOperationService.class);
     private final TransactionRepository transactionRepository = mock(TransactionRepository.class);
     private final PortalProperties properties = new PortalProperties();
     private final PortalOrchestrationService service = new PortalOrchestrationService(
-            clientAccountService, statusService, locationService, transactionRepository, properties);
+            clientAccountService, suspensionService, statusService, locationService, transactionRepository, properties);
 
     private static Account checking(String number, BigDecimal balance) {
         return Account.builder().checkingAccountNumber(number).checkingBalance(balance)
@@ -70,23 +78,47 @@ class PortalOrchestrationServiceTest {
                 .amount(new BigDecimal(amount)).balanceAfter(new BigDecimal("500.00")).transactionDate(date).build();
     }
 
+    private static AccountStatusView view(String number, AccountStatus status, LocalDate created) {
+        return AccountStatusView.builder().accountNumber(number).accountType(AccountType.CHECKING).accountStatus(status)
+                .suspended(status == AccountStatus.SUSPENDED).createdDate(created).firstName("Ada").lastName("Lovelace").build();
+    }
+
     @Test
     void homeCombinesActiveAccountsAndNearbyLocations() {
-        AccountStatusView view = AccountStatusView.builder().accountNumber("CH-0000088291").accountType(AccountType.CHECKING)
-                .accountStatus(AccountStatus.ACTIVE).createdDate(LocalDate.now().minusMonths(2)).firstName("Ada").lastName("Lovelace").build();
-        when(statusService.listAccountStatuses(any(), any(), any(), any(), any(), any(), any(), any()))
-                .thenReturn(new PageImpl<>(List.of(view), PageRequest.of(0, 5), 12));
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(view("CH-0000088291", AccountStatus.ACTIVE, LocalDate.now().minusMonths(2))), PageRequest.of(0, 5), 12));
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
         when(locationService.listLocations(any(), any(), eq("TX"), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(austinBranch())));
 
         PortalHomeResponse home = service.home("TX");
 
         assertEquals(12, home.totalActiveAccounts());
+        assertEquals(0, home.totalSuspendedAccounts());
         assertEquals("CH-0000088291", home.accounts().get(0).accountNumber());
         assertEquals("Austin", home.nearbyLocations().get(0).city());
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
         verify(statusService).listAccountStatuses(eq(null), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), pageable.capture());
         assertEquals(properties.getHomeAccountLimit(), pageable.getValue().getPageSize());
+    }
+
+    @Test
+    void homeMergesActiveAndSuspendedNewestFirstAndCapsAtTheLimit() {
+        properties.setHomeAccountLimit(3);
+        LocalDate today = LocalDate.now();
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(view("A1", AccountStatus.ACTIVE, today.minusMonths(1)), view("A2", AccountStatus.ACTIVE, today.minusMonths(5))), PageRequest.of(0, 3), 40));
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(view("S1", AccountStatus.SUSPENDED, today.minusMonths(3)), view("S2", AccountStatus.SUSPENDED, today.minusMonths(9))), PageRequest.of(0, 3), 20));
+        when(locationService.listLocations(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+
+        PortalHomeResponse home = service.home(null);
+
+        assertEquals(40, home.totalActiveAccounts());
+        assertEquals(20, home.totalSuspendedAccounts());
+        assertEquals(List.of("A1", "S1", "A2"), home.accounts().stream().map(a -> a.accountNumber()).toList());
+        assertEquals(true, home.accounts().get(1).suspended());
     }
 
     @Test
@@ -164,5 +196,107 @@ class PortalOrchestrationServiceTest {
         assertEquals(AccountStatus.SUSPENDED, overview.accountStatus());
         assertEquals(true, overview.suspended());
         assertEquals(until, overview.suspendedUntil());
+    }
+
+    private Account suspendedChecking(String number, LocalDateTime until) {
+        Account a = checking(number, new BigDecimal("75.00"));
+        a.setAccountStatus(AccountStatus.SUSPENDED);
+        a.setSuspended(true);
+        a.setSuspendedEnd(until);
+        return a;
+    }
+
+    @Test
+    void suspendSuspendsThroughTheServiceThenReturnsTheRefreshedOverview() {
+        LocalDateTime until = LocalDateTime.now().plusDays(3);
+        SuspendAccountRequest request = SuspendAccountRequest.builder().notes("Fraud review").endDateTime(until).build();
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(suspendedChecking("CH-0000010001", until)));
+        when(transactionRepository.findByAccountNumber("CH-0000010001")).thenReturn(List.of());
+
+        AccountOverviewResponse overview = service.suspend("CH-0000010001", request);
+
+        assertEquals(AccountStatus.SUSPENDED, overview.accountStatus());
+        assertEquals(true, overview.suspended());
+        assertEquals(until, overview.suspendedUntil());
+        var order = inOrder(suspensionService, clientAccountService);
+        order.verify(suspensionService).suspendAccount("CH-0000010001", request);
+        order.verify(clientAccountService).lookupAccountDetails(any());
+    }
+
+    @Test
+    void suspendRuleViolationPropagatesAndNothingIsReloaded() {
+        SuspendAccountRequest request = SuspendAccountRequest.builder().notes("n").build();
+        when(suspensionService.suspendAccount("CH-0000010001", request))
+                .thenThrow(new AccountSuspendedException("Account CH-0000010001 is already suspended"));
+
+        assertThrows(AccountSuspendedException.class, () -> service.suspend("CH-0000010001", request));
+        verify(clientAccountService, never()).lookupAccountDetails(any());
+    }
+
+    @Test
+    void updateSuspensionDelegatesThenReturnsTheRefreshedOverview() {
+        LocalDateTime until = LocalDateTime.now().plusDays(9);
+        UpdateSuspensionRequest request = UpdateSuspensionRequest.builder().endDateTime(until).build();
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(suspendedChecking("CH-0000010001", until)));
+        when(transactionRepository.findByAccountNumber("CH-0000010001")).thenReturn(List.of());
+
+        AccountOverviewResponse overview = service.updateSuspension("CH-0000010001", request);
+
+        assertEquals(until, overview.suspendedUntil());
+        verify(suspensionService).updateSuspension("CH-0000010001", request);
+    }
+
+    @Test
+    void reactivateReturnsAnActiveOverview() {
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(checking("CH-0000010001", new BigDecimal("75.00"))));
+        when(transactionRepository.findByAccountNumber("CH-0000010001")).thenReturn(List.of());
+
+        AccountOverviewResponse overview = service.reactivate("CH-0000010001");
+
+        assertEquals(AccountStatus.ACTIVE, overview.accountStatus());
+        assertEquals(false, overview.suspended());
+        verify(suspensionService).reactivateAccount("CH-0000010001");
+    }
+
+    @Test
+    void withdrawAndDepositReturnTheRefreshedOverview() {
+        WithdrawalRequest withdrawal = WithdrawalRequest.builder().AccountNumber("CH-0000088291").withdrawAmount(new BigDecimal("20.00")).build();
+        DepositForm deposit = new DepositForm();
+        deposit.setAccountNumber("CH-0000088291");
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(checking("CH-0000088291", new BigDecimal("480.00"))));
+        when(transactionRepository.findByAccountNumber("CH-0000088291")).thenReturn(List.of());
+
+        assertEquals(new BigDecimal("480.00"), service.withdraw(withdrawal).balance());
+        assertEquals(new BigDecimal("480.00"), service.deposit(deposit).balance());
+        verify(clientAccountService).withdrawAndSaveToAccount(withdrawal);
+        verify(clientAccountService).depositAndSaveToAccount(deposit);
+    }
+
+    @Test
+    void transactionOnASuspendedAccountIsRejectedAndNoOverviewIsBuilt() {
+        WithdrawalRequest withdrawal = WithdrawalRequest.builder().AccountNumber("CH-0000050001").withdrawAmount(BigDecimal.TEN).build();
+        when(clientAccountService.withdrawAndSaveToAccount(withdrawal))
+                .thenThrow(new AccountSuspendedException("Account CH-0000050001 is suspended and cannot be used for transactions until it is reactivated"));
+
+        assertThrows(AccountSuspendedException.class, () -> service.withdraw(withdrawal));
+        verify(clientAccountService, never()).lookupAccountDetails(any());
+    }
+
+    @Test
+    void homeRowsCarryTheSuspensionState() {
+        LocalDateTime until = LocalDateTime.now().plusDays(2);
+        AccountStatusView suspended = AccountStatusView.builder().accountNumber("CH-0000050001").accountType(AccountType.CHECKING)
+                .accountStatus(AccountStatus.SUSPENDED).suspended(true).suspendedEnd(until)
+                .createdDate(LocalDate.now().minusMonths(6)).firstName("Nora").lastName("Adams").build();
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of(suspended), PageRequest.of(0, 5), 1));
+        when(locationService.listLocations(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
+
+        PortalHomeResponse home = service.home(null);
+
+        assertEquals(true, home.accounts().get(0).suspended());
+        assertEquals(until, home.accounts().get(0).suspendedUntil());
     }
 }

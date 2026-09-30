@@ -782,8 +782,9 @@ paths:
       operationId: portalHome
       summary: Portal home screen bundle
       description: |
-        One call for the portal home screen: the newest `ACTIVE` accounts (at most
-        `banking.portal.home-account-limit`, default 5, no balances) plus branches/ATMs
+        One call for the portal home screen: the newest `ACTIVE` and `SUSPENDED` accounts merged, newest
+        first (closed are omitted; at most `banking.portal.home-account-limit`, default 5; no balances; each row has
+        `suspended`/`suspendedUntil`) with the active/suspended totals plus branches/ATMs
         sorted by name (at most `banking.portal.nearby-location-limit`, default 5).
         `state` is optional; without it locations are not filtered.
       parameters:
@@ -821,6 +822,160 @@ paths:
       responses:
         '200':
           description: The account overview.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/withdraw:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalWithdraw
+      summary: Withdraw and get the refreshed account overview
+      description: |
+        Same body, rules and side effects as `POST /v1/api/accounts/withdraw`, but the response is the
+        account overview (balance, suspension state, recent activity) so the portal can redraw in one call.
+        A `CLOSED` or `SUSPENDED` account is rejected with a plain-text `400`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WithdrawalRequest'}
+      responses:
+        '200':
+          description: Withdrawal completed; the refreshed overview.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        '400':
+          description: >-
+            Validation failure (JSON) or a business rule failed (plain text), including
+            "is suspended and cannot be used for transactions until it is reactivated".
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/deposit:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalDeposit
+      summary: Deposit and get the refreshed account overview
+      description: |
+        Same body, rules and side effects as `POST /v1/api/accounts/deposit`, but the response is the
+        account overview. A `CLOSED` or `SUSPENDED` account is rejected with a plain-text `400`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DepositForm'}
+      responses:
+        '200':
+          description: Deposit completed; the refreshed overview.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        '400':
+          description: Validation failure (JSON) or a business rule failed (plain text).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/{accountNumber}/suspend:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalSuspendAccount
+      summary: Suspend an account and get the refreshed overview
+      description: |
+        Same body and rules as `POST /v1/api/accounts/{accountNumber}/suspend`; returns the account
+        overview with `suspended: true` and `suspendedUntil` (null = indefinite). Suspension notes are not
+        part of the overview.
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SuspendAccountRequest'}
+            example:
+              notes: Suspected fraudulent card activity - under review
+              endDateTime: '2026-12-31T17:00:00'
+      responses:
+        '200':
+          description: Account suspended; the refreshed overview.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        '400':
+          description: Validation failure (JSON) or a business rule failed (plain text), for example closed, already suspended, or an invalid start/end.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/{accountNumber}/suspension:
+    patch:
+      tags: [Portal (BFF)]
+      operationId: portalUpdateSuspension
+      summary: Update a suspension and get the refreshed overview
+      description: Same body and rules as `PATCH /v1/api/accounts/{accountNumber}/suspension`; returns the account overview.
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateSuspensionRequest'}
+      responses:
+        '200':
+          description: Suspension updated; the refreshed overview.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        '400':
+          description: Validation failure (JSON) or a business rule failed (plain text), for example the account isn't suspended.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/{accountNumber}/reactivate:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalReactivateAccount
+      summary: Reactivate a suspended account and get the refreshed overview
+      description: 'Same rules as `POST /v1/api/accounts/{accountNumber}/reactivate`; returns the account overview (`ACTIVE`, `suspended: false`).'
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+      responses:
+        '200':
+          description: Account is active again; the refreshed overview.
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
@@ -1464,11 +1619,13 @@ components:
 
     PortalAccountSummary:
       type: object
-      description: Account row on the portal home screen (no balance).
+      description: Account row on the portal home screen (no balance, no suspension notes).
       properties:
         accountNumber: {type: string, example: CH-0000088291}
         accountType: {$ref: '#/components/schemas/AccountType'}
         accountStatus: {$ref: '#/components/schemas/AccountStatus'}
+        suspended: {type: boolean}
+        suspendedUntil: {type: string, format: date-time, nullable: true, description: Null for an indefinite suspension.}
         createdDate: {type: string, format: date}
         closedDate: {type: string, format: date, nullable: true}
         firstName: {type: string}
@@ -1520,6 +1677,7 @@ components:
       type: object
       properties:
         totalActiveAccounts: {type: integer, format: int64}
+        totalSuspendedAccounts: {type: integer, format: int64}
         accounts:
           type: array
           items: {$ref: '#/components/schemas/PortalAccountSummary'}
