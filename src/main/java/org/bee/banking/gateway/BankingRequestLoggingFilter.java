@@ -21,13 +21,14 @@ import java.util.regex.Pattern;
  * request. {@code beforeRequest} is deliberately a no-op: the body isn't cached yet, so a
  * "before" line would always log an empty payload.
  * <p>
- * Date of birth is masked before logging - it's the one field in these payloads that is
- * more sensitive than the names/addresses the app already logs elsewhere. Headers are not
+ * Date of birth and phone number are masked before logging - they're the fields in these payloads
+ * that are more sensitive than the names/addresses the app already logs elsewhere. Headers are not
  * logged at all.
  */
 @Slf4j
 public class BankingRequestLoggingFilter extends AbstractRequestLoggingFilter {
     private static final Pattern DATE_OF_BIRTH = Pattern.compile("(\"dateOfBirth\"\\s*:\\s*\")[^\"]*(\")");
+    private static final Pattern PHONE_NUMBER = Pattern.compile("(\"phoneNumber\"\\s*:\\s*\")[^\"]*(\")");
 
     public BankingRequestLoggingFilter(int maxPayloadLength) {
         setIncludeQueryString(true);
@@ -48,6 +49,7 @@ public class BankingRequestLoggingFilter extends AbstractRequestLoggingFilter {
     }
 
     static String mask(String message) {
-        return DATE_OF_BIRTH.matcher(message).replaceAll("$1***$2");
+        String masked = DATE_OF_BIRTH.matcher(message).replaceAll("$1***$2");
+        return PHONE_NUMBER.matcher(masked).replaceAll("$1***$2");
     }
 }

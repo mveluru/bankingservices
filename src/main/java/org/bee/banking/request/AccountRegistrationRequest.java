@@ -28,6 +28,10 @@ public class AccountRegistrationRequest {
     @Size(max = 50, message = BankingMessages.VALIDATION_LAST_NAME_MAX_LENGTH)
     private String lastName;
 
+    @NotBlank(message = BankingMessages.VALIDATION_PHONE_REQUIRED)
+    @Pattern(regexp = "^\\d{3}-\\d{3}-\\d{4}$", message = BankingMessages.VALIDATION_PHONE_FORMAT)
+    private String phoneNumber;
+
     @NotNull(message = BankingMessages.VALIDATION_DOB_REQUIRED)
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "MM/dd/yyyy")
     private LocalDate dateOfBirth;

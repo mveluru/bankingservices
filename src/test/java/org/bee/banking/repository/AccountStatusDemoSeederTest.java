@@ -104,6 +104,21 @@ class AccountStatusDemoSeederTest {
     }
 
     @Test
+    void everySeededCustomerHasAUniqueWellFormedPhoneNumber() {
+        List<String> phones = repository.findAll().stream().map(a -> a.getCustomer().getPhoneNumber()).toList();
+
+        assertEquals(92, phones.size());
+        for (String phone : phones) {
+            assertNotNull(phone);
+            assertTrue(phone.matches("\\d{3}-\\d{3}-\\d{4}"), phone);
+        }
+        assertEquals(92, phones.stream().distinct().count());
+        assertEquals("512-555-0001", repository.findByAccountNumber("CH-0000088291").orElseThrow().getCustomer().getPhoneNumber());
+        assertEquals("512-555-0053", repository.findByAccountNumber("CH-0000030001").orElseThrow().getCustomer().getPhoneNumber());
+        assertEquals("512-555-0092", repository.findByAccountNumber("SV-0000060010").orElseThrow().getCustomer().getPhoneNumber());
+    }
+
+    @Test
     void rerunningNeverDuplicatesAndRestoresAMissingAccount() {
         seeder.seedMissing();
         assertEquals(92, repository.count());

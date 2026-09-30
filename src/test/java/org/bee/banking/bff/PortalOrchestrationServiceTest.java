@@ -64,7 +64,7 @@ class PortalOrchestrationServiceTest {
         return Account.builder().checkingAccountNumber(number).checkingBalance(balance)
                 .accountType(AccountType.CHECKING).accountStatus(AccountStatus.ACTIVE)
                 .createdDate(LocalDate.now().minusMonths(3))
-                .customer(Customer.builder().firstName("Ada").lastName("Lovelace").dateOfBirth(LocalDate.of(1990, 1, 1)).build()).build();
+                .customer(Customer.builder().firstName("Ada").lastName("Lovelace").dateOfBirth(LocalDate.of(1990, 1, 1)).phoneNumber("512-555-0101").build()).build();
     }
 
     private static BankLocations austinBranch() {
@@ -298,5 +298,23 @@ class PortalOrchestrationServiceTest {
 
         assertEquals(true, home.accounts().get(0).suspended());
         assertEquals(until, home.accounts().get(0).suspendedUntil());
+    }
+
+    @Test
+    void overviewShowsOnlyTheLastFourDigitsOfThePhoneNumber() {
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(checking("CH-0000088291", new BigDecimal("10.00"))));
+        when(transactionRepository.findByAccountNumber("CH-0000088291")).thenReturn(List.of());
+
+        AccountOverviewResponse overview = service.overview("CH-0000088291", null);
+
+        assertEquals("***-***-0101", overview.maskedPhoneNumber());
+    }
+
+    @Test
+    void maskPhoneHandlesMissingAndUnusualValues() {
+        assertEquals(null, PortalOrchestrationService.maskPhone(null));
+        assertEquals(null, PortalOrchestrationService.maskPhone("  "));
+        assertEquals("***", PortalOrchestrationService.maskPhone("12"));
+        assertEquals("***-***-4567", PortalOrchestrationService.maskPhone("(512) 555-4567"));
     }
 }

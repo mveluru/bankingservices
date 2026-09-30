@@ -15,6 +15,6 @@ public class CustomerService {
     public Customer getCustomer(){
         log.debug(BankingMessages.LOG_CUSTOMER_SAMPLE_RETURNED);
         Address address = Address.builder().street("111").city("Leander").state("Tx").zip("78717").country("USA").addressLine1("Leafvillage").addressLine2("Unit1").build();
-        return new Customer("MM", "DD", address, LocalDate.of(1990, 1, 1));
+        return Customer.builder().firstName("MM").lastName("DD").address(address).dateOfBirth(LocalDate.of(1990, 1, 1)).build();
     }
 }

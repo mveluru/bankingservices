@@ -331,6 +331,7 @@ public class AccountRepository {
                 .firstName(entity.getFirstName())
                 .lastName(entity.getLastName())
                 .dateOfBirth(entity.getDateOfBirth())
+                .phoneNumber(entity.getPhoneNumber())
                 .address(toDomain(entity.getAddress()))
                 .build();
     }
@@ -354,6 +355,7 @@ public class AccountRepository {
                 .firstName(customer.getFirstName())
                 .lastName(customer.getLastName())
                 .dateOfBirth(customer.getDateOfBirth())
+                .phoneNumber(customer.getPhoneNumber())
                 .address(toEntity(customer.getAddress()))
                 .build();
     }

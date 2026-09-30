@@ -20,15 +20,15 @@ USE db_example;
 -- -----------------------------------------------------------------------------
 -- 1. Register a new customer + account (POST /v1/api/accounts/newaccount)
 --    Account number = CH-/SV- + zero-padded (row count + 10001), same as AccountRepository.save().
---    Age (>= 18) and the 1940+ birth-year rule are NOT checked here - check dateOfBirth yourself.
+--    Age (>= 18), the 1940+ birth-year rule and the phone format (###-###-####) are NOT checked here - check them yourself.
 -- -----------------------------------------------------------------------------
-SET @first_name = 'Jane', @last_name = 'Doe', @dob = '1990-03-15';
+SET @first_name = 'Jane', @last_name = 'Doe', @dob = '1990-03-15', @phone = '512-555-0199';   -- phone: ###-###-####
 SET @street = '111', @city = 'Leander', @state = 'TX', @zip = '78717', @line1 = 'Leafvillage', @line2 = 'Unit1';
 SET @type = 'CHECKING';                                   -- CHECKING | SAVINGS
 
 START TRANSACTION;
-INSERT INTO customers (first_name, last_name, date_of_birth, street, city, state, zip, country, address_line1, address_line2)
-VALUES (@first_name, @last_name, @dob, @street, @city, @state, @zip, 'USA', @line1, @line2);
+INSERT INTO customers (first_name, last_name, date_of_birth, phone_number, street, city, state, zip, country, address_line1, address_line2)
+VALUES (@first_name, @last_name, @dob, @phone, @street, @city, @state, @zip, 'USA', @line1, @line2);
 SET @customer_id = LAST_INSERT_ID();
 
 SELECT COUNT(*) + 10001 INTO @next_number FROM accounts;

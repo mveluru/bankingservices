@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS customers (
     country varchar(255),
     first_name varchar(255),
     last_name varchar(255),
+    phone_number varchar(20),
     state varchar(255),
     street varchar(255),
     zip varchar(255),

@@ -28,7 +28,7 @@ Adding a persisted field to a domain object means: add to the entity, both mappe
 ## Request DTOs
 - `@Data @Builder @NoArgsConstructor @AllArgsConstructor`.
 - Every constraint has `message = BankingMessages.VALIDATION_*`. No inline message strings.
-- `dateOfBirth` is `MM/dd/yyyy`; every other date is ISO `yyyy-MM-dd`.
+- `dateOfBirth` is `MM/dd/yyyy`; every other date is ISO `yyyy-MM-dd`. `phoneNumber` is strictly `###-###-####` (required on registration, nullable in the domain/DB for legacy customers).
 - Custom constraints go in `domain.validtors` (package name is a known typo; keep it).
 
 ## Mapping

@@ -35,6 +35,8 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class AccountDataSeeder {
     private final AccountJpaRepository accountJpaRepository;
+    /** Customers are seeded in order 1..52; customer N gets phone 512-555-000N (same as db/data/01_seed_customers_accounts.sql). */
+    private int customerSequence;
 
     @PostConstruct
     @Transactional
@@ -127,6 +129,7 @@ public class AccountDataSeeder {
                 .firstName(firstName)
                 .lastName(lastName)
                 .dateOfBirth(dateOfBirth)
+                .phoneNumber(String.format("512-555-%04d", ++customerSequence))
                 .address(AddressEmbeddable.builder()
                         .street(street).city(city).state(state).zip(zip).country("USA").addressLine1(addressLine1)
                         .build())

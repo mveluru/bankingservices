@@ -65,6 +65,15 @@ class BankingRequestLoggingFilterTest {
     }
 
     @Test
+    void masksPhoneNumber() throws Exception {
+        String message = runPost(new BankingRequestLoggingFilter(2000),
+                "/v1/api/accounts/newaccount", "{\"firstName\":\"Jane\",\"phoneNumber\": \"512-555-0101\",\"dateOfBirth\":\"03/15/1990\"}");
+
+        assertThat(message).contains("\"firstName\":\"Jane\"", "\"phoneNumber\": \"***\"", "\"dateOfBirth\":\"***\"")
+                .doesNotContain("512-555-0101", "03/15/1990");
+    }
+
+    @Test
     void truncatesPayloadToMaxLength() throws Exception {
         String message = runPost(new BankingRequestLoggingFilter(10), "/v1/api/accounts/lookup", "0123456789ABCDEFGHIJ");
 

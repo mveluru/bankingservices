@@ -177,7 +177,17 @@ public class PortalOrchestrationService {
                 a.isSuspended(), a.getSuspendedEnd(),
                 a.getCreatedDate(), a.getClosedDate(),
                 c == null ? null : c.getFirstName(), c == null ? null : c.getLastName(),
+                c == null ? null : maskPhone(c.getPhoneNumber()),
                 days, activity);
+    }
+
+    /** {@code 512-555-0101} -> {@code ***-***-0101}; null/blank stays null. The BFF never returns a full phone number. */
+    public static String maskPhone(String phoneNumber) {
+        if (phoneNumber == null || phoneNumber.isBlank()) {
+            return null;
+        }
+        String digits = phoneNumber.replaceAll("\\D", "");
+        return digits.length() < 4 ? "***" : "***-***-" + digits.substring(digits.length() - 4);
     }
 
     private PortalActivityItem toActivityItem(AccountTransaction t) {

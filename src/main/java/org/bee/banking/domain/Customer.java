@@ -28,6 +28,9 @@ public class Customer implements Serializable {
     @NonNull
     private LocalDate dateOfBirth;
 
+    /** US format {@code 512-555-0101}; null for customers registered before phone numbers existed. */
+    private String phoneNumber;
+
 
     // The method name must start with "is" for the validator to pick it up automatically
     @AssertTrue(message = BankingMessages.VALIDATION_DOB_YEAR_1940)

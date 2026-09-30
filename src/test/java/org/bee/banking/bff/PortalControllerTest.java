@@ -53,7 +53,7 @@ class PortalControllerTest {
     @Test
     void overviewBindsDaysAndReturnsJson() throws Exception {
         when(service.overview("CH-0000088291", 7)).thenReturn(new AccountOverviewResponse("CH-0000088291", AccountType.CHECKING,
-                AccountStatus.ACTIVE, new BigDecimal("500.00"), false, null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", 7, List.of()));
+                AccountStatus.ACTIVE, new BigDecimal("500.00"), false, null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", 7, List.of()));
 
         mockMvc.perform(get("/bff/v1/portal/accounts/CH-0000088291/overview").param("days", "7"))
                 .andExpect(status().isOk())
@@ -61,6 +61,7 @@ class PortalControllerTest {
                 .andExpect(jsonPath("$.balance").value(500.00))
                 .andExpect(jsonPath("$.createdDate").value("2026-01-05"))
                 .andExpect(jsonPath("$.suspended").value(false))
+                .andExpect(jsonPath("$.maskedPhoneNumber").value("***-***-0101"))
                 .andExpect(jsonPath("$.activityDays").value(7));
     }
 
@@ -93,7 +94,7 @@ class PortalControllerTest {
     private AccountOverviewResponse suspendedOverview() {
         return new AccountOverviewResponse("CH-0000010001", AccountType.CHECKING, AccountStatus.SUSPENDED,
                 new BigDecimal("75.00"), true, java.time.LocalDateTime.of(2026, 12, 31, 17, 0),
-                LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", 30, List.of());
+                LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", 30, List.of());
     }
 
     @Test
@@ -129,7 +130,7 @@ class PortalControllerTest {
     @Test
     void reactivateReturnsTheRefreshedOverview() throws Exception {
         when(service.reactivate("CH-0000010001")).thenReturn(new AccountOverviewResponse("CH-0000010001", AccountType.CHECKING,
-                AccountStatus.ACTIVE, new BigDecimal("75.00"), false, null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", 30, List.of()));
+                AccountStatus.ACTIVE, new BigDecimal("75.00"), false, null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", 30, List.of()));
 
         mockMvc.perform(post("/bff/v1/portal/accounts/CH-0000010001/reactivate"))
                 .andExpect(status().isOk())

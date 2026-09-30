@@ -228,7 +228,7 @@ paths:
         generated server-side as `CH-` (checking) or `SV-` (savings) followed by a
         zero-padded 10-digit number. New accounts start `ACTIVE` with `createdDate` = today.
 
-        Rules beyond field validation: the customer must be at least
+        `phoneNumber` is required and must be `###-###-####`. Rules beyond field validation: the customer must be at least
         `banking.constraints.minimum-age` (default 18) years old and born in 1940 or later.
         Triggers an async email and SMS notification and evicts the account-search cache.
       requestBody:
@@ -240,6 +240,7 @@ paths:
               firstName: Jane
               lastName: Doe
               dateOfBirth: 03/15/1990
+              phoneNumber: 512-555-0101
               street: '111'
               addressLine1: Leafvillage
               addressLine2: Unit1
@@ -1252,6 +1253,11 @@ components:
         firstName: {type: string, example: Jane}
         lastName: {type: string, example: Doe}
         address: {$ref: '#/components/schemas/Address'}
+        phoneNumber:
+          type: string
+          nullable: true
+          description: Format `512-555-0101`. Null for customers registered before phone numbers existed.
+          example: 512-555-0101
         dateOfBirth:
           type: string
           description: Format `MM/dd/yyyy`.
@@ -1428,7 +1434,7 @@ components:
 
     AccountRegistrationRequest:
       type: object
-      required: [firstName, lastName, dateOfBirth, street, city, state, zip, addressLine1, accountType]
+      required: [firstName, lastName, dateOfBirth, phoneNumber, street, city, state, zip, addressLine1, accountType]
       properties:
         firstName: {type: string, minLength: 1, maxLength: 50, example: Jane}
         lastName: {type: string, minLength: 1, maxLength: 50, example: Doe}
@@ -1439,6 +1445,11 @@ components:
             least the configured minimum age (default 18).
           pattern: '^\d{2}/\d{2}/\d{4}$'
           example: 03/15/1990
+        phoneNumber:
+          type: string
+          description: Exactly `###-###-####` (digits and hyphens).
+          pattern: '^\d{3}-\d{3}-\d{4}$'
+          example: 512-555-0101
         street: {type: string, minLength: 1, example: '111'}
         city: {type: string, minLength: 1, example: Leander}
         state:
@@ -1669,6 +1680,11 @@ components:
         closedDate: {type: string, format: date, nullable: true}
         firstName: {type: string, nullable: true}
         lastName: {type: string, nullable: true}
+        maskedPhoneNumber:
+          type: string
+          nullable: true
+          description: Only the last four digits are shown (`***-***-0101`); null if no phone is on file. The BFF never returns the full number.
+          example: '***-***-0101'
         activityDays: {type: integer, description: Window actually applied.}
         recentActivity:
           type: array

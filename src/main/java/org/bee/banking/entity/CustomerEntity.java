@@ -1,5 +1,6 @@
 package org.bee.banking.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -29,6 +30,9 @@ public class CustomerEntity {
     private String firstName;
     private String lastName;
     private LocalDate dateOfBirth;
+
+    @Column(length = 20)
+    private String phoneNumber;
 
     @Embedded
     private AddressEmbeddable address;

@@ -11,10 +11,11 @@ import java.util.List;
 /**
  * Account detail screen: identity, balance and recent activity in one payload. While {@code suspended}
  * the account can't transact; {@code suspendedUntil} is null for an indefinite suspension.
+ * {@code maskedPhoneNumber} shows only the last four digits ({@code ***-***-0101}); null if none on file.
  */
 public record AccountOverviewResponse(String accountNumber, AccountType accountType, AccountStatus accountStatus,
                                       BigDecimal balance, boolean suspended, LocalDateTime suspendedUntil,
                                       LocalDate createdDate, LocalDate closedDate,
-                                      String firstName, String lastName, int activityDays,
+                                      String firstName, String lastName, String maskedPhoneNumber, int activityDays,
                                       List<PortalActivityItem> recentActivity) {
 }

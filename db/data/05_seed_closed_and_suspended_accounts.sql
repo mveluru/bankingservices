@@ -12,6 +12,9 @@
 --   ago (outside GET /v1/api/accounts's default 18-month window: use months=48 or createdFrom);
 --   suspended ones 4-14 months ago. 14 suspensions end 3-60 days from now, 6 are indefinite (NULL end).
 --
+-- * Needs customers.phone_number (ddl/01_create_tables.sql, or ddl/04_customer_phone_migration.sql on an older database).
+--   Phones are 512-555-<customer id, 4 digits>.
+--
 -- Usage:   mysql -u <user> -p < db/data/05_seed_closed_and_suspended_accounts.sql
 -- =============================================================================
 
@@ -19,47 +22,47 @@ USE db_example;
 
 START TRANSACTION;
 
-INSERT INTO customers (id, first_name, last_name, date_of_birth, street, city, state, zip, country, address_line1, address_line2) VALUES
-  (53, 'Nora', 'Adams', '1965-01-01', '100 Maple St', 'Nashville', 'TN', '37201', 'USA', '100 Maple St', NULL),
-  (54, 'Owen', 'Baker', '1972-06-12', '113 Oakwood Ave', 'Columbus', 'OH', '43215', 'USA', '113 Oakwood Ave', NULL),
-  (55, 'Priya', 'Carter', '1979-11-23', '126 Cedar Ln', 'Indianapolis', 'IN', '46204', 'USA', '126 Cedar Ln', NULL),
-  (56, 'Quentin', 'Diaz', '1986-04-06', '139 Elm Dr', 'Charlotte', 'NC', '28202', 'USA', '139 Elm Dr', NULL),
-  (57, 'Rosa', 'Evans', '1993-09-17', '152 Birch Rd', 'San Diego', 'CA', '92101', 'USA', '152 Birch Rd', NULL),
-  (58, 'Sam', 'Flores', '1965-02-28', '165 Sunset Blvd', 'Las Vegas', 'NV', '89101', 'USA', '165 Sunset Blvd', NULL),
-  (59, 'Tara', 'Gray', '1972-07-11', '178 Lakeview Ct', 'Salt Lake City', 'UT', '84101', 'USA', '178 Lakeview Ct', NULL),
-  (60, 'Umar', 'Hughes', '1979-12-22', '191 Hillcrest Way', 'Minneapolis', 'MN', '55401', 'USA', '191 Hillcrest Way', NULL),
-  (61, 'Vera', 'Irwin', '1986-05-05', '204 River Rd', 'Cleveland', 'OH', '44101', 'USA', '204 River Rd', NULL),
-  (62, 'Walt', 'James', '1993-10-16', '217 Park Ave', 'Pittsburgh', 'PA', '15201', 'USA', '217 Park Ave', NULL),
-  (63, 'Xena', 'Kim', '1965-03-27', '230 Maple St', 'Baltimore', 'MD', '21201', 'USA', '230 Maple St', NULL),
-  (64, 'Yuri', 'Lopez', '1972-08-10', '243 Oakwood Ave', 'Milwaukee', 'WI', '53202', 'USA', '243 Oakwood Ave', NULL),
-  (65, 'Zelda', 'Moore', '1979-01-21', '256 Cedar Ln', 'Sacramento', 'CA', '95814', 'USA', '256 Cedar Ln', NULL),
-  (66, 'Andre', 'Nguyen', '1986-06-04', '269 Elm Dr', 'Orlando', 'FL', '32801', 'USA', '269 Elm Dr', NULL),
-  (67, 'Bianca', 'Owens', '1993-11-15', '282 Birch Rd', 'Memphis', 'TN', '38103', 'USA', '282 Birch Rd', NULL),
-  (68, 'Caleb', 'Patel', '1965-04-26', '295 Sunset Blvd', 'Birmingham', 'AL', '35203', 'USA', '295 Sunset Blvd', NULL),
-  (69, 'Dina', 'Quincy', '1972-09-09', '308 Lakeview Ct', 'Des Moines', 'IA', '50309', 'USA', '308 Lakeview Ct', NULL),
-  (70, 'Emeka', 'Rivera', '1979-02-20', '321 Hillcrest Way', 'Little Rock', 'AR', '72201', 'USA', '321 Hillcrest Way', NULL),
-  (71, 'Farah', 'Stone', '1986-07-03', '334 River Rd', 'Jackson', 'MS', '39201', 'USA', '334 River Rd', NULL),
-  (72, 'Gustavo', 'Turner', '1993-12-14', '347 Park Ave', 'Honolulu', 'HI', '96813', 'USA', '347 Park Ave', NULL),
-  (73, 'Hana', 'Usman', '1965-05-25', '360 Maple St', 'Nashville', 'TN', '37201', 'USA', '360 Maple St', NULL),
-  (74, 'Ivan', 'Vance', '1972-10-08', '373 Oakwood Ave', 'Columbus', 'OH', '43215', 'USA', '373 Oakwood Ave', NULL),
-  (75, 'Jada', 'Walker', '1979-03-19', '386 Cedar Ln', 'Indianapolis', 'IN', '46204', 'USA', '386 Cedar Ln', NULL),
-  (76, 'Kofi', 'Xu', '1986-08-02', '399 Elm Dr', 'Charlotte', 'NC', '28202', 'USA', '399 Elm Dr', NULL),
-  (77, 'Lena', 'Young', '1993-01-13', '412 Birch Rd', 'San Diego', 'CA', '92101', 'USA', '412 Birch Rd', NULL),
-  (78, 'Mateo', 'Zimmer', '1965-06-24', '425 Sunset Blvd', 'Las Vegas', 'NV', '89101', 'USA', '425 Sunset Blvd', NULL),
-  (79, 'Nadia', 'Allen', '1972-11-07', '438 Lakeview Ct', 'Salt Lake City', 'UT', '84101', 'USA', '438 Lakeview Ct', NULL),
-  (80, 'Omar', 'Bennett', '1979-04-18', '451 Hillcrest Way', 'Minneapolis', 'MN', '55401', 'USA', '451 Hillcrest Way', NULL),
-  (81, 'Petra', 'Cooper', '1986-09-01', '464 River Rd', 'Cleveland', 'OH', '44101', 'USA', '464 River Rd', NULL),
-  (82, 'Quinn', 'Dixon', '1993-02-12', '477 Park Ave', 'Pittsburgh', 'PA', '15201', 'USA', '477 Park Ave', NULL),
-  (83, 'Rafael', 'Ellis', '1965-07-23', '490 Maple St', 'Baltimore', 'MD', '21201', 'USA', '490 Maple St', NULL),
-  (84, 'Sofia', 'Fisher', '1972-12-06', '503 Oakwood Ave', 'Milwaukee', 'WI', '53202', 'USA', '503 Oakwood Ave', NULL),
-  (85, 'Tomas', 'Grant', '1979-05-17', '516 Cedar Ln', 'Sacramento', 'CA', '95814', 'USA', '516 Cedar Ln', NULL),
-  (86, 'Uma', 'Hayes', '1986-10-28', '529 Elm Dr', 'Orlando', 'FL', '32801', 'USA', '529 Elm Dr', NULL),
-  (87, 'Victor', 'Ingram', '1993-03-11', '542 Birch Rd', 'Memphis', 'TN', '38103', 'USA', '542 Birch Rd', NULL),
-  (88, 'Willa', 'Jenkins', '1965-08-22', '555 Sunset Blvd', 'Birmingham', 'AL', '35203', 'USA', '555 Sunset Blvd', NULL),
-  (89, 'Ximena', 'Knight', '1972-01-05', '568 Lakeview Ct', 'Des Moines', 'IA', '50309', 'USA', '568 Lakeview Ct', NULL),
-  (90, 'Yara', 'Lawson', '1979-06-16', '581 Hillcrest Way', 'Little Rock', 'AR', '72201', 'USA', '581 Hillcrest Way', NULL),
-  (91, 'Zane', 'Mendez', '1986-11-27', '594 River Rd', 'Jackson', 'MS', '39201', 'USA', '594 River Rd', NULL),
-  (92, 'Amara', 'Norris', '1993-04-10', '607 Park Ave', 'Honolulu', 'HI', '96813', 'USA', '607 Park Ave', NULL);
+INSERT INTO customers (id, first_name, last_name, date_of_birth, phone_number, street, city, state, zip, country, address_line1, address_line2) VALUES
+  (53, 'Nora', 'Adams', '1965-01-01', '512-555-0053', '100 Maple St', 'Nashville', 'TN', '37201', 'USA', '100 Maple St', NULL),
+  (54, 'Owen', 'Baker', '1972-06-12', '512-555-0054', '113 Oakwood Ave', 'Columbus', 'OH', '43215', 'USA', '113 Oakwood Ave', NULL),
+  (55, 'Priya', 'Carter', '1979-11-23', '512-555-0055', '126 Cedar Ln', 'Indianapolis', 'IN', '46204', 'USA', '126 Cedar Ln', NULL),
+  (56, 'Quentin', 'Diaz', '1986-04-06', '512-555-0056', '139 Elm Dr', 'Charlotte', 'NC', '28202', 'USA', '139 Elm Dr', NULL),
+  (57, 'Rosa', 'Evans', '1993-09-17', '512-555-0057', '152 Birch Rd', 'San Diego', 'CA', '92101', 'USA', '152 Birch Rd', NULL),
+  (58, 'Sam', 'Flores', '1965-02-28', '512-555-0058', '165 Sunset Blvd', 'Las Vegas', 'NV', '89101', 'USA', '165 Sunset Blvd', NULL),
+  (59, 'Tara', 'Gray', '1972-07-11', '512-555-0059', '178 Lakeview Ct', 'Salt Lake City', 'UT', '84101', 'USA', '178 Lakeview Ct', NULL),
+  (60, 'Umar', 'Hughes', '1979-12-22', '512-555-0060', '191 Hillcrest Way', 'Minneapolis', 'MN', '55401', 'USA', '191 Hillcrest Way', NULL),
+  (61, 'Vera', 'Irwin', '1986-05-05', '512-555-0061', '204 River Rd', 'Cleveland', 'OH', '44101', 'USA', '204 River Rd', NULL),
+  (62, 'Walt', 'James', '1993-10-16', '512-555-0062', '217 Park Ave', 'Pittsburgh', 'PA', '15201', 'USA', '217 Park Ave', NULL),
+  (63, 'Xena', 'Kim', '1965-03-27', '512-555-0063', '230 Maple St', 'Baltimore', 'MD', '21201', 'USA', '230 Maple St', NULL),
+  (64, 'Yuri', 'Lopez', '1972-08-10', '512-555-0064', '243 Oakwood Ave', 'Milwaukee', 'WI', '53202', 'USA', '243 Oakwood Ave', NULL),
+  (65, 'Zelda', 'Moore', '1979-01-21', '512-555-0065', '256 Cedar Ln', 'Sacramento', 'CA', '95814', 'USA', '256 Cedar Ln', NULL),
+  (66, 'Andre', 'Nguyen', '1986-06-04', '512-555-0066', '269 Elm Dr', 'Orlando', 'FL', '32801', 'USA', '269 Elm Dr', NULL),
+  (67, 'Bianca', 'Owens', '1993-11-15', '512-555-0067', '282 Birch Rd', 'Memphis', 'TN', '38103', 'USA', '282 Birch Rd', NULL),
+  (68, 'Caleb', 'Patel', '1965-04-26', '512-555-0068', '295 Sunset Blvd', 'Birmingham', 'AL', '35203', 'USA', '295 Sunset Blvd', NULL),
+  (69, 'Dina', 'Quincy', '1972-09-09', '512-555-0069', '308 Lakeview Ct', 'Des Moines', 'IA', '50309', 'USA', '308 Lakeview Ct', NULL),
+  (70, 'Emeka', 'Rivera', '1979-02-20', '512-555-0070', '321 Hillcrest Way', 'Little Rock', 'AR', '72201', 'USA', '321 Hillcrest Way', NULL),
+  (71, 'Farah', 'Stone', '1986-07-03', '512-555-0071', '334 River Rd', 'Jackson', 'MS', '39201', 'USA', '334 River Rd', NULL),
+  (72, 'Gustavo', 'Turner', '1993-12-14', '512-555-0072', '347 Park Ave', 'Honolulu', 'HI', '96813', 'USA', '347 Park Ave', NULL),
+  (73, 'Hana', 'Usman', '1965-05-25', '512-555-0073', '360 Maple St', 'Nashville', 'TN', '37201', 'USA', '360 Maple St', NULL),
+  (74, 'Ivan', 'Vance', '1972-10-08', '512-555-0074', '373 Oakwood Ave', 'Columbus', 'OH', '43215', 'USA', '373 Oakwood Ave', NULL),
+  (75, 'Jada', 'Walker', '1979-03-19', '512-555-0075', '386 Cedar Ln', 'Indianapolis', 'IN', '46204', 'USA', '386 Cedar Ln', NULL),
+  (76, 'Kofi', 'Xu', '1986-08-02', '512-555-0076', '399 Elm Dr', 'Charlotte', 'NC', '28202', 'USA', '399 Elm Dr', NULL),
+  (77, 'Lena', 'Young', '1993-01-13', '512-555-0077', '412 Birch Rd', 'San Diego', 'CA', '92101', 'USA', '412 Birch Rd', NULL),
+  (78, 'Mateo', 'Zimmer', '1965-06-24', '512-555-0078', '425 Sunset Blvd', 'Las Vegas', 'NV', '89101', 'USA', '425 Sunset Blvd', NULL),
+  (79, 'Nadia', 'Allen', '1972-11-07', '512-555-0079', '438 Lakeview Ct', 'Salt Lake City', 'UT', '84101', 'USA', '438 Lakeview Ct', NULL),
+  (80, 'Omar', 'Bennett', '1979-04-18', '512-555-0080', '451 Hillcrest Way', 'Minneapolis', 'MN', '55401', 'USA', '451 Hillcrest Way', NULL),
+  (81, 'Petra', 'Cooper', '1986-09-01', '512-555-0081', '464 River Rd', 'Cleveland', 'OH', '44101', 'USA', '464 River Rd', NULL),
+  (82, 'Quinn', 'Dixon', '1993-02-12', '512-555-0082', '477 Park Ave', 'Pittsburgh', 'PA', '15201', 'USA', '477 Park Ave', NULL),
+  (83, 'Rafael', 'Ellis', '1965-07-23', '512-555-0083', '490 Maple St', 'Baltimore', 'MD', '21201', 'USA', '490 Maple St', NULL),
+  (84, 'Sofia', 'Fisher', '1972-12-06', '512-555-0084', '503 Oakwood Ave', 'Milwaukee', 'WI', '53202', 'USA', '503 Oakwood Ave', NULL),
+  (85, 'Tomas', 'Grant', '1979-05-17', '512-555-0085', '516 Cedar Ln', 'Sacramento', 'CA', '95814', 'USA', '516 Cedar Ln', NULL),
+  (86, 'Uma', 'Hayes', '1986-10-28', '512-555-0086', '529 Elm Dr', 'Orlando', 'FL', '32801', 'USA', '529 Elm Dr', NULL),
+  (87, 'Victor', 'Ingram', '1993-03-11', '512-555-0087', '542 Birch Rd', 'Memphis', 'TN', '38103', 'USA', '542 Birch Rd', NULL),
+  (88, 'Willa', 'Jenkins', '1965-08-22', '512-555-0088', '555 Sunset Blvd', 'Birmingham', 'AL', '35203', 'USA', '555 Sunset Blvd', NULL),
+  (89, 'Ximena', 'Knight', '1972-01-05', '512-555-0089', '568 Lakeview Ct', 'Des Moines', 'IA', '50309', 'USA', '568 Lakeview Ct', NULL),
+  (90, 'Yara', 'Lawson', '1979-06-16', '512-555-0090', '581 Hillcrest Way', 'Little Rock', 'AR', '72201', 'USA', '581 Hillcrest Way', NULL),
+  (91, 'Zane', 'Mendez', '1986-11-27', '512-555-0091', '594 River Rd', 'Jackson', 'MS', '39201', 'USA', '594 River Rd', NULL),
+  (92, 'Amara', 'Norris', '1993-04-10', '512-555-0092', '607 Park Ave', 'Honolulu', 'HI', '96813', 'USA', '607 Park Ave', NULL);
 
 INSERT INTO accounts (id, account_number, account_type, account_status, balance, created_date, closed_date,
                       suspended, suspended_start, suspended_end, suspension_notes, customer_id, version) VALUES

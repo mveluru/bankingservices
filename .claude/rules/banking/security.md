@@ -7,7 +7,7 @@ paths:
 - **`X-Customer-Id` is a rate-limit key, not authentication.** Don't build authorization on it or describe it as auth. If real auth is added, it goes in the gateway before the rate limiter.
 - Validate all input at the edge: Bean Validation on request DTOs; typed enums/dates on query params; sort keys allow-listed before reaching Hibernate.
 - SQL: Spring Data derived queries or `Specification` only. No string-concatenated JPQL/SQL.
-- PII: names, addresses and `dateOfBirth` never appear in logs, exception messages, or notification bodies beyond what the feature needs. Request logging masks `dateOfBirth`; extend `mask` for any new sensitive field. Headers are never logged.
+- PII: names, addresses, `dateOfBirth` and `phoneNumber` never appear in logs, exception messages, or notification bodies beyond what the feature needs. Request logging masks `dateOfBirth` and `phoneNumber`; extend `mask` for any new sensitive field. The BFF returns phone numbers only masked (`***-***-0101`, last four digits), never in full. Headers are never logged.
 - Money math: `BigDecimal` only; reject non-positive amounts; enforce min-balance and cash-deposit caps in the service using `AccountConstraints`.
 - Closed accounts: check `AccountStatus` before any balance check on withdraw/deposit.
 - Concurrency: rely on `@Version`; don't add read-modify-write outside the facade.

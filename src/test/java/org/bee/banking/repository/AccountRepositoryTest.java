@@ -80,6 +80,7 @@ class AccountRepositoryTest {
                 .firstName("Test")
                 .lastName("User")
                 .dateOfBirth(LocalDate.of(1990, 1, 1))
+                .phoneNumber("512-555-0101")
                 .address(Address.builder().street("1 Main St").city("Austin").state("TX").zip("78701").country("USA").build())
                 .build();
         return Account.builder()
@@ -108,6 +109,26 @@ class AccountRepositoryTest {
         assertThat(saved.getAccountStatus()).isEqualTo(AccountStatus.ACTIVE);
         assertThat(saved.getCreatedDate()).isEqualTo(LocalDate.now());
         assertThat(saved.getCheckingBalance()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void save_customerPhoneNumber_isPersistedAndReturned() {
+        Account saved = accountRepository.save(newCheckingAccount());
+        assertThat(saved.getCustomer().getPhoneNumber()).isEqualTo("512-555-0101");
+
+        Account reloaded = accountRepository.findByAccountNumber(saved.getCheckingAccountNumber()).orElseThrow();
+        assertThat(reloaded.getCustomer().getPhoneNumber()).isEqualTo("512-555-0101");
+    }
+
+    @Test
+    void save_customerWithoutPhoneNumber_isAllowedForLegacyCustomers() {
+        Account account = newCheckingAccount();
+        account.getCustomer().setPhoneNumber(null);
+
+        Account saved = accountRepository.save(account);
+
+        assertThat(accountRepository.findByAccountNumber(saved.getCheckingAccountNumber()).orElseThrow()
+                .getCustomer().getPhoneNumber()).isNull();
     }
 
     @Test
