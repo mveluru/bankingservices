@@ -6,6 +6,7 @@ import org.bee.banking.bff.dto.OpenAccountResponse;
 import org.bee.banking.bff.dto.PortalHomeResponse;
 import org.bee.banking.bff.service.PortalOrchestrationService;
 import org.bee.banking.domain.Account;
+import org.bee.banking.domain.BankStatement;
 import org.bee.banking.domain.AccountStatus;
 import org.bee.banking.domain.AccountStatusView;
 import org.bee.banking.domain.AccountTransaction;
@@ -17,6 +18,7 @@ import org.bee.banking.domain.DepositForm;
 import org.bee.banking.domain.LocationType;
 import org.bee.banking.domain.TransactionType;
 import org.bee.banking.exception.AccountNotFoundException;
+import org.bee.banking.exception.AccountClosedException;
 import org.bee.banking.exception.AccountSuspendedException;
 import org.bee.banking.repository.TransactionRepository;
 import org.bee.banking.request.AccountRegistrationRequest;
@@ -25,6 +27,7 @@ import org.bee.banking.request.UpdateSuspensionRequest;
 import org.bee.banking.request.WithdrawalRequest;
 import org.bee.banking.service.AccountStatusStatementService;
 import org.bee.banking.service.AccountSuspensionService;
+import org.bee.banking.service.BankStatementService;
 import org.bee.banking.service.ClientAccountService;
 import org.bee.banking.service.LocationBasedOperationService;
 import org.junit.jupiter.api.Test;
@@ -54,11 +57,12 @@ class PortalOrchestrationServiceTest {
     private final ClientAccountService clientAccountService = mock(ClientAccountService.class);
     private final AccountSuspensionService suspensionService = mock(AccountSuspensionService.class);
     private final AccountStatusStatementService statusService = mock(AccountStatusStatementService.class);
+    private final BankStatementService bankStatementService = mock(BankStatementService.class);
     private final LocationBasedOperationService locationService = mock(LocationBasedOperationService.class);
     private final TransactionRepository transactionRepository = mock(TransactionRepository.class);
     private final PortalProperties properties = new PortalProperties();
     private final PortalOrchestrationService service = new PortalOrchestrationService(
-            clientAccountService, suspensionService, statusService, locationService, transactionRepository, properties);
+            clientAccountService, suspensionService, statusService, bankStatementService, locationService, transactionRepository, properties);
 
     private static Account checking(String number, BigDecimal balance) {
         return Account.builder().checkingAccountNumber(number).checkingBalance(balance)
@@ -270,6 +274,41 @@ class PortalOrchestrationServiceTest {
         assertEquals(new BigDecimal("480.00"), service.deposit(deposit).balance());
         verify(clientAccountService).withdrawAndSaveToAccount(withdrawal);
         verify(clientAccountService).depositAndSaveToAccount(deposit);
+    }
+
+    @Test
+    void closeReturnsTheRefreshedOverview() {
+        Account closed = checking("CH-0000010001", BigDecimal.ZERO);
+        closed.setAccountStatus(AccountStatus.CLOSED);
+        closed.setClosedDate(LocalDate.now());
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(closed));
+        when(transactionRepository.findByAccountNumber("CH-0000010001")).thenReturn(List.of());
+
+        AccountOverviewResponse overview = service.close("CH-0000010001");
+
+        assertEquals(AccountStatus.CLOSED, overview.accountStatus());
+        assertEquals(LocalDate.now(), overview.closedDate());
+        verify(clientAccountService).closeAccount("CH-0000010001");
+    }
+
+    @Test
+    void closeOfAnAlreadyClosedAccountPropagatesWithoutBuildingAnOverview() {
+        when(clientAccountService.closeAccount("CH-0000030001"))
+                .thenThrow(new AccountClosedException("Account CH-0000030001 is already closed"));
+
+        assertThrows(AccountClosedException.class, () -> service.close("CH-0000030001"));
+        verify(clientAccountService, never()).lookupAccountDetails(any());
+    }
+
+    @Test
+    void statementDelegatesToTheBankStatementService() {
+        LocalDate begin = LocalDate.of(2026, 8, 1);
+        LocalDate end = LocalDate.of(2026, 9, 24);
+        BankStatement statement = BankStatement.builder().accountNumber("CH-0000088291").beginDate(begin).endDate(end)
+                .transactions(List.of()).build();
+        when(bankStatementService.generateStatement("CH-0000088291", begin, end)).thenReturn(statement);
+
+        assertEquals(statement, service.statement("CH-0000088291", begin, end));
     }
 
     @Test

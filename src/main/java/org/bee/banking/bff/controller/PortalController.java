@@ -6,11 +6,13 @@ import org.bee.banking.bff.dto.AccountOverviewResponse;
 import org.bee.banking.bff.dto.OpenAccountResponse;
 import org.bee.banking.bff.dto.PortalHomeResponse;
 import org.bee.banking.bff.service.PortalOrchestrationService;
+import org.bee.banking.domain.BankStatement;
 import org.bee.banking.domain.DepositForm;
 import org.bee.banking.request.AccountRegistrationRequest;
 import org.bee.banking.request.SuspendAccountRequest;
 import org.bee.banking.request.UpdateSuspensionRequest;
 import org.bee.banking.request.WithdrawalRequest;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
 
 /** Backend-for-frontend endpoints for the banking UI portal: one call per screen. */
 @RestController
@@ -93,6 +97,28 @@ public class PortalController {
     @PostMapping("/accounts/{accountNumber}/reactivate")
     public ResponseEntity<AccountOverviewResponse> reactivate(@PathVariable String accountNumber) {
         return ResponseEntity.ok(portalService.reactivate(accountNumber));
+    }
+
+    /**
+     * Close an account (irreversible); returns the refreshed overview ({@code CLOSED}, {@code closedDate}).
+     * POST /bff/v1/portal/accounts/CH-0000010001/close
+     */
+    @PostMapping("/accounts/{accountNumber}/close")
+    public ResponseEntity<AccountOverviewResponse> close(@PathVariable String accountNumber) {
+        return ResponseEntity.ok(portalService.close(accountNumber));
+    }
+
+    /**
+     * Statement for a date range. A {@code POST} because it has a side effect: the banking service emails/SMSes the
+     * statement, and portal reads must be side-effect free.
+     * POST /bff/v1/portal/accounts/CH-0000088291/statement?beginDate=2026-08-01&endDate=2026-09-24
+     */
+    @PostMapping("/accounts/{accountNumber}/statement")
+    public ResponseEntity<BankStatement> statement(
+            @PathVariable String accountNumber,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate beginDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(portalService.statement(accountNumber, beginDate, endDate));
     }
 
     /**

@@ -6,6 +6,8 @@ import org.bee.banking.bff.dto.AccountOverviewResponse;
 import org.bee.banking.bff.service.PortalOrchestrationService;
 import org.bee.banking.domain.AccountStatus;
 import org.bee.banking.domain.AccountType;
+import org.bee.banking.domain.BankStatement;
+import org.bee.banking.exception.AccountClosedException;
 import org.bee.banking.exception.AccountNotFoundException;
 import org.bee.banking.exception.AccountSuspendedException;
 import org.bee.banking.exception.BankingExceptionHandler;
@@ -136,6 +138,49 @@ class PortalControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accountStatus").value("ACTIVE"))
                 .andExpect(jsonPath("$.suspended").value(false));
+    }
+
+    @Test
+    void closeReturnsTheRefreshedOverview() throws Exception {
+        when(service.close("CH-0000010001")).thenReturn(new AccountOverviewResponse("CH-0000010001", AccountType.CHECKING,
+                AccountStatus.CLOSED, BigDecimal.ZERO, false, null, LocalDate.of(2026, 1, 5), LocalDate.of(2026, 9, 30), "Ada", "Lovelace", "***-***-0101", 30, List.of()));
+
+        mockMvc.perform(post("/bff/v1/portal/accounts/CH-0000010001/close"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountStatus").value("CLOSED"))
+                .andExpect(jsonPath("$.closedDate").value("2026-09-30"));
+    }
+
+    @Test
+    void closingAnAlreadyClosedAccountIsPlainText400() throws Exception {
+        when(service.close("CH-0000030001")).thenThrow(new AccountClosedException("Account CH-0000030001 is already closed"));
+
+        mockMvc.perform(post("/bff/v1/portal/accounts/CH-0000030001/close"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Account CH-0000030001 is already closed"));
+    }
+
+    @Test
+    void statementBindsDatesAndReturnsTheStatement() throws Exception {
+        LocalDate begin = LocalDate.of(2026, 8, 1);
+        LocalDate end = LocalDate.of(2026, 9, 24);
+        when(service.statement("CH-0000088291", begin, end)).thenReturn(BankStatement.builder()
+                .accountNumber("CH-0000088291").beginDate(begin).endDate(end).transactions(List.of()).build());
+
+        mockMvc.perform(post("/bff/v1/portal/accounts/CH-0000088291/statement")
+                        .param("beginDate", "2026-08-01").param("endDate", "2026-09-24"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accountNumber").value("CH-0000088291"))
+                .andExpect(jsonPath("$.beginDate").value("2026-08-01"))
+                .andExpect(jsonPath("$.endDate").value("2026-09-24"));
+    }
+
+    @Test
+    void statementIsPostOnlyBecauseItSendsNotifications() throws Exception {
+        mockMvc.perform(get("/bff/v1/portal/accounts/CH-0000088291/statement")
+                        .param("beginDate", "2026-08-01").param("endDate", "2026-09-24"))
+                .andExpect(status().isMethodNotAllowed());
+        verify(service, never()).statement(any(), any(), any());
     }
 
     @Test

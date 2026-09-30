@@ -163,6 +163,8 @@ All REST endpoints are prefixed with `http://localhost:8081/brite`:
 | `POST` | `/bff/v1/portal/accounts/deposit` | Same as `POST /v1/api/accounts/deposit`, returning the refreshed overview; `400` if `CLOSED` or `SUSPENDED` |
 | `POST` | `/bff/v1/portal/accounts/{accountNumber}/suspend` | Same body/rules as the banking suspend endpoint; returns the refreshed overview (`suspended: true`, `suspendedUntil`; notes are not included) |
 | `PATCH` | `/bff/v1/portal/accounts/{accountNumber}/suspension` | Updates `notes` and/or `endDateTime` of a current suspension; returns the refreshed overview |
+| `POST` | `/bff/v1/portal/accounts/{accountNumber}/close` | Same rules as the banking close endpoint (irreversible); returns the refreshed overview (`CLOSED`, `closedDate`). `400` if already closed |
+| `POST` | `/bff/v1/portal/accounts/{accountNumber}/statement?beginDate=&endDate=` | Same rules and result as the banking statement endpoint, **including its email/SMS notification**; a `POST` because portal reads are side-effect free. Returns the `BankStatement` |
 | `POST` | `/bff/v1/portal/accounts/{accountNumber}/reactivate` | Lifts the suspension; returns the refreshed overview (`ACTIVE`, `suspended: false`) |
 | `GET` | `/notify?name={name}` | Fire-and-forget async email notification demo |
 | `GET` | `/report` | Async task that returns a completed report string |
@@ -437,4 +439,4 @@ curl -H "X-Customer-Id: cust-1" "http://localhost:8081/brite/bff/v1/portal/home?
 curl -H "X-Customer-Id: cust-1" "http://localhost:8081/brite/bff/v1/portal/accounts/CH-0000088291/overview?days=30"
 ```
 
-The BFF (`org.bee.banking.bff`) composes the existing banking services in process, so the portal makes one call per screen. CORS allows the origins in `banking.portal.allowed-origins` (default the Vite/CRA dev hosts `localhost:5173`/`3000`) for `GET`/`POST`/`PATCH`/`OPTIONS`. Every portal mutation (`withdraw`, `deposit`, `suspend`, `suspension`, `reactivate`) returns the refreshed account overview, so the portal redraws from one response.
+The BFF (`org.bee.banking.bff`) composes the existing banking services in process, so the portal makes one call per screen. CORS allows the origins in `banking.portal.allowed-origins` (default the Vite/CRA dev hosts `localhost:5173`/`3000`) for `GET`/`POST`/`PATCH`/`OPTIONS`. Every portal mutation (`withdraw`, `deposit`, `suspend`, `suspension`, `reactivate`, `close`) returns the refreshed account overview (`statement` returns the statement), so the portal redraws from one response.

@@ -987,6 +987,65 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/portal/accounts/{accountNumber}/close:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalCloseAccount
+      summary: Close an account and get the refreshed overview
+      description: |
+        Same rules as `POST /v1/api/accounts/{accountNumber}/close` (irreversible; a suspension is cleared);
+        returns the account overview (`CLOSED`, `closedDate`).
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+      responses:
+        '200':
+          description: Account closed; the refreshed overview.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
+        '400':
+          $ref: '#/components/responses/BadRequestText'
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/accounts/{accountNumber}/statement:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalStatement
+      summary: Generate a statement for a date range
+      description: |
+        Same rules and result as `GET /v1/api/accounts/{accountNumber}/statement`, including its side effect
+        (an async email/SMS notification). It is a `POST` because portal reads are side-effect free.
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+        - name: beginDate
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: endDate
+          in: query
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        '200':
+          description: The statement.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/BankStatement'}
+        '400':
+          description: Missing/malformed date parameter (JSON), end before begin, or range too long (plain text).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+        '404':
+          $ref: '#/components/responses/AccountNotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/portal/accounts/open:
     post:
       tags: [Portal (BFF)]

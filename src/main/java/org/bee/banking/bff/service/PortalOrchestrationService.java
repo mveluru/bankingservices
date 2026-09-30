@@ -15,6 +15,7 @@ import org.bee.banking.domain.AccountStatusView;
 import org.bee.banking.domain.AccountTransaction;
 import org.bee.banking.domain.BankAddress;
 import org.bee.banking.domain.BankLocations;
+import org.bee.banking.domain.BankStatement;
 import org.bee.banking.domain.Customer;
 import org.bee.banking.domain.DepositForm;
 import org.bee.banking.exception.AccountNotFoundException;
@@ -27,6 +28,7 @@ import org.bee.banking.request.UpdateSuspensionRequest;
 import org.bee.banking.request.WithdrawalRequest;
 import org.bee.banking.service.AccountStatusStatementService;
 import org.bee.banking.service.AccountSuspensionService;
+import org.bee.banking.service.BankStatementService;
 import org.bee.banking.service.ClientAccountService;
 import org.bee.banking.service.LocationBasedOperationService;
 import org.springframework.data.domain.Page;
@@ -52,6 +54,7 @@ public class PortalOrchestrationService {
     private final ClientAccountService clientAccountService;
     private final AccountSuspensionService accountSuspensionService;
     private final AccountStatusStatementService accountStatusStatementService;
+    private final BankStatementService bankStatementService;
     private final LocationBasedOperationService locationService;
     private final TransactionRepository transactionRepository;
     private final PortalProperties properties;
@@ -153,6 +156,26 @@ public class PortalOrchestrationService {
     public AccountOverviewResponse deposit(DepositForm request) {
         clientAccountService.depositAndSaveToAccount(request);
         return overview(request.getAccountNumber(), null);
+    }
+
+    /**
+     * Closes the account through {@link ClientAccountService} (irreversible; clears any suspension) and returns the
+     * refreshed overview.
+     *
+     * @throws org.bee.banking.exception.AccountClosedException (400) if it is already closed
+     */
+    public AccountOverviewResponse close(String accountNumber) {
+        clientAccountService.closeAccount(accountNumber);
+        return overview(accountNumber, null);
+    }
+
+    /**
+     * Generates the statement through {@link BankStatementService}. Unlike the other portal reads this has a side
+     * effect (the banking service emails/SMSes the statement), so the controller exposes it as a {@code POST}.
+     */
+    public BankStatement statement(String accountNumber, LocalDate beginDate, LocalDate endDate) {
+        log.debug(BankingMessages.LOG_PORTAL_STATEMENT, accountNumber, beginDate, endDate);
+        return bankStatementService.generateStatement(accountNumber, beginDate, endDate);
     }
 
     private List<PortalLocation> nearbyLocations(String state) {

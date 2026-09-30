@@ -94,6 +94,7 @@ public final class BankingMessages {
     public static final String LOG_HANDLER_ACCOUNT_SUSPENDED = "Account suspended: {}";
     public static final String LOG_PORTAL_HOME = "Portal home requested: state={}";
     public static final String LOG_PORTAL_OVERVIEW = "Portal overview requested: account={}, days={}";
+    public static final String LOG_PORTAL_STATEMENT = "Portal statement requested: account={}, {} to {}";
     public static final String LOG_PORTAL_ACCOUNT_OPENED = "Portal opened an account: state={}";
     public static final String LOG_LOCATION_SEARCH = "Searching bank locations: type={}, city={}, state={}, zip={}, service={}, page={}";
 
