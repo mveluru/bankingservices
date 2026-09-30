@@ -1,4 +1,4 @@
-# SpringBootProjects (Brite Technology Notifications)
+# bankingservices (Brite Technology Notifications)
 
 A Spring Boot 3 REST application demonstrating configuration properties binding (`@ConfigurationProperties`), custom REST controllers, async processing, JSON Schema-validated event ingestion, global exception handling, Spring Data JPA, and Spring Boot Actuator monitoring.
 
@@ -426,7 +426,7 @@ mvn test
 | :--- | :--- |
 | `ProductControllerTest` | `/v1/product` endpoints — list, get by ID (found + `404` not-found), add, product message |
 | `BriteConfigValuesControllerTest` | `/v1/configs` config endpoints — app, email, SMS |
-| `SpringBootProjectsApplicationTests` | Application context load + actuator health, liveness, and readiness probes |
+| `BankingServicesApplicationTests` | Application context load + actuator health, liveness, and readiness probes |
 | `AccountRepositoryTest` | `@DataJpaTest` against embedded H2 (no live MySQL needed — see [Data Model](#-banking-data-model-jpa)) — account creation defaults, ACTIVE/SUSPENDED/CLOSED status lifecycle (suspend/update/reactivate/expire, suspended accounts rejecting withdraw/deposit), withdraw/deposit balance rules, account search/pagination/sorting/date-range filters, conditional accountNumber filter, all as real SQL |
 | `AccountSuspensionServiceTest` / `AccountSuspensionExpiryJobTest` | Plain unit tests (no Spring context/MySQL) — the start/end window rules (default start, no future start, end after start and in the future), partial update, reactivation, and the scheduled expiry hook |
 | `AccountSuspensionControllerTest` | Standalone MockMvc — suspend/update/reactivate binding, `@Valid` (blank/too-long notes → 400), plain-text 400/404 mapping |

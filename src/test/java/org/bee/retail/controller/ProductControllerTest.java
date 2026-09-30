@@ -1,6 +1,6 @@
 package org.bee.retail.controller;
 
-import org.bee.configs.SpringBootProjectsApplication;
+import org.bee.configs.BankingServicesApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -20,7 +20,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.hamcrest.Matchers.nullValue;
 
-@SpringBootTest(classes = SpringBootProjectsApplication.class)
+@SpringBootTest(classes = BankingServicesApplication.class)
 @AutoConfigureMockMvc
 class ProductControllerTest {
 

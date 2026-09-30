@@ -9,10 +9,10 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.bee</groupId>
-    <artifactId>SBProjects</artifactId>
+    <artifactId>bankingservices</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>SpringBootProjects</name>
-    <description>SpringBootProjects</description>
+    <name>bankingservices</name>
+    <description>Brite banking services: banking API, portal BFF, retail, events and config demos</description>
     <properties>
         <java.version>25</java.version>
         <!-- Spring Boot 3.5.x is the line that supports Java 25 class files (Boot 3.4's Spring Framework/ASM, Byte Buddy

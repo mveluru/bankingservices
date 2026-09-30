@@ -18,10 +18,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ConfigurationPropertiesScan(basePackages = {"org.bee.configs", "org.bee.retail", "org.bee.banking", "org.bee.events", "org.bee.restapi", "org.bee.sample"})
 @EnableJpaRepositories(basePackages = {"org.bee.configs", "org.bee.retail", "org.bee.banking", "org.bee.events"})
 @EntityScan(basePackages = {"org.bee.configs", "org.bee.retail", "org.bee.banking", "org.bee.events"})
-public class SpringBootProjectsApplication {
+public class BankingServicesApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(SpringBootProjectsApplication.class, args);
+        SpringApplication.run(BankingServicesApplication.class, args);
     }
 
 }

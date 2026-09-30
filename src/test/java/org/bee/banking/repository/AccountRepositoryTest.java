@@ -12,7 +12,7 @@ import org.bee.banking.exception.InsufficientFundsException;
 import org.bee.banking.exception.MinBalanceException;
 import org.bee.banking.repository.jpa.AccountJpaRepository;
 import org.bee.banking.rules.AccountConstraints;
-import org.bee.configs.SpringBootProjectsApplication;
+import org.bee.configs.BankingServicesApplication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,7 +47,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * it's instantiated directly here around the real, Spring-managed {@link AccountJpaRepository}.
  */
 @DataJpaTest
-@ContextConfiguration(classes = SpringBootProjectsApplication.class)
+@ContextConfiguration(classes = BankingServicesApplication.class)
 // application.yml hardcodes hibernate.dialect=MySQLDialect for the real app; @DataJpaTest
 // swaps in embedded H2 for the datasource but doesn't touch that dialect override, so it
 // has to be cleared here or Hibernate tries to run MySQL-flavored DDL against H2 and every
