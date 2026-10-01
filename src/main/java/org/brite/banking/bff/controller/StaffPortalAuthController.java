@@ -4,8 +4,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.StaffPortalLoginResponse;
 import org.brite.banking.bff.service.StaffPortalAuthService;
+import org.brite.banking.bff.service.StaffPortalService;
+import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.domain.SecurityQuestionView;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
+import org.brite.banking.request.AdminSetPasswordRequest;
+import org.brite.banking.request.ChangeLoginStatusRequest;
 import org.brite.banking.request.ChangePasswordRequest;
 import org.brite.banking.request.LoginRequest;
 import org.brite.banking.request.PasswordResetQuestionsRequest;
@@ -14,6 +18,7 @@ import org.brite.banking.request.SetSecurityQuestionsRequest;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -24,15 +29,18 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * The staff portal's sign-in and password calls (the employee counterpart of {@link CustomerCredentialController}). Login, the question catalog and
+ * The staff portal's sign-in and password calls (the employee counterpart of {@link CustomerPortalAuthController}). Login, the question catalog and
  * the two password-reset calls are open; changing the password and choosing security questions need the employee token
- * ({@link StaffAuthenticationFilter}) and take the employee from it, never from the body.
+ * ({@link StaffAuthenticationFilter}) and take the employee from it, never from the body. Also here: an administrator setting another
+ * employee's login status or password (MANAGE_EMPLOYEES, enforced by the banking service before anything changes), which still go through
+ * {@link StaffPortalService}.
  */
 @RestController
 @RequestMapping("/bff/v1/staff")
 @RequiredArgsConstructor
 public class StaffPortalAuthController {
     private final StaffPortalAuthService authService;
+    private final StaffPortalService staffPortalService;
 
     /** Login with the employee card and branch in one call: 401/403/423/400. {@code Cache-Control: no-store}. POST /bff/v1/staff/login */
     @PostMapping("/login")
@@ -73,6 +81,25 @@ public class StaffPortalAuthController {
     @PostMapping("/password-reset")
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
         authService.resetPassword(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Set an employee's login status (MANAGE_EMPLOYEES). PUT /bff/v1/staff/employees/EMP-000010/login-status */
+    @PutMapping("/employees/{employeeNumber}/login-status")
+    public ResponseEntity<LoginStatusView> changeEmployeeLoginStatus(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable String employeeNumber,
+            @Valid @RequestBody ChangeLoginStatusRequest request) {
+        return ResponseEntity.ok(staffPortalService.changeEmployeeLoginStatus(employee, employeeNumber, request));
+    }
+
+    /** Set an employee's password (MANAGE_EMPLOYEES); their tokens stop working. PUT /bff/v1/staff/employees/EMP-000010/password */
+    @PutMapping("/employees/{employeeNumber}/password")
+    public ResponseEntity<Void> setEmployeePassword(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable String employeeNumber,
+            @Valid @RequestBody AdminSetPasswordRequest request) {
+        staffPortalService.setEmployeePassword(employee, employeeNumber, request);
         return ResponseEntity.noContent().build();
     }
 }

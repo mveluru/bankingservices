@@ -7,10 +7,7 @@ import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.bff.service.StaffPortalService;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.EmployeeRole;
-import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
-import org.brite.banking.request.AdminSetPasswordRequest;
-import org.brite.banking.request.ChangeLoginStatusRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -22,7 +19,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Backend-for-frontend endpoints for the staff portal: the employee counterpart of {@link PortalController}. Every call needs
  * {@code Authorization: Bearer <employee token>} ({@link StaffAuthenticationFilter}) and takes the acting employee from it; the banking
  * services enforce the privilege before anything changes (403) and account actions return the refreshed account overview. Customer logins,
- * their status and their passwords are served by {@link CustomerCredentialController}.
+ * their status and their passwords are served by {@link CustomerPortalAuthController}; an employee's own login status and password calls are in {@link StaffPortalAuthController}.
  */
 @RestController
 @RequestMapping("/bff/v1/staff")
@@ -110,22 +106,5 @@ public class StaffPortalController {
     public ResponseEntity<PortalEmployee> employee(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
                                                    @PathVariable String employeeNumber) {
         return ResponseEntity.ok(staffPortalService.employee(employee, employeeNumber));
-    }
-
-    /** Set an employee's login status (MANAGE_EMPLOYEES). PUT /bff/v1/staff/employees/EMP-000010/login-status */
-    @PutMapping("/employees/{employeeNumber}/login-status")
-    public ResponseEntity<LoginStatusView> changeEmployeeLoginStatus(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
-                                                                     @PathVariable String employeeNumber,
-                                                                     @Valid @RequestBody ChangeLoginStatusRequest request) {
-        return ResponseEntity.ok(staffPortalService.changeEmployeeLoginStatus(employee, employeeNumber, request));
-    }
-
-    /** Set an employee's password (MANAGE_EMPLOYEES); their tokens stop working. PUT /bff/v1/staff/employees/EMP-000010/password */
-    @PutMapping("/employees/{employeeNumber}/password")
-    public ResponseEntity<Void> setEmployeePassword(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
-                                                    @PathVariable String employeeNumber,
-                                                    @Valid @RequestBody AdminSetPasswordRequest request) {
-        staffPortalService.setEmployeePassword(employee, employeeNumber, request);
-        return ResponseEntity.noContent().build();
     }
 }

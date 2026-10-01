@@ -46,7 +46,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/bff/v1")
 @RequiredArgsConstructor
-public class CustomerCredentialController {
+public class CustomerPortalAuthController {
     private final CustomerLoginPortalService loginService;
     private final CustomerLoginStatusPortalService statusService;
     private final CustomerPasswordPortalService passwordService;

@@ -5,13 +5,17 @@ import org.brite.banking.bff.controller.StaffPortalAuthController;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.bff.dto.StaffPortalLoginResponse;
 import org.brite.banking.bff.service.StaffPortalAuthService;
+import org.brite.banking.bff.service.StaffPortalService;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.EmployeeStatus;
+import org.brite.banking.domain.LoginStatus;
+import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.domain.SecurityQuestion;
 import org.brite.banking.domain.SecurityQuestionView;
 import org.brite.banking.exception.BankingExceptionHandler;
 import org.brite.banking.exception.EmployeeLockedException;
+import org.brite.banking.exception.EmployeeNotAuthorizedException;
 import org.brite.banking.exception.InvalidCredentialsException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
@@ -30,7 +34,10 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -47,12 +54,14 @@ class StaffPortalAuthControllerTest {
     private static final String ATTR = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE;
 
     private StaffPortalAuthService service;
+    private StaffPortalService staffPortalService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         service = mock(StaffPortalAuthService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new StaffPortalAuthController(service))
+        staffPortalService = mock(StaffPortalService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new StaffPortalAuthController(service, staffPortalService))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))
@@ -111,5 +120,35 @@ class StaffPortalAuthControllerTest {
         verify(service).resetPassword(any());
         mockMvc.perform(post("/bff/v1/staff/password-reset").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"lucas.meyer\",\"newPassword\":\"13572468\",\"answers\":[]}")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void anAreaManagerSetsAnEmployeesLoginStatusAndPasswordThroughTheStaffPortalService() throws Exception {
+        when(staffPortalService.changeEmployeeLoginStatus(eq("EMP-A"), eq("EMP-000010"), any()))
+                .thenReturn(LoginStatusView.builder().username("lucas.meyer").status(LoginStatus.SUSPENDED).build());
+
+        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/login-status").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"SUSPENDED\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUSPENDED"));
+        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/password").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"newPassword\":\"24681357\"}"))
+                .andExpect(status().isNoContent()).andExpect(content().string(""));
+        verify(staffPortalService).setEmployeePassword(eq("EMP-A"), eq("EMP-000010"), any());
+    }
+
+    @Test
+    void employeeAdminCallsMapPrivilegeFailuresTo403AndBadBodiesTo400BeforeTheService() throws Exception {
+        doThrow(new EmployeeNotAuthorizedException("Employee EMP-M (MANAGER) is not authorized: requires MANAGE_EMPLOYEES"))
+                .when(staffPortalService).setEmployeePassword(eq("EMP-M"), any(), any());
+
+        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/password").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"newPassword\":\"24681357\"}")).andExpect(status().isForbidden());
+        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/password").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                .content("{}")).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/login-status").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                .content("{}")).andExpect(status().isBadRequest());
+        // only the forbidden call reached the service; the two malformed bodies were rejected before it
+        verify(staffPortalService, times(1)).setEmployeePassword(any(), any(), any());
+        verify(staffPortalService, never()).changeEmployeeLoginStatus(any(), any(), any());
     }
 }

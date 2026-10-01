@@ -10,8 +10,6 @@ import org.brite.banking.domain.AccountType;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.EmployeeStatus;
-import org.brite.banking.domain.LoginStatus;
-import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.exception.AccountClosedException;
 import org.brite.banking.exception.BankingExceptionHandler;
 import org.brite.banking.exception.EmployeeNotAuthorizedException;
@@ -44,7 +42,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -119,23 +116,17 @@ class StaffPortalControllerTest {
     }
 
     @Test
-    void employeesArePagedCardsAndEmployeeAdminCallsReturnTheirResults() throws Exception {
+    void employeesArePagedCardsAndOneCardIsReturned() throws Exception {
         PortalEmployee card = PortalEmployee.of(Employee.builder().employeeNumber("EMP-000010").firstName("Lucas").lastName("Meyer")
                 .role(EmployeeRole.TELLER).status(EmployeeStatus.ACTIVE).build());
         when(service.employees(eq("EMP-A"), eq(EmployeeRole.TELLER), any())).thenReturn(new PageImpl<>(List.of(card)));
         when(service.employee("EMP-A", "EMP-000010")).thenReturn(card);
-        when(service.changeEmployeeLoginStatus(eq("EMP-A"), eq("EMP-000010"), any())).thenReturn(LoginStatusView.builder().username("lucas.meyer").status(LoginStatus.SUSPENDED).build());
 
         // only the call into the service matters for the page (the standalone Jackson setup can't serialise a Spring Data Page)
         mockMvc.perform(get("/bff/v1/staff/employees").param("role", "TELLER").requestAttr(ATTR, "EMP-A"));
         verify(service).employees(eq("EMP-A"), eq(EmployeeRole.TELLER), any());
         mockMvc.perform(get("/bff/v1/staff/employees/EMP-000010").requestAttr(ATTR, "EMP-A")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Lucas"));
-        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/login-status").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":\"SUSPENDED\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUSPENDED"));
-        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/password").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"newPassword\":\"24681357\"}")).andExpect(status().isNoContent());
-        verify(service).setEmployeePassword(eq("EMP-A"), eq("EMP-000010"), any());
     }
 
     @Test

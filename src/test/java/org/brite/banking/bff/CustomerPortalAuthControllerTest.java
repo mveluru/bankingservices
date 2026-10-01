@@ -2,7 +2,7 @@ package org.brite.banking.bff;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
 import java.util.List;
-import org.brite.banking.bff.controller.CustomerCredentialController;
+import org.brite.banking.bff.controller.CustomerPortalAuthController;
 import org.brite.banking.bff.dto.PortalHomeResponse;
 import org.brite.banking.bff.dto.PortalLoginResponse;
 import org.brite.banking.bff.service.CustomerLoginPortalService;
@@ -53,7 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Standalone MockMvc: the BFF's customer credential calls in one controller - sign-in, staff create-login and set-status, customer change password /
  * security questions / catalog / reset, and staff set-password.
  */
-class CustomerCredentialControllerTest {
+class CustomerPortalAuthControllerTest {
     private static final String ATTR = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE;
     private static final String ANSWERS = "[{\"question\":\"FIRST_CAR\",\"answer\":\"Honda Civic\"},{\"question\":\"FIRST_SCHOOL\",\"answer\":\"Oak Street\"},"
             + "{\"question\":\"FIRST_TEACHER\",\"answer\":\"Mrs Patel\"}]";
@@ -68,7 +68,7 @@ class CustomerCredentialControllerTest {
         loginService = mock(CustomerLoginPortalService.class);
         statusService = mock(CustomerLoginStatusPortalService.class);
         passwordService = mock(CustomerPasswordPortalService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new CustomerCredentialController(loginService, statusService, passwordService,
+        mockMvc = MockMvcBuilders.standaloneSetup(new CustomerPortalAuthController(loginService, statusService, passwordService,
                         new CustomerAccessService(mock(AccountRepository.class))))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
