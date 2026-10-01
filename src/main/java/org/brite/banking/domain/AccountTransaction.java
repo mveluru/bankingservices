@@ -31,4 +31,16 @@ public class AccountTransaction {
     private LocationType bankLocationType;
     private String bankLocationCity;
     private String bankLocationState;
+
+    /**
+     * A copy for customers: which branch or ATM handled the transaction is kept, but not which employee
+     * ({@code employeeNumber}, {@code employeeName} and {@code employeeRole} are cleared). Staff identity is internal.
+     */
+    public AccountTransaction withoutStaffIdentity() {
+        return AccountTransaction.builder().accountNumber(accountNumber).transactionType(transactionType)
+                .amount(amount).balanceAfter(balanceAfter).transactionDate(transactionDate).depositType(depositType)
+                .bankLocationId(bankLocationId).bankLocationName(bankLocationName).bankLocationType(bankLocationType)
+                .bankLocationCity(bankLocationCity).bankLocationState(bankLocationState)
+                .build();
+    }
 }

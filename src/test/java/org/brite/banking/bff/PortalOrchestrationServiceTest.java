@@ -325,23 +325,4 @@ class PortalOrchestrationServiceTest {
                 .anyMatch(c -> c.getName().toLowerCase().contains("employee")), "staff identity must not be part of the portal shape");
     }
 
-    @Test
-    void statementKeepsTheBranchButClearsTheEmployeeIdentityOnEveryTransaction() {
-        LocalDate begin = LocalDate.of(2026, 8, 1);
-        LocalDate end = LocalDate.of(2026, 9, 24);
-        BankStatement statement = BankStatement.builder().accountNumber("CH-0000088291").beginDate(begin).endDate(end)
-                .transactions(List.of(handledAtTheCounter())).build();
-        when(bankStatementService.generateStatement("CH-0000088291", begin, end)).thenReturn(statement);
-
-        BankStatement result = service.statement("CH-0000088291", begin, end);
-
-        AccountTransaction t = result.getTransactions().get(0);
-        assertEquals(null, t.getEmployeeNumber());
-        assertEquals(null, t.getEmployeeName());
-        assertEquals(null, t.getEmployeeRole());
-        assertEquals("Austin Downtown Branch", t.getBankLocationName());
-        assertEquals(new BigDecimal("50.00"), t.getAmount());
-        assertEquals("check", t.getDepositType());
-        assertEquals("EMP-000010", statement.getTransactions().get(0).getEmployeeNumber(), "the banking statement itself is not modified");
-    }
 }

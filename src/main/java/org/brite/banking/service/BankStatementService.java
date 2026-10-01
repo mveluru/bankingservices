@@ -25,6 +25,14 @@ public class BankStatementService {
     private final AccountConstraints accountConstraints;
     private final NotificationService notificationService;
 
+    /**
+     * A customer's statement for a date range. Every line shows the branch or ATM that handled the transaction but never the
+     * employee (cleared with {@link AccountTransaction#withoutStaffIdentity()}), because statements go to customers and by email/SMS.
+     * A future staff-facing statement would need its own method that keeps the employee fields.
+     *
+     * @throws AccountNotFoundException (mapped to 404) if the account doesn't exist
+     * @throws StatementRangeExceededException (mapped to 400) if the range is longer than the configured maximum
+     */
     public BankStatement generateStatement(String accountNumber, LocalDate beginDate, LocalDate endDate) {
         if (accountRepository.findByAccountNumber(accountNumber).isEmpty()) {
             throw new AccountNotFoundException(String.format(BankingMessages.ACCOUNT_NOT_FOUND, accountNumber));
@@ -45,6 +53,7 @@ public class BankStatementService {
 
         List<AccountTransaction> transactions = transactionRepository.findByAccountNumber(accountNumber).stream()
                 .filter(t -> !t.getTransactionDate().isBefore(beginDate) && !t.getTransactionDate().isAfter(endDate))
+                .map(AccountTransaction::withoutStaffIdentity)
                 .toList();
 
         log.info(BankingMessages.LOG_STATEMENT_GENERATED, accountNumber, transactions.size(), beginDate, endDate);

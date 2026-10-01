@@ -517,6 +517,10 @@ paths:
         `beginDate` and `endDate` (both inclusive). `endDate` may not precede `beginDate`,
         and the span may not exceed `banking.constraints.max-statement-range-months`
         (default 18). Triggers an async email/SMS notification.
+
+        Each line shows the **branch or ATM** that handled it (`bankLocationName/Type/City/State`, null if none was recorded) but
+        never the employee: `employeeNumber`, `employeeName` and `employeeRole` are always `null` on a statement, because statements
+        go to customers. Staff identity is stored with the transaction but is not part of any customer-facing response.
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
         - name: beginDate
@@ -2098,8 +2102,8 @@ paths:
       summary: Generate a statement for a date range
       description: |
         Same rules and result as `GET /v1/api/accounts/{accountNumber}/statement`, including its side effect
-        (an async email/SMS notification), except that the employee who handled each transaction is hidden:
-        `employeeNumber`, `employeeName` and `employeeRole` are always `null` here while the branch or ATM fields are kept.
+        (an async email/SMS notification), with the same hiding of the employee (the banking statement now does it too):
+        `employeeNumber`, `employeeName` and `employeeRole` are always `null` while the branch or ATM fields are kept.
         It is a `POST` because portal reads are side-effect free.
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
@@ -2990,7 +2994,7 @@ components:
           type: string
           nullable: true
           description: '`cash` or `check`; only set for deposits, `null` for withdrawals.'
-        employeeNumber: {type: string, nullable: true, description: Employee who handled it; null for customer-initiated transactions and rows recorded before this was tracked., example: EMP-000010}
+        employeeNumber: {type: string, nullable: true, description: 'Employee who handled it. Always null in API responses: statements are customer-facing and hide staff identity (the value is only stored).', example: EMP-000010}
         employeeName: {type: string, nullable: true, example: Lucas Meyer}
         employeeRole: {allOf: [{$ref: '#/components/schemas/EmployeeRole'}], nullable: true}
         bankLocationId: {type: integer, format: int64, nullable: true, description: Branch office or ATM where it was handled (snapshot at transaction time).}

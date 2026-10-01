@@ -28,7 +28,7 @@ paths:
 | Employee login | `bank_employee_credentials` | Own table, one row per employee (`employeeId`), lowercase `username`, BCrypt `passwordHash`, failure/lock/last-login columns, `status`. |
 | Customer login | `customer_credentials` | Same shape, keyed by `customerId`. |
 | Login status | `LoginStatus` `ACTIVE`/`INACTIVE`/`LOCKED`/`SUSPENDED` | **Only `ACTIVE` may transact.** |
-| Who handled a transaction | `TransactionHandler` → `account_transactions` columns | Employee number/name/role + branch/ATM id/name/type/city/state, snapshotted; null for customer-initiated. |
+| Who handled a transaction | `TransactionHandler` → `account_transactions` columns | Employee number/name/role + branch/ATM id/name/type/city/state, snapshotted; null for customer-initiated. **Customers see the branch/ATM, never the employee**: `BankStatementService` clears the employee fields on every statement line (`AccountTransaction.withoutStaffIdentity()`), the portal activity shape has no employee field. Keep any new customer-facing transaction view the same way. |
 
 ## Rules (do not break)
 1. **An employee acts only if their employment status is ACTIVE *and* they have an ACTIVE login with the role's privilege** (`EmployeeService.requirePrivilege`; a missing login is rejected). Every staff endpoint goes through it *before* any service is called, and a rejected call must leave nothing changed (tests assert `never()`/`verifyNoInteractions`).

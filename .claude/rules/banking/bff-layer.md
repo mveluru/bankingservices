@@ -20,7 +20,7 @@ bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 
 ## Keeping the BFF in step with banking
 - **Every customer-facing banking capability needs a portal counterpart**, in screen shape: today accounts (home, overview, open, withdraw, deposit, close, statement) and access (login + home in one call, change password, security questions + catalog, password reset). When a customer-facing banking endpoint is added or changes, update `PortalController`/`PortalAuthController`, the DTOs, the OpenAPI `Portal (BFF)` operations, the README portal rows, `PortalCorsConfig` (a new verb or header) and `CustomerAuthenticationFilter.OPEN` (a new no-token portal path), with tests. Staff-only banking features (suspend, reactivate, staff login, admin password) are deliberately **not** mirrored.
-- **Never expose staff identity to customers.** Anything shown to a customer shows the branch/ATM (`bankLocationName/Type/City/State`) but not the employee: portal DTOs have no employee field, and `statement` clears `employeeNumber/Name/Role` on a copy of each transaction.
+- **Never expose staff identity to customers.** Anything shown to a customer shows the branch/ATM (`bankLocationName/Type/City/State`) but not the employee: portal DTOs have no employee field, and `BankStatementService.generateStatement` clears `employeeNumber/Name/Role` on every statement line (so the banking and portal statements both hide staff identity).
 - A DTO that carries a token (`PortalLoginResponse`) must keep it out of `toString`; login responses are `Cache-Control: no-store`.
 
 ## Rules
@@ -47,6 +47,6 @@ bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 
 ## Tests
 - `PortalAuthServiceTest` (login composes token + customer + home and a failed login never builds home; delegation with the customer id from the token; catalog), `PortalAuthControllerTest` (no-store, status mapping, fail-closed 401, open routes, validation), `CustomerAuthenticationFilterTest` (the open portal paths and that `PUT` password/questions need a token).
-- Overview/statement: activity shows the branch/ATM and no employee field exists; the statement copy has the employee fields cleared and the banking statement itself is untouched (`PortalOrchestrationServiceTest`).
+- Overview: activity shows the branch/ATM and no employee field exists (`PortalOrchestrationServiceTest`); the statement hiding is tested where it happens, in `BankStatementServiceTest`.
 - Service: plain Mockito (`PortalOrchestrationServiceTest`), including the not-found and bad-`days` paths, that rejected input never calls collaborators, that each mutation delegates then returns the refreshed overview, and that a suspended-account rejection propagates without building an overview.
 - Controller: standalone MockMvc with `BankingExceptionHandler` (`PortalControllerTest`).
