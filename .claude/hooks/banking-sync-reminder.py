@@ -49,7 +49,7 @@ if has("banking/repository/AccountRepository.java", "banking/service/AccountSusp
         "Account lifecycle invariant: a SUSPENDED account must reject every withdraw/deposit (status and suspended flag written together). "
         "Keep .claude/rules/banking/account-lifecycle.md and the AccountRepositoryTest suspension tests in step.")
 
-if rel.startswith("src/main/java/org/bee/banking/") and "/bff/" not in rel and not rel.endswith("BankingMessages.java"):
+if rel.startswith("src/main/java/org/brite/banking/") and "/bff/" not in rel and not rel.endswith("BankingMessages.java"):
     notes.append("Add new user-visible/log strings to BankingMessages, not as literals. Add or update the matching test.")
 
 if rel.endswith("banking-openapi.yaml"):

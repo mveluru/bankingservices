@@ -1,8 +1,8 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/contoller/**"
-  - "src/main/java/org/bee/banking/request/**"
-  - "src/main/java/org/bee/banking/domain/**"
+  - "src/main/java/org/brite/banking/contoller/**"
+  - "src/main/java/org/brite/banking/request/**"
+  - "src/main/java/org/brite/banking/domain/**"
   - "src/main/resources/static/openapi/**"
 ---
 # Banking: REST conventions and OpenAPI sync

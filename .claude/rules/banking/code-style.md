@@ -1,7 +1,7 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/**"
-  - "src/test/java/org/bee/banking/**"
+  - "src/main/java/org/brite/banking/**"
+  - "src/test/java/org/brite/banking/**"
 ---
 # Banking module: code style
 

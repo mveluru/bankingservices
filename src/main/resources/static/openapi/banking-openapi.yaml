@@ -4,14 +4,14 @@ info:
   title: Brite Banking API
   version: 1.0.0
   description: |
-    REST API for the `org.bee.banking` module of the bankingservices Spring Boot application:
+    REST API for the `org.brite.banking` module of the bankingservices Spring Boot application:
     account registration, lookup, deposit/withdrawal, closing (single and bulk), paginated
     account-status search, bank office/ATM location search, bank statements, plus the module's async-notification and
     Resilience4j payment demo endpoints.
 
     ## Gateway behavior (applies to every endpoint in this document)
 
-    Every path below sits behind two servlet filters (`org.bee.banking.gateway`), which run
+    Every path below sits behind two servlet filters (`org.brite.banking.gateway`), which run
     *before* the controllers:
 
     1. **`BusinessTransactionIdFilter`** generates a UUID per request and returns it in the

@@ -1,8 +1,8 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/service/**"
+  - "src/main/java/org/brite/banking/service/**"
 ---
-# Banking layer: services (`org.bee.banking.service`)
+# Banking layer: services (`org.brite.banking.service`)
 
 - `@Service @Slf4j @RequiredArgsConstructor`; collaborators are `private final` facades/services/`AccountConstraints`.
 - All business rules live here: minimum age, minimum balance, max cash deposit, statement date range, account-type from prefix, date-range and `months` validation.

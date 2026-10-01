@@ -1,8 +1,8 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/contoller/**"
+  - "src/main/java/org/brite/banking/contoller/**"
 ---
-# Banking layer: controllers (`org.bee.banking.contoller`)
+# Banking layer: controllers (`org.brite.banking.contoller`)
 
 - `@RestController @RequestMapping("/v1/...") @RequiredArgsConstructor`. Only routing, binding, `@Valid`, and wrapping in `ResponseEntity`.
 - No business rules, no repository access, no try/catch. Throw from the service; `BankingExceptionHandler` maps it.

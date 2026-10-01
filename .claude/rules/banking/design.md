@@ -1,10 +1,10 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/domain/**"
-  - "src/main/java/org/bee/banking/entity/**"
-  - "src/main/java/org/bee/banking/request/**"
-  - "src/main/java/org/bee/banking/component/**"
-  - "src/main/java/org/bee/banking/rules/**"
+  - "src/main/java/org/brite/banking/domain/**"
+  - "src/main/java/org/brite/banking/entity/**"
+  - "src/main/java/org/brite/banking/request/**"
+  - "src/main/java/org/brite/banking/component/**"
+  - "src/main/java/org/brite/banking/rules/**"
 ---
 # Banking module: design (domain, entity, request, mapping)
 

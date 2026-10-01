@@ -1,11 +1,11 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/domain/Account*.java"
-  - "src/main/java/org/bee/banking/entity/AccountEntity.java"
-  - "src/main/java/org/bee/banking/repository/Account*.java"
-  - "src/main/java/org/bee/banking/service/AccountSuspension*.java"
-  - "src/main/java/org/bee/banking/service/ClientAccountService.java"
-  - "src/main/java/org/bee/banking/request/*Suspen*.java"
+  - "src/main/java/org/brite/banking/domain/Account*.java"
+  - "src/main/java/org/brite/banking/entity/AccountEntity.java"
+  - "src/main/java/org/brite/banking/repository/Account*.java"
+  - "src/main/java/org/brite/banking/service/AccountSuspension*.java"
+  - "src/main/java/org/brite/banking/service/ClientAccountService.java"
+  - "src/main/java/org/brite/banking/request/*Suspen*.java"
   - "db/**"
 ---
 # Banking: account lifecycle (ACTIVE / SUSPENDED / CLOSED)

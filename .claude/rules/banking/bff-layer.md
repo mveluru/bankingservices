@@ -1,9 +1,9 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/bff/**"
-  - "src/test/java/org/bee/banking/bff/**"
+  - "src/main/java/org/brite/banking/bff/**"
+  - "src/test/java/org/brite/banking/bff/**"
 ---
-# Banking layer: BFF / orchestration for the banking UI portal (`org.bee.banking.bff`)
+# Banking layer: BFF / orchestration for the banking UI portal (`org.brite.banking.bff`)
 
 Backend-for-frontend for the React "banking UI portal". Composes existing banking services **in process** (no HTTP hop) into one payload per screen. Under `/bff/v1/portal`.
 
@@ -23,7 +23,7 @@ bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 - The account overview and home rows show `suspended`/`suspendedUntil` so the portal can disable transact buttons; don't expose `suspensionNotes` (internal) in any BFF payload. Phone numbers go out masked only (`maskedPhoneNumber`, last four digits via `PortalOrchestrationService.maskPhone`).
 - `statement` is the one portal endpoint with a notification side effect (`BankStatementService.generateStatement` emails/SMSes), so it is a `POST` (`accounts/{n}/statement?beginDate=&endDate=`) returning the `BankStatement`; keep it out of `GET`/read paths.
 - One endpoint per portal screen; add fields to the screen's DTO rather than adding chatty endpoints.
-- Errors: throw the existing typed exceptions with `BankingMessages` text; `BankingExceptionHandler` already covers `org.bee.banking.bff` (plain text 400/404). Add `PORTAL_*`/`LOG_PORTAL_*` constants, no inline strings.
+- Errors: throw the existing typed exceptions with `BankingMessages` text; `BankingExceptionHandler` already covers `org.brite.banking.bff` (plain text 400/404). Add `PORTAL_*`/`LOG_PORTAL_*` constants, no inline strings.
 - Tunables (limits, allowed origins) go in `PortalProperties` + `application.yml` under `banking.portal`, not literals.
 - Every new path needs `BankingGatewayConfig.BANKING_URL_PATTERNS` (`/bff/v1/portal/*` covers sub-paths), `banking-openapi.yaml` (tag `Portal (BFF)`), and the README table.
 - Mutating passthroughs (implemented: `withdraw`, `deposit`, `suspend`, `PATCH suspension`, `reactivate`, `close`): call the existing service method (it owns the rules, cache eviction and notifications), then return `overview(accountNumber, null)` so the portal redraws from one response. If the service throws, propagate it (no overview is built). Reuse the banking request types (`WithdrawalRequest`, `DepositForm`, `SuspendAccountRequest`, `UpdateSuspensionRequest`) instead of cloning them.

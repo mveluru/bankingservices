@@ -7,7 +7,7 @@ server:
 logging:
   pattern:
     # [btid=...] surfaces the per-request business transaction id BusinessTransactionIdFilter
-    # puts into MDC (org.bee.banking.gateway), so every log line from every layer of a banking
+    # puts into MDC (org.brite.banking.gateway), so every log line from every layer of a banking
     # request - controller, service, repository - carries the same id. "-" when absent (e.g.
     # startup logs, scheduled tasks) since those run outside any request's filter chain.
     console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p ${PID:- } --- [%15.15t] [btid=%X{btid:--}] %-40.40logger{39} : %m%n%wEx"

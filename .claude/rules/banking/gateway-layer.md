@@ -1,8 +1,8 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/gateway/**"
+  - "src/main/java/org/brite/banking/gateway/**"
 ---
-# Banking layer: gateway filters (`org.bee.banking.gateway`)
+# Banking layer: gateway filters (`org.brite.banking.gateway`)
 
 Servlet `Filter`s in front of every banking path, registered only through `BankingGatewayConfig` `FilterRegistrationBean`s.
 

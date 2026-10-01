@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/test/java/org/bee/banking/**"
+  - "src/test/java/org/brite/banking/**"
 ---
 # Banking: testing conventions
 

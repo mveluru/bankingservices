@@ -1,13 +1,13 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/exception/**"
-  - "src/main/java/org/bee/banking/messages/**"
+  - "src/main/java/org/brite/banking/exception/**"
+  - "src/main/java/org/brite/banking/messages/**"
 ---
 # Banking: exceptions and messages
 
 ## Exceptions
 - One typed unchecked exception per business failure (`AccountNotFoundException`, `AccountClosedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `LocationNotFoundException`, `BankServiceUnavailableException`). Extend `RuntimeException`, take a message only.
-- Mapping lives solely in `BankingExceptionHandler` (`@RestControllerAdvice(basePackages = "org.bee.banking")`): each handler logs `warn` with a `LOG_HANDLER_*` constant and returns `ResponseEntity<String>` (plain text body).
+- Mapping lives solely in `BankingExceptionHandler` (`@RestControllerAdvice(basePackages = "org.brite.banking")`): each handler logs `warn` with a `LOG_HANDLER_*` constant and returns `ResponseEntity<String>` (plain text body).
 
 | Exception | Status |
 |---|---|

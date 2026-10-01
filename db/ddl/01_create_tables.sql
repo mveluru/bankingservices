@@ -1,7 +1,7 @@
 -- =============================================================================
 -- DDL: creates the schema the Spring Boot app uses (MySQL 8, InnoDB).
 --
--- Generated from the JPA entities (org.bee.banking.entity.*, org.bee.events.dto.EventEntity)
+-- Generated from the JPA entities (org.brite.banking.entity.*, org.brite.events.dto.EventEntity)
 -- with Hibernate 6.6's MySQLDialect and the app's naming strategy - i.e. the same DDL that
 -- `spring.jpa.hibernate.ddl-auto: update` produces on a fresh database. Constraint names are
 -- Hibernate's own, so a later `ddl-auto: update` sees an identical schema and adds nothing.

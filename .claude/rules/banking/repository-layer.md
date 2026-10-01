@@ -1,7 +1,7 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/repository/**"
-  - "src/main/java/org/bee/banking/entity/**"
+  - "src/main/java/org/brite/banking/repository/**"
+  - "src/main/java/org/brite/banking/entity/**"
   - "db/**"
 ---
 # Banking layer: repositories and persistence

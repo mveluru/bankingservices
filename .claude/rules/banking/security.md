@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/**"
+  - "src/main/java/org/brite/banking/**"
 ---
 # Banking: security and data handling
 

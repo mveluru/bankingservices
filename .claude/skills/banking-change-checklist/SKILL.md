@@ -1,6 +1,6 @@
 ---
 name: banking-change-checklist
-description: Checklist for any change to the banking module (new endpoint, field, status, seed data, exception). Use before and after editing org.bee.banking so code, db/ scripts, OpenAPI, README, rules and tests stay in sync. Trigger on "add an endpoint/field/status to banking", "update banking", or before committing banking changes.
+description: Checklist for any change to the banking module (new endpoint, field, status, seed data, exception). Use before and after editing org.brite.banking so code, db/ scripts, OpenAPI, README, rules and tests stay in sync. Trigger on "add an endpoint/field/status to banking", "update banking", or before committing banking changes.
 ---
 
 # Banking change checklist
@@ -16,7 +16,7 @@ Work through the rows that apply, then run the verification commands. The rules 
 | Anything shown in `AccountStatusView` | `@CacheEvict(ACCOUNT_SEARCH_CACHE, allEntries = true)` on the mutation + `AccountSearchCachingTest` |
 | Withdraw/deposit or any new transaction type | closed **and suspended** guards before balance checks in `AccountRepository`, plus a test for each |
 | A user-visible or log string | a constant in `BankingMessages` (no literals) |
-| A BFF screen (`org.bee.banking.bff`) | DTO record, `PortalOrchestrationService`, OpenAPI tag `Portal (BFF)`, README, `PortalControllerTest` / `PortalOrchestrationServiceTest` |
+| A BFF screen (`org.brite.banking.bff`) | DTO record, `PortalOrchestrationService`, OpenAPI tag `Portal (BFF)`, README, `PortalControllerTest` / `PortalOrchestrationServiceTest` |
 | Behavior described in CLAUDE.md | the matching CLAUDE.md section and rules file, in the same commit |
 
 ## 2. Tests (lightest that proves it)

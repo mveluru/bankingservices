@@ -1,11 +1,11 @@
 ---
 paths:
-  - "src/main/java/org/bee/banking/**"
-  - "src/test/java/org/bee/banking/**"
+  - "src/main/java/org/brite/banking/**"
+  - "src/test/java/org/brite/banking/**"
 ---
 # Banking module: architecture
 
-Vertical slice under `org.bee.banking`. Request flow:
+Vertical slice under `org.brite.banking`. Request flow:
 
 ```
 HTTP → gateway filters (btid → rate limit → request log)
