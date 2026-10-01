@@ -8,9 +8,8 @@ A Spring Boot 3 REST application demonstrating configuration properties binding 
 
 - **Configuration Management**: Strongly-typed properties bound via `@ConfigurationProperties` for notification options (App, Email, SMS, Retry).
 - **Configs API**: Exposes endpoints under `/v1/configs` to query live application, email, and SMS configurations.
-- **Product Catalog API**: Exposes endpoints under `/v1/product` to list, look up, and add products (in-memory catalog).
 - **Banking APIs**: Client/account lookup, registration, withdrawal, and deposit (`/v1/client`, `/v1/api/accounts`) — accounts, customers, transactions, and withdrawal history are persisted via Spring Data JPA to the same MySQL database as the events module (see below), so data survives app restarts — plus async notification demos (`/notify`, `/report`) backed by `@Async`. Account numbers are always `CH-`/`SV-` (checking/savings) followed by a zero-padded 10-digit number (e.g. `CH-0000088291`), whether seeded or generated on registration. 52 demo accounts (26 checking, 26 savings) are seeded on first startup against an empty database (see [Data Model](#-banking-data-model-jpa) below).
-- **Banking API Gateway & Rate Limiter**: Every banking endpoint (`/v1/api/accounts/**`, `/v1/api/locations/**`, `/v1/client/**`, `/v1/payment/**`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/**`) sits behind a `Filter`-based gateway ingress layer that requires an `X-Customer-Id` header and caps each customer to a configurable number of requests per day (`banking.rate-limit`, default 1000/day) — see [Banking API gateway](#-banking-api-gateway--rate-limiter) below. Retail/events/configs endpoints are unaffected.
+- **Banking API Gateway & Rate Limiter**: Every banking endpoint (`/v1/api/accounts/**`, `/v1/api/locations/**`, `/v1/client/**`, `/v1/payment/**`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/**`) sits behind a `Filter`-based gateway ingress layer that requires an `X-Customer-Id` header and caps each customer to a configurable number of requests per day (`banking.rate-limit`, default 1000/day) — see [Banking API gateway](#-banking-api-gateway--rate-limiter) below. Events/configs endpoints are unaffected.
 - **Business Transaction ID (btid) Tracing**: The same gateway stamps every banking request with a unique `btid` (`X-BTID` response header) before it reaches any controller. The id is stored in SLF4J's MDC, so every log line from every layer of that request — controller, service, repository — carries it, letting you grep one request's full log trail with a single id.
 - **Account Constraints**: Configurable business rules (`banking.constraints`) enforced on registration/withdrawal/deposit — minimum age to open an account, minimum balance retained after a withdrawal (checking/savings), and a maximum single cash-deposit amount.
 - **Bank Statement**: `/v1/api/accounts/{accountNumber}/statement` returns an account's deposit/withdrawal history for a given date range, capped by a configurable maximum range in months.
@@ -126,15 +125,6 @@ All REST endpoints are prefixed with `http://localhost:8081/brite`:
 | `GET` | `/v1/configs/app-config/values` | Returns application connection pool size and timeout settings |
 | `GET` | `/v1/configs/email-config/values` | Returns email notification configuration values |
 | `GET` | `/v1/configs/sms-config/values` | Returns SMS notification configuration values |
-
-### Product catalog — `/v1/product`
-
-| Method | Endpoint Path | Description |
-| :--- | :--- | :--- |
-| `GET` | `/v1/product/allproducts` | Returns all products in the catalog |
-| `GET` | `/v1/product/productId/{productId}` | Returns a single product by ID, or `404` if not found |
-| `POST` | `/v1/product/addproduct` | Adds a new product to the catalog and returns it |
-| `GET` | `/v1/product/productmessage` | Triggers an internal product/user lookup and returns a confirmation message |
 
 ### Banking — clients, accounts & notifications
 
@@ -292,17 +282,6 @@ curl -s http://localhost:8081/brite/actuator/health
 curl -s http://localhost:8081/brite/actuator/health/liveness
 curl -s http://localhost:8081/brite/actuator/health/readiness
 
-# Get All Products
-curl -s http://localhost:8081/brite/v1/product/allproducts
-
-# Get Product By ID
-curl -s http://localhost:8081/brite/v1/product/productId/101
-
-# Add a Product
-curl -s -X POST http://localhost:8081/brite/v1/product/addproduct \
-  -H "Content-Type: application/json" \
-  -d '{"productId":"200","productName":"Test Widget","quantity":"5","price":42.5}'
-
 # List/Search Accounts (paginated; all filters optional). The seeded CLOSED accounts are
 # 26-40 months old (created), so months must be widened to see them (22 CLOSED in total).
 curl -s -H "X-Customer-Id: demo-customer-1" \
@@ -424,7 +403,6 @@ mvn test
 
 | Test Class | Covers |
 | :--- | :--- |
-| `ProductControllerTest` | `/v1/product` endpoints — list, get by ID (found + `404` not-found), add, product message |
 | `BriteConfigValuesControllerTest` | `/v1/configs` config endpoints — app, email, SMS |
 | `BankingServicesApplicationTests` | Application context load + actuator health, liveness, and readiness probes |
 | `AccountRepositoryTest` | `@DataJpaTest` against embedded H2 (no live MySQL needed — see [Data Model](#-banking-data-model-jpa)) — account creation defaults, ACTIVE/SUSPENDED/CLOSED status lifecycle (suspend/update/reactivate/expire, suspended accounts rejecting withdraw/deposit), withdraw/deposit balance rules, account search/pagination/sorting/date-range filters, conditional accountNumber filter, all as real SQL |

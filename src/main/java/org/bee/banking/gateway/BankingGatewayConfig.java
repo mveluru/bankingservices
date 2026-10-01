@@ -10,8 +10,8 @@ import org.springframework.core.Ordered;
 
 /**
  * Registers the banking module's gateway filters, scoped to only its controller paths
- * (see each controller's @RequestMapping under org.bee.banking.contoller), so retail,
- * events, and configs endpoints are unaffected. Neither filter is a @Component itself
+ * (see each controller's @RequestMapping under org.bee.banking.contoller), so events
+ * and configs endpoints are unaffected. Neither filter is a @Component itself
  * so Spring Boot doesn't also auto-register them for "/*". {@link BusinessTransactionIdFilter}
  * runs first (lower order value = higher precedence) so every request - including ones
  * {@link BankingRateLimitFilter} goes on to reject - gets a correlatable btid.

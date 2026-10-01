@@ -29,7 +29,7 @@ Do not mock `*JpaRepository` to test a `Specification`; a mock can't prove the S
 ## Style
 - Arrange/act/assert separated by blank lines; one behaviour per test; no logic in tests.
 - Test data via domain `@Builder`s; use `BigDecimal` with explicit scale; dates relative to `LocalDate.now()` when the code under test uses "today".
-- No `Thread.sleep`; no reliance on seeded MySQL data or test order. Shared static state (retail catalog) is out of scope here.
+- No `Thread.sleep`; no reliance on seeded MySQL data or test order.
 - Run: `mvn test -Dtest=ClassName#method`; the full suite needs MySQL up, the banking unit/H2 tests do not.
 
 ## Suspension coverage (keep when touching the lifecycle)
