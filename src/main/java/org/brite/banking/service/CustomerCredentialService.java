@@ -172,6 +172,37 @@ public class CustomerCredentialService {
     }
 
     /**
+     * A logged-in customer changes their own password. The current password is checked like a login (wrong guesses count toward
+     * the login lock), the new one must be exactly 8 digits and different, and the login must be ACTIVE. Every token issued before now
+     * stops working, including the caller's own: they log in again with the new password.
+     *
+     * @throws IllegalArgumentException (mapped to 400) for a bad or unchanged new password
+     * @throws InvalidCredentialsException (mapped to 401) if the current password is wrong or the login no longer exists
+     * @throws EmployeeLockedException (mapped to 423) while the login is locked
+     * @throws LoginNotActiveException (mapped to 403) if the login is INACTIVE or SUSPENDED
+     */
+    @Transactional(noRollbackFor = {InvalidCredentialsException.class, EmployeeLockedException.class, LoginNotActiveException.class})
+    public void changePassword(Long customerId, String currentPassword, String newPassword) {
+        String hash = login.hashNewPassword(newPassword);
+        if (newPassword.equals(currentPassword)) {
+            throw new IllegalArgumentException(BankingMessages.PASSWORD_UNCHANGED);
+        }
+        CustomerCredential credential = credentialRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new InvalidCredentialsException(BankingMessages.INVALID_CREDENTIALS));
+        login.checkPassword(credential, customerId, currentPassword == null ? "" : currentPassword, state -> credentialRepository.save(credential));
+        if (credential.getStatus() != LoginStatus.ACTIVE) {
+            throw new LoginNotActiveException(String.format(BankingMessages.CUSTOMER_LOGIN_NOT_ACTIVE, credential.getStatus()));
+        }
+        credential.setPasswordHash(hash);
+        credential.setPasswordChangedAt(LocalDateTime.now());
+        credential.setFailedAttempts(0);
+        credential.setResetFailedAttempts(0);
+        credential.setResetLockedUntil(null);
+        credentialRepository.save(credential);
+        log.info(BankingMessages.LOG_PASSWORD_CHANGED, "customer", customerId);
+    }
+
+    /**
      * An administrator sets the customer's password to a new 8-digit value; the failure counters (login and password reset) are
      * cleared, the status is left as it is, and tokens issued before now stop working.
      *

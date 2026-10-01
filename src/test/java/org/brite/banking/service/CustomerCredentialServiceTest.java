@@ -227,4 +227,47 @@ class CustomerCredentialServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.adminSetPassword(5L, "123"));
         assertThrows(CustomerNotFoundException.class, () -> service.adminSetPassword(99L, "24681357"));
     }
+
+    @Test
+    void changePasswordChecksTheCurrentOneSetsTheNewHashAndMovesPasswordChangedAtForward() {
+        CustomerCredential c = storedWith(LoginStatus.ACTIVE, null);
+        c.setFailedAttempts(2);
+        when(credentials.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        LocalDateTime before = LocalDateTime.now().minusSeconds(1);
+
+        service.changePassword(5L, "20260005", "13572468");
+
+        assertTrue(ENCODER.matches("13572468", c.getPasswordHash()));
+        assertFalse(ENCODER.matches("20260005", c.getPasswordHash()));
+        assertEquals(0, c.getFailedAttempts());
+        assertTrue(c.getPasswordChangedAt().isAfter(before));
+    }
+
+    @Test
+    void aWrongCurrentPasswordIsCountedTowardTheLoginLockAndNothingChanges() {
+        CustomerCredential c = storedWith(LoginStatus.ACTIVE, null);
+        String hash = c.getPasswordHash();
+        for (int i = 0; i < 3; i++) {
+            assertThrows(InvalidCredentialsException.class, () -> service.changePassword(5L, "00000000", "13572468"));
+        }
+        assertEquals(LoginStatus.LOCKED, c.getStatus());
+        assertEquals(hash, c.getPasswordHash());
+        assertThrows(EmployeeLockedException.class, () -> service.changePassword(5L, "20260005", "13572468"));
+    }
+
+    @Test
+    void changePasswordRejectsABadOrUnchangedNewPasswordAndAnInactiveLogin() {
+        storedWith(LoginStatus.ACTIVE, null);
+        for (String bad : new String[]{"1234567", "123456789", "abcdefgh", "", null}) {
+            assertThrows(IllegalArgumentException.class, () -> service.changePassword(5L, "20260005", bad));
+        }
+        assertThrows(IllegalArgumentException.class, () -> service.changePassword(5L, "20260005", "20260005"));
+
+        for (LoginStatus status : new LoginStatus[]{LoginStatus.INACTIVE, LoginStatus.SUSPENDED}) {
+            storedWith(status, null);
+            assertThrows(LoginNotActiveException.class, () -> service.changePassword(5L, "20260005", "13572468"), status.name());
+        }
+        when(credentials.findByCustomerId(5L)).thenReturn(Optional.empty());
+        assertThrows(InvalidCredentialsException.class, () -> service.changePassword(5L, "20260005", "13572468"));
+    }
 }

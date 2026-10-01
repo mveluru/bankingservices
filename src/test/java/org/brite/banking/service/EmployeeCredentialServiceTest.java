@@ -297,4 +297,36 @@ class EmployeeCredentialServiceTest {
         when(employees.findByEmployeeNumber("EMP-NONE")).thenReturn(Optional.empty());
         assertThrows(org.brite.banking.exception.InvalidTokenException.class, () -> service.requireTokenCurrent("EMP-NONE", java.time.Instant.now()));
     }
+
+    @Test
+    void anEmployeeChangesTheirPasswordAfterProvingTheCurrentOne() {
+        employee(EmployeeStatus.ACTIVE);
+        EmployeeCredential c = stored(1, null);
+        when(credentials.findByEmployeeId(7L)).thenReturn(Optional.of(c));
+        when(credentials.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.changePassword("EMP-000010", "20260010", "13572468");
+
+        assertTrue(ENCODER.matches("13572468", c.getPasswordHash()));
+        assertEquals(0, c.getFailedAttempts());
+        assertNotNull(c.getPasswordChangedAt());
+    }
+
+    @Test
+    void anEmployeeCannotChangeWithAWrongCurrentOrABadOrUnchangedNewPasswordOrAnInactiveLogin() {
+        employee(EmployeeStatus.ACTIVE);
+        EmployeeCredential c = stored(0, null);
+        when(credentials.findByEmployeeId(7L)).thenReturn(Optional.of(c));
+        String hash = c.getPasswordHash();
+
+        assertThrows(InvalidCredentialsException.class, () -> service.changePassword("EMP-000010", "00000000", "13572468"));
+        assertThrows(IllegalArgumentException.class, () -> service.changePassword("EMP-000010", "20260010", "123"));
+        assertThrows(IllegalArgumentException.class, () -> service.changePassword("EMP-000010", "20260010", "20260010"));
+        assertEquals(hash, c.getPasswordHash());
+
+        c.setStatus(LoginStatus.SUSPENDED);
+        assertThrows(LoginNotActiveException.class, () -> service.changePassword("EMP-000010", "20260010", "13572468"));
+        when(employees.findByEmployeeNumber("EMP-NONE")).thenReturn(Optional.empty());
+        assertThrows(InvalidCredentialsException.class, () -> service.changePassword("EMP-NONE", "20260010", "13572468"));
+    }
 }

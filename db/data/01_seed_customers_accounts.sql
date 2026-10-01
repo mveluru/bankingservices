@@ -1,4 +1,4 @@
--- =============================================================================
+    -- =============================================================================
 -- DATA: the 52 demo accounts (26 checking, 26 savings) and their customers, exactly as
 -- AccountDataSeeder creates them - generated from that class, so the two stay identical.
 --

@@ -234,4 +234,25 @@ class PasswordResetPersistenceTest {
         customerService.adminSetPassword(10L, "12348765");
         assertEquals(10L, customerService.verify("customer0010", "12348765").getCustomerId());
     }
+
+    @Test
+    void aLoggedInCustomerChangesTheirPasswordAndTheOldOneStopsWorking() {
+        customerService.changePassword(6L, "20260006", "13572468");
+
+        assertEquals(6L, customerService.verify("customer0006", "13572468").getCustomerId());
+        assertThrows(InvalidCredentialsException.class, () -> customerService.verify("customer0006", "20260006"));
+        assertThrows(InvalidCredentialsException.class, () -> customerService.changePassword(6L, "20260006", "99887766"), "the old password is no longer the current one");
+        assertThrows(IllegalArgumentException.class, () -> customerService.changePassword(6L, "13572468", "13572468"));
+    }
+
+    @Test
+    void aWrongCurrentPasswordOnChangeIsCountedAndPersistedTowardTheLoginLock() {
+        for (int i = 0; i < 5; i++) {
+            assertThrows(InvalidCredentialsException.class, () -> employeeService.changePassword("EMP-000015", "00000000", "13572468"));
+        }
+        var row = employeeRows.findByUsername("grace.nowak").orElseThrow();
+        assertEquals(LoginStatus.LOCKED, row.getStatus());
+        assertNotNull(row.getLockedUntil());
+        assertThrows(EmployeeLockedException.class, () -> employeeService.changePassword("EMP-000015", "20260015", "13572468"));
+    }
 }

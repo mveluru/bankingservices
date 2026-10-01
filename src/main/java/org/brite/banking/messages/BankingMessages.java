@@ -41,6 +41,7 @@ public final class BankingMessages {
     public static final String CUSTOMER_TOKEN_REQUIRED = "This endpoint needs a customer token";
     public static final String CUSTOMER_AUTHENTICATION_REQUIRED = "Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/customers/login";
     public static final String ACCOUNT_NOT_OWNED = "Account %s does not belong to the authenticated customer";
+    public static final String PASSWORD_UNCHANGED = "The new password must be different from the current password";
     public static final String RESET_FAILED = "Invalid username or answers";
     public static final String RESET_LOCKED = "Too many wrong answers; password reset is locked until %s";
     public static final String RESET_LOGIN_NOT_ACTIVE = "Login is %s; the password can't be reset until it is ACTIVE";
@@ -174,6 +175,7 @@ public final class BankingMessages {
     public static final String LOG_PASSWORD_RESET_FAILED = "Failed password reset for {} id {} (wrong answers: {})";
     public static final String LOG_PASSWORD_RESET_LOCKED = "Password reset locked for {} id {} until {} after {} wrong answers";
     public static final String LOG_PASSWORD_RESET_UNKNOWN = "{} password reset attempt for an unknown username or without security questions";
+    public static final String LOG_PASSWORD_CHANGED = "{} id {} changed their password";
     public static final String LOG_PASSWORD_SET_BY_ADMIN = "{} id {} password was set by an administrator";
 
     // StaffAccountService log messages

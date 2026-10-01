@@ -58,7 +58,7 @@ tags:
   - name: Login
     description: Verify an employee or customer username and 8-digit password. Returns a signed JWT access token and who the caller is. The employee token is required by every other staff endpoint.
   - name: Password reset
-    description: Reset a forgotten password by answering three security questions (employees and customers), set those questions while logged in, and administrator password set.
+    description: Change your own password, reset a forgotten one by answering three security questions (employees and customers), set those questions while logged in, and administrator password set.
   - name: Portal (BFF)
     description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call. Everything except `POST accounts/open` needs the customer token, and only reaches the caller's own accounts. There is no suspend or reactivate here, which is staff-only work.
   - name: Clients
@@ -1521,6 +1521,96 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/customers/password:
+    put:
+      tags: [Password reset]
+      operationId: changeCustomerPassword
+      summary: Change your own password
+      description: |
+        Requires the customer token. Send the **current password** and a **new** exactly-8-digit password that differs from it.
+        The current password is checked like a login: wrong guesses count toward the login lock (`423` once locked). The login must be `ACTIVE`.
+        On success **every token issued before now stops working, including the one used for this call**: log in again with the new password.
+        Both passwords are masked in request logs. Returns `204`.
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangePasswordRequest'}
+            example: {currentPassword: '20260009', newPassword: '13572468'}
+      responses:
+        '204':
+          description: Password changed.
+        '400':
+          description: Missing field (JSON validation), a new password that isn't exactly 8 digits, or one equal to the current password (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          description: No or invalid token, or the current password is wrong (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          description: The login is `INACTIVE` or `SUSPENDED`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: The login is `LOCKED`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/password:
+    put:
+      tags: [Password reset]
+      operationId: changeStaffPassword
+      summary: Change your own password
+      description: |
+        Requires the staff token. Send the **current password** and a **new** exactly-8-digit password that differs from it.
+        The current password is checked like a login: wrong guesses count toward the login lock (`423` once locked). The login must be `ACTIVE`.
+        On success **every token issued before now stops working, including the one used for this call**: log in again with the new password.
+        Both passwords are masked in request logs. Returns `204`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangePasswordRequest'}
+            example: {currentPassword: '20260009', newPassword: '13572468'}
+      responses:
+        '204':
+          description: Password changed.
+        '400':
+          description: Missing field (JSON validation), a new password that isn't exactly 8 digits, or one equal to the current password (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          description: No or invalid token, or the current password is wrong (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          description: The login is `INACTIVE` or `SUSPENDED`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: The login is `LOCKED`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/api/staff/customers/{customerId}/password:
     put:
       tags: [Password reset]
@@ -2196,6 +2286,13 @@ components:
           maxItems: 3
           items: {$ref: '#/components/schemas/SecurityAnswerRequest'}
         newPassword: {type: string, description: 'Exactly 8 digits. Masked in request logs.', example: '24681357'}
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: {type: string, description: 'The caller''s current password.'}
+        newPassword: {type: string, description: 'Exactly 8 digits and different from the current password. Masked in request logs.', example: '13572468'}
 
     AdminSetPasswordRequest:
       type: object

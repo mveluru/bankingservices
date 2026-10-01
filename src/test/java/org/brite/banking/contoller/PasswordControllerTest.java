@@ -12,6 +12,8 @@ import org.brite.banking.gateway.CustomerAuthenticationFilter;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
 import org.brite.banking.repository.AccountRepository;
 import org.brite.banking.service.CustomerAccessService;
+import org.brite.banking.service.CustomerCredentialService;
+import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.PasswordResetService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,12 +47,16 @@ class PasswordControllerTest {
             + "{\"question\":\"FIRST_TEACHER\",\"answer\":\"Mrs Patel\"}]";
 
     private PasswordResetService service;
+    private CustomerCredentialService customers;
+    private EmployeeCredentialService employees;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         service = mock(PasswordResetService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new PasswordController(service, new CustomerAccessService(mock(AccountRepository.class))))
+        customers = mock(CustomerCredentialService.class);
+        employees = mock(EmployeeCredentialService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new PasswordController(service, customers, employees, new CustomerAccessService(mock(AccountRepository.class))))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))
@@ -151,5 +157,54 @@ class PasswordControllerTest {
         mockMvc.perform(put("/v1/api/staff/security-questions").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-000010")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"answers\":" + ANSWERS + "}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void aLoggedInCustomerChangesTheirPasswordUsingTheTokenIdentity() throws Exception {
+        mockMvc.perform(put("/v1/api/customers/password").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260005\",\"newPassword\":\"13572468\"}"))
+                .andExpect(status().isNoContent()).andExpect(content().string(""));
+        verify(customers).changePassword(5L, "20260005", "13572468");
+    }
+
+    @Test
+    void aLoggedInEmployeeChangesTheirPasswordUsingTheTokenIdentity() throws Exception {
+        mockMvc.perform(put("/v1/api/staff/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-000010")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260010\",\"newPassword\":\"13572468\"}"))
+                .andExpect(status().isNoContent());
+        verify(employees).changePassword("EMP-000010", "20260010", "13572468");
+    }
+
+    @Test
+    void changePasswordFailuresMapTo401400423And403() throws Exception {
+        org.mockito.Mockito.doThrow(new InvalidCredentialsException("Invalid username or password")).when(customers).changePassword(5L, "00000000", "13572468");
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("The new password must be different from the current password")).when(customers).changePassword(5L, "20260005", "20260005");
+        org.mockito.Mockito.doThrow(new EmployeeLockedException("Too many failed login attempts; locked until x")).when(employees).changePassword(eq("EMP-L"), any(), any());
+        org.mockito.Mockito.doThrow(new LoginNotActiveException("Employee EMP-S login is SUSPENDED; only an ACTIVE login can perform transactions")).when(employees).changePassword(eq("EMP-S"), any(), any());
+
+        mockMvc.perform(put("/v1/api/customers/password").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"00000000\",\"newPassword\":\"13572468\"}"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/v1/api/customers/password").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260005\",\"newPassword\":\"20260005\"}"))
+                .andExpect(status().isBadRequest()).andExpect(content().string("The new password must be different from the current password"));
+        mockMvc.perform(put("/v1/api/staff/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-L")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260010\",\"newPassword\":\"13572468\"}"))
+                .andExpect(status().isLocked());
+        mockMvc.perform(put("/v1/api/staff/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-S")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260010\",\"newPassword\":\"13572468\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void changePasswordWithoutAnAuthenticatedUserOrWithABlankFieldIsRejectedBeforeTheService() throws Exception {
+        String body = "{\"currentPassword\":\"20260005\",\"newPassword\":\"13572468\"}";
+        mockMvc.perform(put("/v1/api/customers/password").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/v1/api/staff/password").contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isUnauthorized());
+        mockMvc.perform(put("/v1/api/customers/password").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260005\"}")).andExpect(status().isBadRequest());
+        mockMvc.perform(put("/v1/api/staff/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-000010")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"13572468\"}")).andExpect(status().isBadRequest());
+        verifyNoInteractions(customers, employees);
     }
 }
