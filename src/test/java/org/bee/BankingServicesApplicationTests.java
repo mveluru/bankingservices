@@ -1,4 +1,4 @@
-package org.bee.configs;
+package org.bee;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

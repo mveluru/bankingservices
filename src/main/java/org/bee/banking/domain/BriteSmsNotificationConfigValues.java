@@ -1,4 +1,4 @@
-package org.bee.configs;
+package org.bee.banking.domain;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -1,4 +1,4 @@
-package org.bee.configs;
+package org.bee;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -11,13 +11,13 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication(scanBasePackages = {"org.bee.configs", "org.bee.banking", "org.bee.events", "org.bee.sample", "org.bee.common"})
+@SpringBootApplication(scanBasePackages = {"org.bee.banking", "org.bee.events", "org.bee.sample", "org.bee.common"})
 @EnableAsync
 @EnableCaching
 @EnableScheduling
-@ConfigurationPropertiesScan(basePackages = {"org.bee.configs", "org.bee.banking", "org.bee.events", "org.bee.sample"})
-@EnableJpaRepositories(basePackages = {"org.bee.configs", "org.bee.banking", "org.bee.events"})
-@EntityScan(basePackages = {"org.bee.configs", "org.bee.banking", "org.bee.events"})
+@ConfigurationPropertiesScan(basePackages = {"org.bee.banking", "org.bee.events", "org.bee.sample"})
+@EnableJpaRepositories(basePackages = {"org.bee.banking", "org.bee.events"})
+@EntityScan(basePackages = {"org.bee.banking", "org.bee.events"})
 public class BankingServicesApplication {
 
     public static void main(String[] args) {

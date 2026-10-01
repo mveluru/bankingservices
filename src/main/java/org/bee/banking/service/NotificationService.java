@@ -3,8 +3,8 @@ package org.bee.banking.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bee.banking.messages.BankingMessages;
-import org.bee.configs.BriteEmailConfigValues;
-import org.bee.configs.BriteSmsNotificationConfigValues;
+import org.bee.banking.domain.BriteEmailConfigValues;
+import org.bee.banking.domain.BriteSmsNotificationConfigValues;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 

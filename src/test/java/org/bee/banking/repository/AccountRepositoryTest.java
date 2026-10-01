@@ -12,7 +12,7 @@ import org.bee.banking.exception.InsufficientFundsException;
 import org.bee.banking.exception.MinBalanceException;
 import org.bee.banking.repository.jpa.AccountJpaRepository;
 import org.bee.banking.rules.AccountConstraints;
-import org.bee.configs.BankingServicesApplication;
+import org.bee.BankingServicesApplication;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
