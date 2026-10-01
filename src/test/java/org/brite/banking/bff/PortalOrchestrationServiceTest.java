@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -298,5 +299,49 @@ class PortalOrchestrationServiceTest {
         assertEquals(null, PortalOrchestrationService.maskPhone("  "));
         assertEquals("***", PortalOrchestrationService.maskPhone("12"));
         assertEquals("***-***-4567", PortalOrchestrationService.maskPhone("(512) 555-4567"));
+    }
+
+    private static AccountTransaction handledAtTheCounter() {
+        return AccountTransaction.builder().accountNumber("CH-0000088291").transactionType(TransactionType.DEPOSIT)
+                .amount(new BigDecimal("50.00")).balanceAfter(new BigDecimal("550.00")).transactionDate(LocalDate.now().minusDays(1)).depositType("check")
+                .employeeNumber("EMP-000010").employeeName("Lucas Meyer").employeeRole(org.brite.banking.domain.EmployeeRole.TELLER)
+                .bankLocationId(1L).bankLocationName("Austin Downtown Branch").bankLocationType(LocationType.OFFICE)
+                .bankLocationCity("Austin").bankLocationState("TX").build();
+    }
+
+    @Test
+    void overviewActivityShowsTheBranchOrAtmThatHandledATransactionButNeverTheEmployee() {
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(checking("CH-0000088291", new BigDecimal("550.00"))));
+        when(transactionRepository.findByAccountNumber("CH-0000088291")).thenReturn(List.of(handledAtTheCounter(), tx(LocalDate.now().minusDays(2), "10.00")));
+
+        var activity = service.overview("CH-0000088291", 30).recentActivity();
+
+        assertEquals("Austin Downtown Branch", activity.get(0).bankLocationName());
+        assertEquals(LocationType.OFFICE, activity.get(0).bankLocationType());
+        assertEquals("Austin", activity.get(0).bankLocationCity());
+        assertEquals("TX", activity.get(0).bankLocationState());
+        assertEquals(null, activity.get(1).bankLocationName(), "a transaction made without a branch/ATM has no location");
+        assertFalse(java.util.Arrays.stream(org.brite.banking.bff.dto.PortalActivityItem.class.getRecordComponents())
+                .anyMatch(c -> c.getName().toLowerCase().contains("employee")), "staff identity must not be part of the portal shape");
+    }
+
+    @Test
+    void statementKeepsTheBranchButClearsTheEmployeeIdentityOnEveryTransaction() {
+        LocalDate begin = LocalDate.of(2026, 8, 1);
+        LocalDate end = LocalDate.of(2026, 9, 24);
+        BankStatement statement = BankStatement.builder().accountNumber("CH-0000088291").beginDate(begin).endDate(end)
+                .transactions(List.of(handledAtTheCounter())).build();
+        when(bankStatementService.generateStatement("CH-0000088291", begin, end)).thenReturn(statement);
+
+        BankStatement result = service.statement("CH-0000088291", begin, end);
+
+        AccountTransaction t = result.getTransactions().get(0);
+        assertEquals(null, t.getEmployeeNumber());
+        assertEquals(null, t.getEmployeeName());
+        assertEquals(null, t.getEmployeeRole());
+        assertEquals("Austin Downtown Branch", t.getBankLocationName());
+        assertEquals(new BigDecimal("50.00"), t.getAmount());
+        assertEquals("check", t.getDepositType());
+        assertEquals("EMP-000010", statement.getTransactions().get(0).getEmployeeNumber(), "the banking statement itself is not modified");
     }
 }

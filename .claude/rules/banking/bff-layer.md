@@ -8,13 +8,20 @@ paths:
 Backend-for-frontend for the React "banking UI portal". Composes existing banking services **in process** (no HTTP hop) into one payload per screen. Under `/bff/v1/portal`.
 
 ```
-bff.controller  (routing, @Valid, ResponseEntity)
+bff.controller  PortalController (accounts) / PortalAuthController (sign-in + passwords)  (routing, @Valid, ResponseEntity)
   → bff.service.PortalOrchestrationService  (composition + mapping only)
       → ClientAccountService / AccountStatusStatementService / LocationBasedOperationService
       → TransactionRepository (facade, read-only activity)
+  → bff.service.PortalAuthService  (login + home in one call; delegates password calls)
+      → LoginService / CustomerCredentialService / PasswordResetService
   → bff.dto  (records shaped for the UI)
 bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 ```
+
+## Keeping the BFF in step with banking
+- **Every customer-facing banking capability needs a portal counterpart**, in screen shape: today accounts (home, overview, open, withdraw, deposit, close, statement) and access (login + home in one call, change password, security questions + catalog, password reset). When a customer-facing banking endpoint is added or changes, update `PortalController`/`PortalAuthController`, the DTOs, the OpenAPI `Portal (BFF)` operations, the README portal rows, `PortalCorsConfig` (a new verb or header) and `CustomerAuthenticationFilter.OPEN` (a new no-token portal path), with tests. Staff-only banking features (suspend, reactivate, staff login, admin password) are deliberately **not** mirrored.
+- **Never expose staff identity to customers.** Anything shown to a customer shows the branch/ATM (`bankLocationName/Type/City/State`) but not the employee: portal DTOs have no employee field, and `statement` clears `employeeNumber/Name/Role` on a copy of each transaction.
+- A DTO that carries a token (`PortalLoginResponse`) must keep it out of `toString`; login responses are `Cache-Control: no-store`.
 
 ## Rules
 - **No business rules in the BFF.** Validation, limits, status checks and notifications stay in the banking services it calls. The BFF only composes, shapes and applies UI limits (`banking.portal.*`).
@@ -39,5 +46,7 @@ bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 - `X-Customer-Id` is still required by the rate limiter and is only a rate-limit key, never an identity.
 
 ## Tests
+- `PortalAuthServiceTest` (login composes token + customer + home and a failed login never builds home; delegation with the customer id from the token; catalog), `PortalAuthControllerTest` (no-store, status mapping, fail-closed 401, open routes, validation), `CustomerAuthenticationFilterTest` (the open portal paths and that `PUT` password/questions need a token).
+- Overview/statement: activity shows the branch/ATM and no employee field exists; the statement copy has the employee fields cleared and the banking statement itself is untouched (`PortalOrchestrationServiceTest`).
 - Service: plain Mockito (`PortalOrchestrationServiceTest`), including the not-found and bad-`days` paths, that rejected input never calls collaborators, that each mutation delegates then returns the refreshed overview, and that a suspended-account rejection propagates without building an overview.
 - Controller: standalone MockMvc with `BankingExceptionHandler` (`PortalControllerTest`).

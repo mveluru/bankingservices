@@ -174,14 +174,18 @@ class CustomerAuthenticationFilterTest {
     @Test
     void onlyTheEndpointsAUserWithoutATokenMustReachAreOpen() throws Exception {
         for (String[] open : new String[][]{{"POST", "/v1/api/accounts/newaccount"}, {"POST", "/bff/v1/portal/accounts/open"},
-                {"POST", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/questions"}, {"POST", "/v1/api/customers/password-reset"}}) {
+                {"POST", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/questions"}, {"POST", "/v1/api/customers/password-reset"},
+                {"POST", "/bff/v1/portal/login"}, {"GET", "/bff/v1/portal/security-questions/catalog"},
+                {"POST", "/bff/v1/portal/password-reset/questions"}, {"POST", "/bff/v1/portal/password-reset"}}) {
             MockFilterChain chain = new MockFilterChain();
             assertEquals(200, run(request(open[0], open[1], null), chain).getStatus(), open[1]);
             assertNotNull(chain.getRequest(), open[1]);
         }
         for (String[] closed : new String[][]{{"GET", "/v1/api/accounts/newaccount"}, {"POST", "/v1/api/accounts/newaccount/"},
                 {"POST", "/v1/api/accounts/newaccountx"}, {"GET", "/bff/v1/portal/accounts/open"}, {"POST", "/v1/api/accounts/lookup"},
-                {"PUT", "/v1/api/customers/security-questions"}, {"GET", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/other"}}) {
+                {"PUT", "/v1/api/customers/security-questions"}, {"GET", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/other"},
+                {"PUT", "/bff/v1/portal/password"}, {"PUT", "/bff/v1/portal/security-questions"}, {"GET", "/bff/v1/portal/login"},
+                {"POST", "/bff/v1/portal/security-questions/catalog"}, {"GET", "/bff/v1/portal/password-reset"}}) {
             MockFilterChain chain = new MockFilterChain();
             assertEquals(401, run(request(closed[0], closed[1], null), chain).getStatus(), closed[0] + " " + closed[1]);
             assertNull(chain.getRequest());

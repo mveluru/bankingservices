@@ -153,7 +153,25 @@ public class PortalOrchestrationService {
      */
     public BankStatement statement(String accountNumber, LocalDate beginDate, LocalDate endDate) {
         log.debug(BankingMessages.LOG_PORTAL_STATEMENT, accountNumber, beginDate, endDate);
-        return bankStatementService.generateStatement(accountNumber, beginDate, endDate);
+        BankStatement statement = bankStatementService.generateStatement(accountNumber, beginDate, endDate);
+        return BankStatement.builder().accountNumber(statement.getAccountNumber()).beginDate(statement.getBeginDate())
+                .endDate(statement.getEndDate())
+                .transactions(statement.getTransactions() == null ? null : statement.getTransactions().stream().map(this::withoutStaffIdentity).toList())
+                .build();
+    }
+
+    /**
+     * Customers see which branch or ATM handled a transaction, not which employee: the staff identity fields are cleared on a
+     * copy (the JSON shape is unchanged, they are just {@code null}).
+     */
+    private AccountTransaction withoutStaffIdentity(AccountTransaction t) {
+        return AccountTransaction.builder().accountNumber(t.getAccountNumber()).transactionType(t.getTransactionType())
+                .amount(t.getAmount()).balanceAfter(t.getBalanceAfter()).transactionDate(t.getTransactionDate())
+                .depositType(t.getDepositType())
+                .bankLocationId(t.getBankLocationId()).bankLocationName(t.getBankLocationName())
+                .bankLocationType(t.getBankLocationType()).bankLocationCity(t.getBankLocationCity())
+                .bankLocationState(t.getBankLocationState())
+                .build();
     }
 
     private List<PortalLocation> nearbyLocations(String state) {
@@ -193,7 +211,8 @@ public class PortalOrchestrationService {
 
     private PortalActivityItem toActivityItem(AccountTransaction t) {
         return new PortalActivityItem(t.getTransactionType(), t.getAmount(), t.getBalanceAfter(),
-                t.getTransactionDate(), t.getDepositType());
+                t.getTransactionDate(), t.getDepositType(),
+                t.getBankLocationName(), t.getBankLocationType(), t.getBankLocationCity(), t.getBankLocationState());
     }
 
     private PortalLocation toLocation(BankLocations l) {

@@ -1699,6 +1699,216 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/portal/login:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalLogin
+      summary: Sign in and get the home screen
+      description: |
+        Open endpoint. Same credential rules as `POST /v1/api/customers/login` (username + 8-digit password, lockout, login status) plus the home screen data, so the portal can draw its first screen after one call.
+        Returns the signed customer JWT (HS256, 30 minutes, no refresh; send it as `Authorization: Bearer`), who the customer is, and the same bundle as `GET /bff/v1/portal/home` (the caller's own accounts and nearby branches; `state` narrows the branches). `Cache-Control: no-store`. A failed login never builds the home screen.
+      security:
+        - CustomerId: []
+      parameters:
+        - name: state
+          in: query
+          required: false
+          description: Two-letter state used to filter the nearby branches in `home`.
+          schema: {type: string, example: TX}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+            example: {username: customer0001, password: '20260001'}
+      responses:
+        '200':
+          description: Signed in.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PortalLoginResponse'}
+        '401':
+          description: Unknown username or wrong password (one message).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          description: Right password but the login is `INACTIVE` or `SUSPENDED`.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: The login is `LOCKED`.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/password:
+    put:
+      tags: [Portal (BFF)]
+      operationId: portalChangePassword
+      summary: Change your password
+      description: |
+        Requires the customer token. Same rules as `PUT /v1/api/customers/password`: the current password is checked like a login (wrong guesses count toward the login lock), the new one is exactly 8 digits and different, and the login must be `ACTIVE`.
+        On success **every token issued before now stops working, including this one**: sign in again.
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangePasswordRequest'}
+            example: {currentPassword: '20260001', newPassword: '13572468'}
+      responses:
+        '204':
+          description: Password changed.
+        '400':
+          description: Bad or unchanged new password (plain text), or a missing field (JSON).
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
+        '423':
+          description: The login is `LOCKED`.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/security-questions:
+    put:
+      tags: [Portal (BFF)]
+      operationId: portalSetSecurityQuestions
+      summary: Choose your three security questions
+      description: |
+        Requires the customer token. Same rules as `PUT /v1/api/customers/security-questions`: three different questions from the catalog (`GET /bff/v1/portal/security-questions/catalog`), each answered (2 to 100 characters), and the current password. Returns the chosen questions, never the answers.
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SetSecurityQuestionsRequest'}
+            example: {currentPassword: '20260001', answers: [{question: FIRST_CAR, answer: Honda Civic}, {question: FIRST_SCHOOL, answer: Oak Street}, {question: FIRST_TEACHER, answer: Mrs Patel}]}
+      responses:
+        '200':
+          description: The chosen questions.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/SecurityQuestionView'}}
+        '400':
+          description: Not exactly 3 answers, a duplicate question, or an answer outside 2-100 characters.
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
+        '423':
+          description: The login is `LOCKED`.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/security-questions/catalog:
+    get:
+      tags: [Portal (BFF)]
+      operationId: portalSecurityQuestionCatalog
+      summary: Security questions to choose from
+      description: |
+        Open endpoint. Every question a customer can pick from, as code plus text, for the choose-three screen.
+      security:
+        - CustomerId: []
+      responses:
+        '200':
+          description: The catalog.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/SecurityQuestionView'}}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/password-reset/questions:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalPasswordResetQuestions
+      summary: Forgotten password - the questions to answer
+      description: |
+        Open endpoint. Same as `POST /v1/api/customers/password-reset/questions`: the customer's three questions, or three decoy questions for an unknown username so it doesn't reveal whether the account exists.
+      security:
+        - CustomerId: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PasswordResetQuestionsRequest'}
+            example: {username: customer0001}
+      responses:
+        '200':
+          description: Three questions.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/SecurityQuestionView'}}
+        '400':
+          description: Missing `username` (JSON validation).
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /bff/v1/portal/password-reset:
+    post:
+      tags: [Portal (BFF)]
+      operationId: portalPasswordReset
+      summary: Forgotten password - reset it with the answers
+      description: |
+        Open endpoint. Same rules as `POST /v1/api/customers/password-reset`: all three answers must be right (case-insensitive, whitespace collapsed), the new password is exactly 8 digits, three wrong attempts lock the reset for 30 minutes, and a reset never undoes an administrator's `INACTIVE`, `SUSPENDED` or `LOCKED`. Every token issued before the reset stops working.
+      security:
+        - CustomerId: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PasswordResetRequest'}
+            example: {username: customer0001, newPassword: '13572468', answers: [{question: FIRST_CAR, answer: Honda Civic}, {question: FIRST_SCHOOL, answer: Oak Street}, {question: FIRST_TEACHER, answer: Mrs Patel}]}
+      responses:
+        '204':
+          description: Password reset.
+        '400':
+          description: Bad new password, wrong answer count or a malformed answer.
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          description: Unknown user, no questions set or wrong answers (one message).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          description: Right answers but the login isn't `ACTIVE`.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: The reset is locked after too many wrong answers.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/portal/home:
     get:
       tags: [Portal (BFF)]
@@ -1888,7 +2098,9 @@ paths:
       summary: Generate a statement for a date range
       description: |
         Same rules and result as `GET /v1/api/accounts/{accountNumber}/statement`, including its side effect
-        (an async email/SMS notification). It is a `POST` because portal reads are side-effect free.
+        (an async email/SMS notification), except that the employee who handled each transaction is hidden:
+        `employeeNumber`, `employeeName` and `employeeRole` are always `null` here while the branch or ATM fields are kept.
+        It is a `POST` because portal reads are side-effect free.
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
         - name: beginDate
@@ -2828,9 +3040,23 @@ components:
         services:
           type: array
           items: {$ref: '#/components/schemas/BankOperationServices'}
+    PortalLoginResponse:
+      type: object
+      description: Everything the portal needs right after sign-in, in one call.
+      properties:
+        accessToken: {type: string, description: 'Signed customer JWT (HS256, 30 minutes). A credential, so never log it.', example: eyJhbGciOiJIUzI1NiJ9...}
+        tokenType: {type: string, example: Bearer}
+        expiresIn: {type: integer, format: int64, description: Seconds until the token expires., example: 1800}
+        customer: {$ref: '#/components/schemas/AuthenticatedCustomer'}
+        home: {$ref: '#/components/schemas/PortalHomeResponse'}
+
     PortalActivityItem:
       type: object
       properties:
+        bankLocationName: {type: string, nullable: true, description: 'Branch office or ATM that handled the transaction; null when none was recorded. The employee who handled it is never exposed to customers.', example: Austin Downtown Branch}
+        bankLocationType: {allOf: [{$ref: '#/components/schemas/LocationType'}], nullable: true}
+        bankLocationCity: {type: string, nullable: true}
+        bankLocationState: {type: string, nullable: true}
         transactionType: {$ref: '#/components/schemas/TransactionType'}
         amount: {type: number}
         balanceAfter: {type: number}

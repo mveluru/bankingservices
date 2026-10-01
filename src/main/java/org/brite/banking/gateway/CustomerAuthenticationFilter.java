@@ -25,8 +25,8 @@ import java.util.Set;
 /**
  * Requires a valid customer JWT ({@code Authorization: Bearer <token>} from {@code POST /v1/api/customers/login}) on the
  * customer-facing account, portal and customer-credential endpoints, except those a user without a token must reach: the two that
- * create a customer ({@code POST /v1/api/accounts/newaccount}, {@code POST /bff/v1/portal/accounts/open}), the login and the two
- * password-reset calls. On success the customer id (the token's subject) is placed in the request
+ * create a customer ({@code POST /v1/api/accounts/newaccount}, {@code POST /bff/v1/portal/accounts/open}), the login and the
+ * password-reset calls (on both the banking API and the portal BFF). On success the customer id (the token's subject) is placed in the request
  * attribute {@link #CUSTOMER_ATTRIBUTE}, the only place the customer handlers take it from.
  * <p>
  * The token only proves who logged in: the customer's login is re-checked on every request, so suspending or locking a
@@ -40,7 +40,9 @@ public class CustomerAuthenticationFilter extends OncePerRequestFilter {
     public static final String CUSTOMER_ATTRIBUTE = "banking.authenticatedCustomer";
     /** Method + path (inside the context path) of the endpoints that create a customer and so can't require a login. */
     static final Set<String> OPEN = Set.of("POST /v1/api/accounts/newaccount", "POST /bff/v1/portal/accounts/open",
-            "POST /v1/api/customers/login", "POST /v1/api/customers/password-reset/questions", "POST /v1/api/customers/password-reset");
+            "POST /v1/api/customers/login", "POST /v1/api/customers/password-reset/questions", "POST /v1/api/customers/password-reset",
+            "POST /bff/v1/portal/login", "GET /bff/v1/portal/security-questions/catalog",
+            "POST /bff/v1/portal/password-reset/questions", "POST /bff/v1/portal/password-reset");
     private static final String BEARER = "bearer ";
 
     private final JwtService jwtService;
