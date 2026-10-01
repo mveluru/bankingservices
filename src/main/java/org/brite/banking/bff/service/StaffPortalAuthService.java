@@ -26,7 +26,6 @@ import java.util.List;
 public class StaffPortalAuthService {
     private final LoginService loginService;
     private final PortalOrchestrationService portalService;
-    private final PortalAuthService customerPortalAuthService;
     private final EmployeeCredentialService employeeCredentialService;
     private final PasswordResetService passwordResetService;
 
@@ -47,7 +46,7 @@ public class StaffPortalAuthService {
 
     /** Every question an employee can choose from (the same catalog customers use). */
     public List<SecurityQuestionView> questionCatalog() {
-        return customerPortalAuthService.questionCatalog();
+        return SecurityQuestionView.catalog();
     }
 
     public List<SecurityQuestionView> resetQuestions(String username) {

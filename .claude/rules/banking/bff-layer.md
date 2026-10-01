@@ -8,18 +8,19 @@ paths:
 Backend-for-frontend for the React "banking UI portal". Composes existing banking services **in process** (no HTTP hop) into one payload per screen. Under `/bff/v1/portal`.
 
 ```
-bff.controller  PortalController (accounts) / PortalAuthController (sign-in + passwords)  (routing, @Valid, ResponseEntity)
+bff.controller  PortalController (accounts) / CustomerLoginController / CustomerLoginStatusController / CustomerPasswordController  (routing, @Valid, ResponseEntity)
   → bff.service.PortalOrchestrationService  (composition + mapping only)
       → ClientAccountService / AccountStatusStatementService / LocationBasedOperationService
       → TransactionRepository (facade, read-only activity)
-  → bff.service.PortalAuthService  (login + home in one call; delegates password calls)
-      → LoginService / CustomerCredentialService / PasswordResetService
+  → bff.service.CustomerLoginPortalService / CustomerLoginStatusPortalService / CustomerPasswordPortalService  (login + home in one call; delegate the rest)
+      → LoginService / CustomerCredentialService / PasswordResetService / StaffLoginService
   → bff.dto  (records shaped for the UI)
 bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 ```
 
 ## Keeping the BFF in step with banking
 - **Two portals, two prefixes.** `/bff/v1/portal/*` is the customer portal (customer token, `CustomerAuthenticationFilter`), `/bff/v1/staff/*` is the staff portal (employee token, `StaffAuthenticationFilter`; controllers `StaffPortalController` + `StaffPortalAuthController`, services `StaffPortalService` + `StaffPortalAuthService`). Never serve staff and customer screens from the same prefix: each filter rejects the other's token with 403. The staff BFF mirrors the banking staff API (account actions, employee cards, people administration, login/password calls) and returns the refreshed overview after an account action; it must call the banking staff service **first** (it enforces the privilege) and only then build anything. Employees are shown as `PortalEmployee` cards (no email, phone, internal ids, supervisor link).
+- **One controller per concern for customer access, across both portals.** Customer *login* (`CustomerLoginController`: customer sign-in under `/bff/v1/portal`, staff create-login under `/bff/v1/staff`), customer *login status* (`CustomerLoginStatusController`, staff) and customer *password* (`CustomerPasswordController`: change/questions/catalog/reset under `/bff/v1/portal`, staff set-password under `/bff/v1/staff`) each have their own controller and `*PortalService`, so a change to one concern doesn't touch the others. Their handlers mix customer-token and employee-token paths on purpose (a handler reads only its own attribute: `CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE` or `StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE`); `StaffPortalController` keeps accounts, employee cards and employee administration only. The question catalog is `SecurityQuestionView.catalog()`, shared with the staff portal.
 - **Every customer-facing banking capability needs a portal counterpart**, in screen shape: today accounts (home, overview, open, withdraw, deposit, close, statement) and access (login + home in one call, change password, security questions + catalog, password reset). When a customer-facing banking endpoint is added or changes, update `PortalController`/`PortalAuthController`, the DTOs, the OpenAPI `Portal (BFF)` operations, the README portal rows, `PortalCorsConfig` (a new verb or header) and `CustomerAuthenticationFilter.OPEN` (a new no-token portal path), with tests. Staff-only banking features (suspend, reactivate, staff login, admin password) are mirrored only in the staff portal, never in the customer portal.
 - **Never expose staff identity to customers.** Anything shown to a customer shows the branch/ATM (`bankLocationName/Type/City/State`) but not the employee: portal DTOs have no employee field, and `BankStatementService.generateStatement` clears `employeeNumber/Name/Role` on every statement line (so the banking and portal statements both hide staff identity).
 - A DTO that carries a token (`PortalLoginResponse`) must keep it out of `toString`; login responses are `Cache-Control: no-store`.
@@ -48,7 +49,7 @@ bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 
 ## Tests
 - Staff portal: `StaffPortalServiceTest` (delegation, banking action before overview, rejection builds nothing, VIEW_ACCOUNT, cards without email/phone), `StaffPortalAuthServiceTest`, `StaffPortalControllerTest` (status mapping, acting employee from the request attribute, and a run with the real `StaffAuthenticationFilter`), `StaffPortalAuthControllerTest`.
-- `PortalAuthServiceTest` (login composes token + customer + home and a failed login never builds home; delegation with the customer id from the token; catalog), `PortalAuthControllerTest` (no-store, status mapping, fail-closed 401, open routes, validation), `CustomerAuthenticationFilterTest` (the open portal paths and that `PUT` password/questions need a token).
+- `CustomerLoginPortalServiceTest` / `CustomerLoginControllerTest` (login composes token + customer + home, a failed login never builds home, no-store, status mapping; staff create-login 201/403/400), `CustomerLoginStatusControllerTest`, `CustomerPasswordPortalServiceTest` / `CustomerPasswordControllerTest` (delegation with the customer id from the token, fail-closed 401, open routes, validation; staff set-password 204/403/400), `CustomerAuthenticationFilterTest` (the open portal paths and that `PUT` password/questions need a token).
 - Overview: activity shows the branch/ATM and no employee field exists (`PortalOrchestrationServiceTest`); the statement hiding is tested where it happens, in `BankStatementServiceTest`.
 - Service: plain Mockito (`PortalOrchestrationServiceTest`), including the not-found and bad-`days` paths, that rejected input never calls collaborators, that each mutation delegates then returns the refreshed overview, and that a suspended-account rejection propagates without building an overview.
 - Controller: standalone MockMvc with `BankingExceptionHandler` (`PortalControllerTest`).

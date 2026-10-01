@@ -2,7 +2,6 @@ package org.brite.banking.bff;
 
 import org.brite.banking.bff.dto.PortalLocation;
 import org.brite.banking.bff.dto.StaffPortalLoginResponse;
-import org.brite.banking.bff.service.PortalAuthService;
 import org.brite.banking.bff.service.PortalOrchestrationService;
 import org.brite.banking.bff.service.StaffPortalAuthService;
 import org.brite.banking.domain.CredentialOwnerType;
@@ -34,7 +33,6 @@ import static org.mockito.Mockito.when;
 class StaffPortalAuthServiceTest {
     private LoginService loginService;
     private PortalOrchestrationService portal;
-    private PortalAuthService customerAuth;
     private EmployeeCredentialService employees;
     private PasswordResetService resets;
     private StaffPortalAuthService service;
@@ -43,10 +41,9 @@ class StaffPortalAuthServiceTest {
     void setUp() {
         loginService = mock(LoginService.class);
         portal = mock(PortalOrchestrationService.class);
-        customerAuth = mock(PortalAuthService.class);
         employees = mock(EmployeeCredentialService.class);
         resets = mock(PasswordResetService.class);
-        service = new StaffPortalAuthService(loginService, portal, customerAuth, employees, resets);
+        service = new StaffPortalAuthService(loginService, portal, employees, resets);
     }
 
     private static Employee lucas(Long branch) {
@@ -101,8 +98,7 @@ class StaffPortalAuthServiceTest {
         verify(resets).reset(CredentialOwnerType.EMPLOYEE, "lucas.meyer", answers, "13572468");
         service.resetQuestions("lucas.meyer");
         verify(resets).questionsFor(CredentialOwnerType.EMPLOYEE, "lucas.meyer");
-        service.questionCatalog();
-        verify(customerAuth).questionCatalog();
+        assertEquals(SecurityQuestion.values().length, service.questionCatalog().size());
         verifyNoInteractions(loginService);
     }
 }

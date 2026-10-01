@@ -1,43 +1,30 @@
 package org.brite.banking.bff.service;
 
 import lombok.RequiredArgsConstructor;
-import org.brite.banking.bff.dto.PortalHomeResponse;
-import org.brite.banking.bff.dto.PortalLoginResponse;
 import org.brite.banking.domain.CredentialOwnerType;
-import org.brite.banking.domain.CustomerLoginResponse;
-import org.brite.banking.domain.SecurityQuestion;
 import org.brite.banking.domain.SecurityQuestionView;
+import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangePasswordRequest;
 import org.brite.banking.request.PasswordResetRequest;
 import org.brite.banking.request.SetSecurityQuestionsRequest;
 import org.brite.banking.service.CustomerCredentialService;
-import org.brite.banking.service.LoginService;
 import org.brite.banking.service.PasswordResetService;
+import org.brite.banking.service.StaffLoginService;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
- * The portal's account-access calls (login, change password, security questions, forgotten-password reset), composed from the
- * banking services in process. Like the rest of the BFF it holds no rules: credential checks, lockout, status and token issuing all
- * stay in {@link LoginService}, {@link CustomerCredentialService} and {@link PasswordResetService}; any failure they throw
- * propagates (and a failed login never builds the home screen).
+ * Customer passwords as the BFF serves them: the customer changing their own, choosing security questions and resetting a forgotten password,
+ * and a manager setting a customer's password in the staff portal. Delegation only; every rule (current password check, lockout, status,
+ * token invalidation, privilege) stays in {@link CustomerCredentialService}, {@link PasswordResetService} and {@link StaffLoginService}.
  */
 @Service
 @RequiredArgsConstructor
-public class PortalAuthService {
-    private final LoginService loginService;
-    private final PortalOrchestrationService portalService;
+public class CustomerPasswordPortalService {
     private final CustomerCredentialService customerCredentialService;
     private final PasswordResetService passwordResetService;
-
-    /** Verifies the login, issues the token and returns it together with the home screen ({@code state} optionally narrows nearby branches). */
-    public PortalLoginResponse login(String username, String password, String state) {
-        CustomerLoginResponse login = loginService.customerLogin(username, password);
-        PortalHomeResponse home = portalService.home(state, login.getCustomer().getCustomerId());
-        return new PortalLoginResponse(login.getAccessToken(), login.getTokenType(), login.getExpiresIn(), login.getCustomer(), home);
-    }
+    private final StaffLoginService staffLoginService;
 
     public void changePassword(Long customerId, ChangePasswordRequest request) {
         customerCredentialService.changePassword(customerId, request.getCurrentPassword(), request.getNewPassword());
@@ -50,7 +37,7 @@ public class PortalAuthService {
 
     /** Every question a customer can choose from, for the "pick three" screen. */
     public List<SecurityQuestionView> questionCatalog() {
-        return Arrays.stream(SecurityQuestion.values()).map(SecurityQuestionView::of).toList();
+        return SecurityQuestionView.catalog();
     }
 
     public List<SecurityQuestionView> resetQuestions(String username) {
@@ -59,5 +46,10 @@ public class PortalAuthService {
 
     public void resetPassword(PasswordResetRequest request) {
         passwordResetService.reset(CredentialOwnerType.CUSTOMER, request.getUsername(), request.getAnswers(), request.getNewPassword());
+    }
+
+    /** Staff portal: a manager sets a customer's password (needs MANAGE_CUSTOMER_LOGINS, checked by the banking service first). */
+    public void setPassword(String employee, Long customerId, AdminSetPasswordRequest request) {
+        staffLoginService.setCustomerPassword(employee, customerId, request);
     }
 }

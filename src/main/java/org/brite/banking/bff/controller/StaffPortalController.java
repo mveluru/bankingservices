@@ -11,14 +11,12 @@ import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
-import org.brite.banking.request.LoginRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -34,7 +32,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * Backend-for-frontend endpoints for the staff portal: the employee counterpart of {@link PortalController}. Every call needs
  * {@code Authorization: Bearer <employee token>} ({@link StaffAuthenticationFilter}) and takes the acting employee from it; the banking
- * services enforce the privilege before anything changes (403) and account actions return the refreshed account overview.
+ * services enforce the privilege before anything changes (403) and account actions return the refreshed account overview. Customer logins,
+ * their status and their passwords are served by {@link CustomerLoginController}, {@link CustomerLoginStatusController} and
+ * {@link CustomerPasswordController}.
  */
 @RestController
 @RequestMapping("/bff/v1/staff")
@@ -127,31 +127,6 @@ public class StaffPortalController {
                                                     @PathVariable String employeeNumber,
                                                     @Valid @RequestBody AdminSetPasswordRequest request) {
         staffPortalService.setEmployeePassword(employee, employeeNumber, request);
-        return ResponseEntity.noContent().build();
-    }
-
-    /** Create a customer's login (MANAGE_CUSTOMER_LOGINS). POST /bff/v1/staff/customers/11/login */
-    @PostMapping("/customers/{customerId}/login")
-    public ResponseEntity<LoginStatusView> createCustomerLogin(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
-                                                               @PathVariable Long customerId,
-                                                               @Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(staffPortalService.createCustomerLogin(employee, customerId, request));
-    }
-
-    /** Set a customer's login status (MANAGE_CUSTOMER_LOGINS). PUT /bff/v1/staff/customers/11/login-status */
-    @PutMapping("/customers/{customerId}/login-status")
-    public ResponseEntity<LoginStatusView> changeCustomerLoginStatus(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
-                                                                     @PathVariable Long customerId,
-                                                                     @Valid @RequestBody ChangeLoginStatusRequest request) {
-        return ResponseEntity.ok(staffPortalService.changeCustomerLoginStatus(employee, customerId, request));
-    }
-
-    /** Set a customer's password (MANAGE_CUSTOMER_LOGINS); their tokens stop working. PUT /bff/v1/staff/customers/11/password */
-    @PutMapping("/customers/{customerId}/password")
-    public ResponseEntity<Void> setCustomerPassword(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
-                                                    @PathVariable Long customerId,
-                                                    @Valid @RequestBody AdminSetPasswordRequest request) {
-        staffPortalService.setCustomerPassword(employee, customerId, request);
         return ResponseEntity.noContent().build();
     }
 }

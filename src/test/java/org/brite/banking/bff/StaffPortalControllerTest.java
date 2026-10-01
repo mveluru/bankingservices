@@ -119,13 +119,11 @@ class StaffPortalControllerTest {
     }
 
     @Test
-    void employeesArePagedCardsAndPeopleAdminCallsReturnTheirResults() throws Exception {
+    void employeesArePagedCardsAndEmployeeAdminCallsReturnTheirResults() throws Exception {
         PortalEmployee card = PortalEmployee.of(Employee.builder().employeeNumber("EMP-000010").firstName("Lucas").lastName("Meyer")
                 .role(EmployeeRole.TELLER).status(EmployeeStatus.ACTIVE).build());
         when(service.employees(eq("EMP-A"), eq(EmployeeRole.TELLER), any())).thenReturn(new PageImpl<>(List.of(card)));
         when(service.employee("EMP-A", "EMP-000010")).thenReturn(card);
-        when(service.createCustomerLogin(eq("EMP-M"), eq(11L), any())).thenReturn(LoginStatusView.builder().username("alice.smith").status(LoginStatus.ACTIVE).build());
-        when(service.changeCustomerLoginStatus(eq("EMP-M"), eq(11L), any())).thenReturn(LoginStatusView.builder().username("alice.smith").status(LoginStatus.INACTIVE).build());
         when(service.changeEmployeeLoginStatus(eq("EMP-A"), eq("EMP-000010"), any())).thenReturn(LoginStatusView.builder().username("lucas.meyer").status(LoginStatus.SUSPENDED).build());
 
         // only the call into the service matters for the page (the standalone Jackson setup can't serialise a Spring Data Page)
@@ -133,18 +131,10 @@ class StaffPortalControllerTest {
         verify(service).employees(eq("EMP-A"), eq(EmployeeRole.TELLER), any());
         mockMvc.perform(get("/bff/v1/staff/employees/EMP-000010").requestAttr(ATTR, "EMP-A")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.firstName").value("Lucas"));
-        mockMvc.perform(post("/bff/v1/staff/customers/11/login").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"username\":\"alice.smith\",\"password\":\"13572468\"}"))
-                .andExpect(status().isCreated()).andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("13572468"))));
-        mockMvc.perform(put("/bff/v1/staff/customers/11/login-status").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":\"INACTIVE\",\"reason\":\"x\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("INACTIVE"));
         mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/login-status").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"SUSPENDED\"}")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SUSPENDED"));
-        mockMvc.perform(put("/bff/v1/staff/customers/11/password").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"newPassword\":\"24681357\"}")).andExpect(status().isNoContent());
         mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/password").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"newPassword\":\"24681357\"}")).andExpect(status().isNoContent());
-        verify(service).setCustomerPassword(eq("EMP-M"), eq(11L), any());
         verify(service).setEmployeePassword(eq("EMP-A"), eq("EMP-000010"), any());
     }
 

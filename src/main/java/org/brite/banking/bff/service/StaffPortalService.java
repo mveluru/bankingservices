@@ -9,7 +9,6 @@ import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
-import org.brite.banking.request.LoginRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -84,19 +83,7 @@ public class StaffPortalService {
         return staffLoginService.changeEmployeeLoginStatus(employee, employeeNumber, request);
     }
 
-    public LoginStatusView changeCustomerLoginStatus(String employee, Long customerId, ChangeLoginStatusRequest request) {
-        return staffLoginService.changeCustomerLoginStatus(employee, customerId, request);
-    }
-
-    public LoginStatusView createCustomerLogin(String employee, Long customerId, LoginRequest request) {
-        return staffLoginService.createCustomerLogin(employee, customerId, request);
-    }
-
     public void setEmployeePassword(String employee, String employeeNumber, AdminSetPasswordRequest request) {
         staffLoginService.setEmployeePassword(employee, employeeNumber, request);
-    }
-
-    public void setCustomerPassword(String employee, Long customerId, AdminSetPasswordRequest request) {
-        staffLoginService.setCustomerPassword(employee, customerId, request);
     }
 }
