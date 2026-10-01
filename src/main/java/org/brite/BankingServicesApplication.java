@@ -11,13 +11,13 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication(scanBasePackages = {"org.brite.banking", "org.brite.events", "org.brite.sample", "org.brite.common"})
+@SpringBootApplication(scanBasePackages = {"org.brite.banking", "org.brite.sample", "org.brite.common"})
 @EnableAsync
 @EnableCaching
 @EnableScheduling
-@ConfigurationPropertiesScan(basePackages = {"org.brite.banking", "org.brite.events", "org.brite.sample"})
-@EnableJpaRepositories(basePackages = {"org.brite.banking", "org.brite.events"})
-@EntityScan(basePackages = {"org.brite.banking", "org.brite.events"})
+@ConfigurationPropertiesScan(basePackages = {"org.brite.banking", "org.brite.sample"})
+@EnableJpaRepositories(basePackages = "org.brite.banking")
+@EntityScan(basePackages = "org.brite.banking")
 public class BankingServicesApplication {
 
     public static void main(String[] args) {

@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
  * Spring AOP aspect (not a hand-written filter/interceptor) that logs how long every
  * REST endpoint in the app took to execute. The pointcut matches any method inside a
  * class annotated {@code @RestController}, so it covers every controller (banking,
- * events, sample) without touching any of them - add a
+ * sample) without touching any of them - add a
  * new controller anywhere under org.brite and it's automatically covered.
  */
 @Aspect

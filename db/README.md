@@ -6,13 +6,12 @@ seeds demo accounts and bank locations on first start. They exist to build/inspe
 
 | Directory | File | What it does |
 |---|---|---|
-| `ddl/` | `01_create_tables.sql` | `CREATE DATABASE` + all 7 tables, unique index and foreign keys (incl. the account suspension columns) |
+| `ddl/` | `01_create_tables.sql` | `CREATE DATABASE` + all 6 tables, unique index and foreign keys (incl. the account suspension columns) |
 | | `02_drop_tables.sql` | Drops all tables (**destructive**) |
 | | `04_customer_phone_migration.sql` | Idempotent migration adding `customers.phone_number varchar(20)` if missing (run before or after the app first starts on this version; new databases don't need it) |
 | | `03_account_suspension_migration.sql` | **Migration for a database created before account suspension** (idempotent, run before or after the app first starts): adds any missing `suspended`, `suspended_start`, `suspended_end`, `suspension_notes` columns, defaults `suspended` to 0 and widens `account_status` to include `SUSPENDED` (Hibernate's `ddl-auto: update` adds columns but won't alter an existing enum column). Not needed on a fresh database |
 | `data/` | `01_seed_customers_accounts.sql` | The 52 demo accounts + customers with phones `512-555-0001..0052` (same as `AccountDataSeeder`) |
 | | `02_sample_transactions.sql` | 5 transactions + 2 withdrawal-history rows for the statement endpoint |
-| | `03_sample_events.sql` | 3 rows in `events` |
 | | `04_seed_bank_locations.sql` | The 20 demo bank offices/ATMs + the services each serves (same as `BankLocationDataSeeder`) |
 | | `05_seed_closed_and_suspended_accounts.sql` | 40 more accounts (ids 53–92): 20 `CLOSED` and 20 `SUSPENDED` (14 with an end date, 6 indefinite, all with notes) — same as `AccountStatusDemoSeeder`. Run after `01_...` |
 | | `06_backfill_customer_phones.sql` | Gives the 92 demo customers with no phone their `512-555-NNNN` number, keyed by account (so it stays correct even if customer ids have drifted); only touches NULL phones, safe to rerun. For databases seeded before phone numbers existed |

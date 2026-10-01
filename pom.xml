@@ -12,7 +12,7 @@
     <artifactId>bankingservices</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>bankingservices</name>
-    <description>Brite banking services: banking API, portal BFF, events and config demos</description>
+    <description>Brite banking services: banking API, portal BFF and sample demos</description>
     <properties>
         <java.version>25</java.version>
         <!-- Spring Boot 3.5.x is the line that supports Java 25 class files (Boot 3.4's Spring Framework/ASM, Byte Buddy

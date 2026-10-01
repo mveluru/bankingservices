@@ -1,6 +1,6 @@
 # bankingservices (Brite Technology Notifications)
 
-A Spring Boot 3 REST application demonstrating configuration properties binding (`@ConfigurationProperties`), custom REST controllers, async processing, JSON Schema-validated event ingestion, global exception handling, Spring Data JPA, and Spring Boot Actuator monitoring.
+A Spring Boot 3 REST application demonstrating configuration properties binding (`@ConfigurationProperties`), custom REST controllers, async processing, global exception handling, Spring Data JPA, and Spring Boot Actuator monitoring.
 
 ---
 
@@ -14,7 +14,7 @@ A Spring Boot 3 REST application demonstrating configuration properties binding 
 - **Account Constraints**: Configurable business rules (`banking.constraints`) enforced on registration/withdrawal/deposit — minimum age to open an account, minimum balance retained after a withdrawal (checking/savings), and a maximum single cash-deposit amount.
 - **Bank Statement**: `/v1/api/accounts/{accountNumber}/statement` returns an account's deposit/withdrawal history for a given date range, capped by a configurable maximum range in months.
 - **Resilience Demo**: `/v1/payment/process` demonstrates a Resilience4j circuit breaker with jittered exponential-backoff retry around a simulated flaky downstream call.
-- **Event Ingestion**: `/api/events` accepts versioned event payloads validated against a JSON Schema (`event-v1.json`) and persisted via Spring Data JPA.
+- **Event Ingestion**: moved to the separate `eventservice` project (`/api/events`, port 8085); it keeps using the existing `events` table in `db_example`.
 - **API Versioning Demo**: moved to the separate `restapiversionservice` project (`/apiversion`, port 8084).
 - **Actuator Monitoring**: Integrated Spring Boot Actuator exposing health status under `/actuator/health`.
 - **Endpoint Execution-Time Logging**: A Spring AOP `@Aspect` (`ExecutionTimeLoggingAspect`, `org.brite.common.logging`) wraps every `@RestController` method app-wide and logs its execution time in milliseconds — no code changes needed per controller.
@@ -164,7 +164,7 @@ A second filter, `BusinessTransactionIdFilter`, is registered on the same URL pa
 
 ### Banking data model (JPA)
 
-Banking used to be a `ConcurrentHashMap`-backed mock store; it's now backed by real JPA entities persisted to the same MySQL database (`db_example`) as the events module. The service/controller layers still use the same `Account`/`Customer`/`Address`/`AccountTransaction`/`WithdrawalForm` domain objects as before — the entity ↔ domain mapping is entirely internal to the repository classes, so no other code changed for this migration.
+Banking used to be a `ConcurrentHashMap`-backed mock store; it's now backed by real JPA entities persisted to the same MySQL database (`db_example`) as the (separate) eventservice. The service/controller layers still use the same `Account`/`Customer`/`Address`/`AccountTransaction`/`WithdrawalForm` domain objects as before — the entity ↔ domain mapping is entirely internal to the repository classes, so no other code changed for this migration.
 
 | Entity (`org.brite.banking.entity`) | Table | Notes |
 | :--- | :--- | :--- |
@@ -185,11 +185,6 @@ Raw Spring Data repositories live in `org.brite.banking.repository.jpa` (`Accoun
 | :--- | :--- | :--- |
 | `POST` | `/v1/payment/process` | Calls a simulated flaky bank service (40% failure rate) through a Resilience4j circuit breaker + jittered exponential-backoff retry; returns a fallback message once the breaker opens |
 
-### Event ingestion — `/api/events`
-
-| Method | Endpoint Path | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/events` | Validates a `v1` event payload against JSON Schema, then persists it |
 
 ### Sample lookup — `/v1/sample`
 
@@ -339,14 +334,6 @@ curl -s "http://localhost:8081/brite/notify?name=Alice" -H "X-Customer-Id: demo-
 
 # Call the Resilience4j Circuit Breaker + Retry Demo (run a few times to see variation)
 curl -s -X POST http://localhost:8081/brite/v1/payment/process -H "X-Customer-Id: demo-customer-1"
-
-# Submit a v1 Event
-curl -s -X POST http://localhost:8081/brite/api/events \
-  -H "Content-Type: application/json" \
-  -d '{
-        "version":"v1","eventId":"evt_123abc","timestamp":"2026-09-17T10:00:00Z",
-        "payload":{"userId":"u123","email":"user@example.com"}
-      }'
 
 # Sample Item Lookup
 curl -s "http://localhost:8081/brite/v1/sample/spl?item=Mac"

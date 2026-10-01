@@ -1,9 +1,0 @@
-{
-  "version": "v1",
-  "eventId": "evt_987654321",
-  "timestamp": "2026-08-28T07:52:00Z",
-  "payload": {
-    "userId": "usr_12345",
-    "email": "user@example.com"
-  }
-}

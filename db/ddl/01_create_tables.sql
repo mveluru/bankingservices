@@ -1,7 +1,7 @@
 -- =============================================================================
 -- DDL: creates the schema the Spring Boot app uses (MySQL 8, InnoDB).
 --
--- Generated from the JPA entities (org.brite.banking.entity.*, org.brite.events.dto.EventEntity)
+-- Generated from the JPA entities (org.brite.banking.entity.*)
 -- with Hibernate 6.6's MySQLDialect and the app's naming strategy - i.e. the same DDL that
 -- `spring.jpa.hibernate.ddl-auto: update` produces on a fresh database. Constraint names are
 -- Hibernate's own, so a later `ddl-auto: update` sees an identical schema and adds nothing.
@@ -98,15 +98,6 @@ CREATE TABLE IF NOT EXISTS bank_location_services (
     bank_location_id bigint not null,
     service enum ('ATM_CASH_WITHDRAWAL','ATM_DEPOSIT','BANKING','FOREIGN_EXCHANGE','LOANS_MORTGAGES','NOTARY','SAFE_DEPOSIT_LOCKER','WIRE_TRANSFER') not null,
     primary key (bank_location_id, service)
-) engine=InnoDB;
-
-CREATE TABLE IF NOT EXISTS events (
-    timestamp datetime(6),
-    email varchar(255),
-    event_id varchar(255) not null,
-    user_id varchar(255),
-    version varchar(255),
-    primary key (event_id)
 ) engine=InnoDB;
 
 -- Constraints (kept out of CREATE TABLE so table order doesn't matter).

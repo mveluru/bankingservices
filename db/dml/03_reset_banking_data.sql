@@ -1,6 +1,6 @@
 -- =============================================================================
 -- DML: DESTRUCTIVE - deletes ALL banking rows (withdrawal history, transactions, accounts,
--- customers, bank locations) but keeps the tables, and restarts their ids at 1. Leaves the events table alone.
+-- customers, bank locations) but keeps the tables, and restarts their ids at 1. Does not touch any other table (the events table belongs to eventservice).
 -- Rows are deleted children-first so foreign keys don't block it.
 --
 -- To get demo data back afterwards, either restart the app (AccountDataSeeder re-seeds when

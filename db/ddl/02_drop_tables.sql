@@ -1,6 +1,6 @@
 -- =============================================================================
 -- DDL: drops every table created by 01_create_tables.sql. DESTRUCTIVE - deletes all
--- banking and event data. Tables are dropped children-first so foreign keys don't block it.
+-- banking data. Tables are dropped children-first so foreign keys don't block it.
 -- After this, starting the app recreates the tables (ddl-auto: update) and re-seeds the
 -- demo accounts and bank locations (AccountDataSeeder / BankLocationDataSeeder run when their
 -- tables are empty).
@@ -16,4 +16,3 @@ DROP TABLE IF EXISTS accounts;
 DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS bank_location_services;
 DROP TABLE IF EXISTS bank_locations;
-DROP TABLE IF EXISTS events;
