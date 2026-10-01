@@ -3,9 +3,11 @@ package org.brite.banking.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.brite.banking.domain.Account;
+import org.brite.banking.domain.BankLocations;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeePrivilege;
+import org.brite.banking.domain.TransactionHandler;
 import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
@@ -24,17 +26,25 @@ public class StaffAccountService {
     private final EmployeeService employeeService;
     private final ClientAccountService clientAccountService;
     private final AccountSuspensionService accountSuspensionService;
+    private final LocationBasedOperationService locationService;
 
-    public Account withdraw(String employeeNumber, WithdrawalRequest request) {
+    /**
+     * The transaction records the employee and the branch/ATM: {@code locationId} if given,
+     * else the employee's own branch (none for an area manager who passes no location).
+     *
+     * @throws org.brite.banking.exception.LocationNotFoundException (mapped to 404) for an unknown location
+     */
+    public Account withdraw(String employeeNumber, Long locationId, WithdrawalRequest request) {
         Employee employee = employeeService.requirePrivilege(employeeNumber, EmployeePrivilege.WITHDRAW);
-        Account account = clientAccountService.withdrawAndSaveToAccount(request);
+        Account account = clientAccountService.withdrawAndSaveToAccount(request, handler(employee, locationId));
         logAction(employee, EmployeePrivilege.WITHDRAW, request.getAccountNumber());
         return account;
     }
 
-    public Account deposit(String employeeNumber, DepositForm request) {
+    /** See {@link #withdraw} for how the location is chosen. */
+    public Account deposit(String employeeNumber, Long locationId, DepositForm request) {
         Employee employee = employeeService.requirePrivilege(employeeNumber, EmployeePrivilege.DEPOSIT);
-        Account account = clientAccountService.depositAndSaveToAccount(request);
+        Account account = clientAccountService.depositAndSaveToAccount(request, handler(employee, locationId));
         logAction(employee, EmployeePrivilege.DEPOSIT, request.getAccountNumber());
         return account;
     }
@@ -65,6 +75,21 @@ public class StaffAccountService {
         Account account = clientAccountService.closeAccount(accountNumber);
         logAction(employee, EmployeePrivilege.CLOSE_ACCOUNT, accountNumber);
         return account;
+    }
+
+    private TransactionHandler handler(Employee employee, Long locationId) {
+        Long id = locationId != null ? locationId : employee.getBankLocationId();
+        BankLocations location = id == null ? null : locationService.getLocation(id);
+        return TransactionHandler.builder()
+                .employeeNumber(employee.getEmployeeNumber())
+                .employeeName(employee.getFirstName() + " " + employee.getLastName())
+                .employeeRole(employee.getRole())
+                .bankLocationId(location == null ? null : location.getId())
+                .bankLocationName(location == null ? null : location.getName())
+                .bankLocationType(location == null ? null : location.getLocationType())
+                .bankLocationCity(location == null || location.getBankAddress() == null ? null : location.getBankAddress().getCity())
+                .bankLocationState(location == null || location.getBankAddress() == null ? null : location.getBankAddress().getState())
+                .build();
     }
 
     private void logAction(Employee employee, EmployeePrivilege action, String accountNumber) {

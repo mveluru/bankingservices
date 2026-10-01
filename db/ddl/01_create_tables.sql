@@ -54,7 +54,15 @@ CREATE TABLE IF NOT EXISTS account_transactions (
     transaction_date date,
     account_id bigint not null,
     id bigint not null auto_increment,
+    bank_location_id bigint,
     deposit_type varchar(255),
+    employee_number varchar(20),
+    employee_name varchar(205),
+    bank_location_city varchar(255),
+    bank_location_name varchar(255),
+    bank_location_state varchar(255),
+    bank_location_type enum ('ATM','BOTH','OFFICE'),
+    employee_role enum ('AREA_MANAGER','MANAGER','TELLER'),
     transaction_type enum ('DEPOSIT','WITHDRAWAL'),
     primary key (id)
 ) engine=InnoDB;

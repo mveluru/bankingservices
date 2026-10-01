@@ -790,6 +790,11 @@ paths:
         - CustomerId: []
           EmployeeNumber: []
       parameters:
+        - name: locationId
+          in: query
+          required: false
+          description: Branch office or ATM where this is handled; defaults to the employee's own branch (none for an area manager). `404` if unknown. The employee and this location are recorded on the transaction.
+          schema: {type: integer, format: int64}
         - $ref: '#/components/parameters/EmployeeHeader'
       requestBody:
         required: true
@@ -828,6 +833,11 @@ paths:
         - CustomerId: []
           EmployeeNumber: []
       parameters:
+        - name: locationId
+          in: query
+          required: false
+          description: Branch office or ATM where this is handled; defaults to the employee's own branch (none for an area manager). `404` if unknown. The employee and this location are recorded on the transaction.
+          schema: {type: integer, format: int64}
         - $ref: '#/components/parameters/EmployeeHeader'
       requestBody:
         required: true
@@ -2036,6 +2046,14 @@ components:
           type: string
           nullable: true
           description: '`cash` or `check`; only set for deposits, `null` for withdrawals.'
+        employeeNumber: {type: string, nullable: true, description: Employee who handled it; null for customer-initiated transactions and rows recorded before this was tracked., example: EMP-000010}
+        employeeName: {type: string, nullable: true, example: Lucas Meyer}
+        employeeRole: {allOf: [{$ref: '#/components/schemas/EmployeeRole'}], nullable: true}
+        bankLocationId: {type: integer, format: int64, nullable: true, description: Branch office or ATM where it was handled (snapshot at transaction time).}
+        bankLocationName: {type: string, nullable: true, example: Austin Downtown Branch}
+        bankLocationType: {allOf: [{$ref: '#/components/schemas/LocationType'}], nullable: true}
+        bankLocationCity: {type: string, nullable: true}
+        bankLocationState: {type: string, nullable: true}
 
     BankStatement:
       type: object

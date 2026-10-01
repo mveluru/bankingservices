@@ -4,16 +4,23 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.brite.banking.domain.Account;
 import org.brite.banking.domain.AccountStatus;
 import org.brite.banking.domain.AccountType;
+import org.brite.banking.domain.BankAddress;
+import org.brite.banking.domain.BankLocations;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.EmployeeStatus;
+import org.brite.banking.domain.LocationType;
+import org.brite.banking.domain.TransactionHandler;
+import org.brite.banking.exception.LocationNotFoundException;
 import org.brite.banking.exception.BankingExceptionHandler;
 import org.brite.banking.repository.EmployeeRepository;
 import org.brite.banking.service.AccountSuspensionService;
 import org.brite.banking.service.ClientAccountService;
 import org.brite.banking.service.EmployeeService;
+import org.brite.banking.service.LocationBasedOperationService;
 import org.brite.banking.service.StaffAccountService;
 import org.junit.jupiter.api.BeforeEach;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.MediaType;
@@ -25,6 +32,8 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -54,6 +63,7 @@ class StaffControllerTest {
     private ClientAccountService clientAccountService;
     private AccountSuspensionService suspensionService;
     private EmployeeRepository employeeRepository;
+    private LocationBasedOperationService locationService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -61,15 +71,20 @@ class StaffControllerTest {
         clientAccountService = mock(ClientAccountService.class);
         suspensionService = mock(AccountSuspensionService.class);
         employeeRepository = mock(EmployeeRepository.class);
+        locationService = mock(LocationBasedOperationService.class);
         EmployeeService employeeService = new EmployeeService(employeeRepository);
-        StaffAccountService staffAccountService = new StaffAccountService(employeeService, clientAccountService, suspensionService);
+        StaffAccountService staffAccountService = new StaffAccountService(employeeService, clientAccountService, suspensionService, locationService);
         mockMvc = MockMvcBuilders.standaloneSetup(new StaffController(staffAccountService, employeeService))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))
                 .build();
-        when(clientAccountService.depositAndSaveToAccount(any())).thenReturn(account());
+        when(clientAccountService.depositAndSaveToAccount(any(), any())).thenReturn(account());
+        when(clientAccountService.withdrawAndSaveToAccount(any(), any())).thenReturn(account());
+        when(locationService.getLocation(1L)).thenReturn(location(1L, "Austin Downtown Branch", LocationType.OFFICE, "Austin", "TX"));
+        when(locationService.getLocation(4L)).thenReturn(location(4L, "San Antonio Riverwalk ATM", LocationType.ATM, "San Antonio", "TX"));
+        when(locationService.getLocation(999L)).thenThrow(new LocationNotFoundException("Bank location not found: 999"));
         when(suspensionService.suspendAccount(eq(ACCOUNT), any())).thenReturn(account());
         when(suspensionService.reactivateAccount(ACCOUNT)).thenReturn(account());
         when(clientAccountService.closeAccount(ACCOUNT)).thenReturn(account());
@@ -81,8 +96,24 @@ class StaffControllerTest {
     }
 
     private void employee(String number, EmployeeRole role, EmployeeStatus status) {
+        employee(number, role, status, null);
+    }
+
+    private void employee(String number, EmployeeRole role, EmployeeStatus status, Long bankLocationId) {
         when(employeeRepository.findByEmployeeNumber(number)).thenReturn(Optional.of(
-                Employee.builder().employeeNumber(number).firstName("Test").lastName(number).role(role).status(status).build()));
+                Employee.builder().employeeNumber(number).firstName("Test").lastName(number).role(role).status(status)
+                        .bankLocationId(bankLocationId).build()));
+    }
+
+    private BankLocations location(Long id, String name, LocationType type, String city, String state) {
+        return BankLocations.builder().id(id).name(name).locationType(type)
+                .bankAddress(BankAddress.builder().city(city).state(state).build()).build();
+    }
+
+    private TransactionHandler capturedDepositHandler() {
+        ArgumentCaptor<TransactionHandler> captor = ArgumentCaptor.forClass(TransactionHandler.class);
+        verify(clientAccountService).depositAndSaveToAccount(any(), captor.capture());
+        return captor.getValue();
     }
 
     @Test
@@ -91,7 +122,7 @@ class StaffControllerTest {
         mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
                 .andExpect(status().isOk());
-        verify(clientAccountService).depositAndSaveToAccount(any());
+        verify(clientAccountService).depositAndSaveToAccount(any(), any());
     }
 
     @Test
@@ -163,5 +194,68 @@ class StaffControllerTest {
         employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
         mockMvc.perform(get("/v1/api/staff/employees").header("X-Employee-Number", "EMP-M"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void depositRecordsTheTellerAndTheirOwnBranch() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-T")
+                        .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
+                .andExpect(status().isOk());
+        TransactionHandler handler = capturedDepositHandler();
+        assertEquals("EMP-T", handler.getEmployeeNumber());
+        assertEquals("Test EMP-T", handler.getEmployeeName());
+        assertEquals(EmployeeRole.TELLER, handler.getEmployeeRole());
+        assertEquals(1L, handler.getBankLocationId());
+        assertEquals("Austin Downtown Branch", handler.getBankLocationName());
+        assertEquals(LocationType.OFFICE, handler.getBankLocationType());
+        assertEquals("Austin", handler.getBankLocationCity());
+        assertEquals("TX", handler.getBankLocationState());
+    }
+
+    @Test
+    void locationIdParamRecordsAnAtmInsteadOfTheEmployeesBranch() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit?locationId=4").header("X-Employee-Number", "EMP-T")
+                        .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
+                .andExpect(status().isOk());
+        TransactionHandler handler = capturedDepositHandler();
+        assertEquals(4L, handler.getBankLocationId());
+        assertEquals(LocationType.ATM, handler.getBankLocationType());
+    }
+
+    @Test
+    void areaManagerWithoutLocationRecordsNoLocation() throws Exception {
+        employee("EMP-A", EmployeeRole.AREA_MANAGER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-A")
+                        .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
+                .andExpect(status().isOk());
+        TransactionHandler handler = capturedDepositHandler();
+        assertEquals("EMP-A", handler.getEmployeeNumber());
+        assertNull(handler.getBankLocationId());
+    }
+
+    @Test
+    void unknownLocationIs404AndNothingIsDeposited() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit?locationId=999").header("X-Employee-Number", "EMP-T")
+                        .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string("Bank location not found: 999"));
+        verify(clientAccountService, never()).depositAndSaveToAccount(any(), any());
+    }
+
+    @Test
+    void withdrawRecordsTheEmployeeAndBranchToo() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
+        mockMvc.perform(post("/v1/api/staff/accounts/withdraw").header("X-Employee-Number", "EMP-T")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"accountNumber\":\"CH-0000010001\",\"accountType\":\"CHECKING\",\"withdrawAmount\":10,"
+                                + "\"street\":\"1 Main St\",\"city\":\"Austin\",\"state\":\"TX\",\"zip\":\"78701\"}"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<TransactionHandler> captor = ArgumentCaptor.forClass(TransactionHandler.class);
+        verify(clientAccountService).withdrawAndSaveToAccount(any(), captor.capture());
+        assertEquals("EMP-T", captor.getValue().getEmployeeNumber());
+        assertEquals(1L, captor.getValue().getBankLocationId());
     }
 }

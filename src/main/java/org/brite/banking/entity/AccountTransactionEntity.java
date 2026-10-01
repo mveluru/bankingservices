@@ -1,5 +1,6 @@
 package org.brite.banking.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -15,6 +16,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.brite.banking.domain.EmployeeRole;
+import org.brite.banking.domain.LocationType;
 import org.brite.banking.domain.TransactionType;
 
 import java.math.BigDecimal;
@@ -50,4 +53,24 @@ public class AccountTransactionEntity {
 
     /** "cash" or "check"; only set for DEPOSIT transactions, null for WITHDRAWAL. */
     private String depositType;
+
+    /** Employee who handled the transaction (snapshot); null for customer-initiated ones and older rows. */
+    @Column(length = 20)
+    private String employeeNumber;
+
+    @Column(length = 205)
+    private String employeeName;
+
+    @Enumerated(EnumType.STRING)
+    private EmployeeRole employeeRole;
+
+    /** Branch office or ATM where it was handled (snapshot, not a foreign key). */
+    private Long bankLocationId;
+    private String bankLocationName;
+
+    @Enumerated(EnumType.STRING)
+    private LocationType bankLocationType;
+
+    private String bankLocationCity;
+    private String bankLocationState;
 }

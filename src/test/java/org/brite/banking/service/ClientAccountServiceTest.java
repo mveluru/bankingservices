@@ -6,6 +6,9 @@ import org.brite.banking.domain.Account;
 import org.brite.banking.domain.AccountType;
 import org.brite.banking.domain.BulkCloseAccountsResult;
 import org.brite.banking.domain.DepositForm;
+import org.brite.banking.domain.EmployeeRole;
+import org.brite.banking.domain.LocationType;
+import org.brite.banking.domain.TransactionHandler;
 import org.brite.banking.domain.TransactionType;
 import org.brite.banking.exception.AccountClosedException;
 import org.brite.banking.exception.AccountNotFoundException;
@@ -233,5 +236,40 @@ class ClientAccountServiceTest {
                         && "cash".equals(transaction.getDepositType())
                         && transaction.getAmount().compareTo(new BigDecimal("50.00")) == 0
                         && transaction.getBalanceAfter().compareTo(new BigDecimal("150.00")) == 0));
+    }
+
+    @Test
+    void deposit_withHandler_recordsEmployeeAndLocationOnTheTransaction() {
+        DepositForm form = new DepositForm("CH-100", new BigDecimal("50.00"), AccountType.CHECKING, "check",
+                null, null, null, null, null, null, null, null);
+        Account updatedAccount = Account.builder().checkingAccountNumber("CH-100").checkingBalance(new BigDecimal("150.00")).build();
+        when(accountRepository.deposit("CH-100", AccountType.CHECKING, new BigDecimal("50.00"))).thenReturn(updatedAccount);
+        TransactionHandler handler = TransactionHandler.builder()
+                .employeeNumber("EMP-000010").employeeName("Lucas Meyer").employeeRole(EmployeeRole.TELLER)
+                .bankLocationId(1L).bankLocationName("Austin Downtown Branch").bankLocationType(LocationType.OFFICE)
+                .bankLocationCity("Austin").bankLocationState("TX").build();
+
+        clientAccountService.depositAndSaveToAccount(form, handler);
+
+        verify(transactionRepository).recordTransaction(argThat(transaction ->
+                "EMP-000010".equals(transaction.getEmployeeNumber())
+                        && "Lucas Meyer".equals(transaction.getEmployeeName())
+                        && transaction.getEmployeeRole() == EmployeeRole.TELLER
+                        && Long.valueOf(1L).equals(transaction.getBankLocationId())
+                        && "Austin Downtown Branch".equals(transaction.getBankLocationName())
+                        && transaction.getBankLocationType() == LocationType.OFFICE));
+    }
+
+    @Test
+    void deposit_withoutHandler_leavesEmployeeAndLocationNull() {
+        DepositForm form = new DepositForm("CH-100", new BigDecimal("50.00"), AccountType.CHECKING, "check",
+                null, null, null, null, null, null, null, null);
+        Account updatedAccount = Account.builder().checkingAccountNumber("CH-100").checkingBalance(new BigDecimal("150.00")).build();
+        when(accountRepository.deposit("CH-100", AccountType.CHECKING, new BigDecimal("50.00"))).thenReturn(updatedAccount);
+
+        clientAccountService.depositAndSaveToAccount(form);
+
+        verify(transactionRepository).recordTransaction(argThat(transaction ->
+                transaction.getEmployeeNumber() == null && transaction.getBankLocationId() == null));
     }
 }

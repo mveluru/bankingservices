@@ -41,6 +41,14 @@ public class TransactionRepository {
                 .balanceAfter(transaction.getBalanceAfter())
                 .transactionDate(transaction.getTransactionDate())
                 .depositType(transaction.getDepositType())
+                .employeeNumber(transaction.getEmployeeNumber())
+                .employeeName(transaction.getEmployeeName())
+                .employeeRole(transaction.getEmployeeRole())
+                .bankLocationId(transaction.getBankLocationId())
+                .bankLocationName(transaction.getBankLocationName())
+                .bankLocationType(transaction.getBankLocationType())
+                .bankLocationCity(transaction.getBankLocationCity())
+                .bankLocationState(transaction.getBankLocationState())
                 .build();
         transactionJpaRepository.save(entity);
         log.info(BankingMessages.LOG_TRANSACTION_RECORDED,
@@ -62,6 +70,14 @@ public class TransactionRepository {
                 .balanceAfter(entity.getBalanceAfter())
                 .transactionDate(entity.getTransactionDate())
                 .depositType(entity.getDepositType())
+                .employeeNumber(entity.getEmployeeNumber())
+                .employeeName(entity.getEmployeeName())
+                .employeeRole(entity.getEmployeeRole())
+                .bankLocationId(entity.getBankLocationId())
+                .bankLocationName(entity.getBankLocationName())
+                .bankLocationType(entity.getBankLocationType())
+                .bankLocationCity(entity.getBankLocationCity())
+                .bankLocationState(entity.getBankLocationState())
                 .build();
     }
 }

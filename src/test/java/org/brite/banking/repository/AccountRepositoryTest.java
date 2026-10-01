@@ -2,15 +2,20 @@ package org.brite.banking.repository;
 
 import org.brite.banking.domain.Account;
 import org.brite.banking.domain.AccountStatus;
+import org.brite.banking.domain.AccountTransaction;
 import org.brite.banking.domain.AccountType;
 import org.brite.banking.domain.Address;
 import org.brite.banking.domain.Customer;
+import org.brite.banking.domain.EmployeeRole;
+import org.brite.banking.domain.LocationType;
+import org.brite.banking.domain.TransactionType;
 import org.brite.banking.exception.AccountClosedException;
 import org.brite.banking.exception.AccountNotFoundException;
 import org.brite.banking.exception.AccountSuspendedException;
 import org.brite.banking.exception.InsufficientFundsException;
 import org.brite.banking.exception.MinBalanceException;
 import org.brite.banking.repository.jpa.AccountJpaRepository;
+import org.brite.banking.repository.jpa.AccountTransactionJpaRepository;
 import org.brite.banking.rules.AccountConstraints;
 import org.brite.BankingServicesApplication;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +30,7 @@ import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,6 +66,9 @@ class AccountRepositoryTest {
 
     @Autowired
     private AccountJpaRepository accountJpaRepository;
+
+    @Autowired
+    private AccountTransactionJpaRepository transactionJpaRepository;
 
     private AccountRepository accountRepository;
 
@@ -524,5 +533,34 @@ class AccountRepositoryTest {
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).getCheckingAccountNumber()).isEqualTo(suspended);
         assertThat(page.getContent().get(0).getSuspensionNotes()).isEqualTo("hold");
+    }
+
+    @Test
+    void recordTransaction_persistsEmployeeAndLocationSnapshotAndReadsThemBack() {
+        Account saved = accountRepository.save(newCheckingAccount());
+        String number = saved.getCheckingAccountNumber();
+        TransactionRepository transactions = new TransactionRepository(transactionJpaRepository, accountJpaRepository);
+
+        transactions.recordTransaction(AccountTransaction.builder()
+                .accountNumber(number).transactionType(TransactionType.DEPOSIT)
+                .amount(new BigDecimal("25.00")).balanceAfter(new BigDecimal("25.00")).transactionDate(LocalDate.now())
+                .employeeNumber("EMP-000010").employeeName("Lucas Meyer").employeeRole(EmployeeRole.TELLER)
+                .bankLocationId(1L).bankLocationName("Austin Downtown Branch").bankLocationType(LocationType.OFFICE)
+                .bankLocationCity("Austin").bankLocationState("TX").build());
+        transactions.recordTransaction(AccountTransaction.builder()
+                .accountNumber(number).transactionType(TransactionType.WITHDRAWAL)
+                .amount(new BigDecimal("5.00")).balanceAfter(new BigDecimal("20.00")).transactionDate(LocalDate.now()).build());
+
+        List<AccountTransaction> found = transactions.findByAccountNumber(number);
+        assertThat(found).hasSize(2);
+        AccountTransaction handled = found.stream().filter(t -> t.getTransactionType() == TransactionType.DEPOSIT).findFirst().orElseThrow();
+        assertThat(handled.getEmployeeNumber()).isEqualTo("EMP-000010");
+        assertThat(handled.getEmployeeName()).isEqualTo("Lucas Meyer");
+        assertThat(handled.getEmployeeRole()).isEqualTo(EmployeeRole.TELLER);
+        assertThat(handled.getBankLocationName()).isEqualTo("Austin Downtown Branch");
+        assertThat(handled.getBankLocationType()).isEqualTo(LocationType.OFFICE);
+        AccountTransaction customerInitiated = found.stream().filter(t -> t.getTransactionType() == TransactionType.WITHDRAWAL).findFirst().orElseThrow();
+        assertThat(customerInitiated.getEmployeeNumber()).isNull();
+        assertThat(customerInitiated.getBankLocationId()).isNull();
     }
 }

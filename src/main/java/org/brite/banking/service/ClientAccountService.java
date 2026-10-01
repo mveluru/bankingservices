@@ -10,6 +10,7 @@ import org.brite.banking.domain.AccountType;
 import org.brite.banking.domain.BulkCloseAccountsResult;
 import org.brite.banking.domain.BulkCloseFailure;
 import org.brite.banking.domain.DepositForm;
+import org.brite.banking.domain.TransactionHandler;
 import org.brite.banking.domain.TransactionType;
 import org.brite.banking.domain.WithdrawalForm;
 import org.brite.banking.exception.AccountClosedException;
@@ -125,6 +126,12 @@ public class ClientAccountService {
 
     @Transactional
     public Account withdrawAndSaveToAccount(WithdrawalRequest withdrawalRequest) {
+        return withdrawAndSaveToAccount(withdrawalRequest, null);
+    }
+
+    /** As above, recording {@code handler} (employee + branch/ATM) on the transaction; null = customer-initiated. */
+    @Transactional
+    public Account withdrawAndSaveToAccount(WithdrawalRequest withdrawalRequest, TransactionHandler handler) {
         String accountNumber = withdrawalRequest.getAccountNumber();
         BigDecimal withdrawAmount = withdrawalRequest.getWithdrawAmount();
 
@@ -174,13 +181,12 @@ public class ClientAccountService {
 
         BigDecimal balanceAfter = requestedAcctType == AccountType.CHECKING
                 ? updatedAccount.getCheckingBalance() : updatedAccount.getSavingBalance();
-        transactionRepository.recordTransaction(AccountTransaction.builder()
+        transactionRepository.recordTransaction(withHandler(AccountTransaction.builder()
                 .accountNumber(accountNumber)
                 .transactionType(TransactionType.WITHDRAWAL)
                 .amount(withdrawAmount)
                 .balanceAfter(balanceAfter)
-                .transactionDate(LocalDate.now())
-                .build());
+                .transactionDate(LocalDate.now()), handler).build());
 
         notificationService.sendEmail(withdrawalRequest.getFirstName()+" "+withdrawalRequest.getLastName());
         notificationService.sendSms(withdrawalRequest.getFirstName()+" "+withdrawalRequest.getLastName());
@@ -190,6 +196,12 @@ public class ClientAccountService {
 
     @Transactional
     public Account depositAndSaveToAccount(DepositForm depositForm) {
+        return depositAndSaveToAccount(depositForm, null);
+    }
+
+    /** As above, recording {@code handler} (employee + branch/ATM) on the transaction; null = customer-initiated. */
+    @Transactional
+    public Account depositAndSaveToAccount(DepositForm depositForm, TransactionHandler handler) {
         String accountNumber = depositForm.getAccountNumber();
         BigDecimal amount = depositForm.getAmount();
 
@@ -239,15 +251,30 @@ public class ClientAccountService {
 
         BigDecimal balanceAfter = requestedAcctType == AccountType.CHECKING
                 ? updatedAccount.getCheckingBalance() : updatedAccount.getSavingBalance();
-        transactionRepository.recordTransaction(AccountTransaction.builder()
+        transactionRepository.recordTransaction(withHandler(AccountTransaction.builder()
                 .accountNumber(accountNumber)
                 .transactionType(TransactionType.DEPOSIT)
                 .amount(amount)
                 .balanceAfter(balanceAfter)
                 .transactionDate(LocalDate.now())
-                .depositType(depositType)
-                .build());
+                .depositType(depositType), handler).build());
 
         return updatedAccount;
+    }
+
+    private static AccountTransaction.AccountTransactionBuilder withHandler(
+            AccountTransaction.AccountTransactionBuilder builder, TransactionHandler handler) {
+        if (handler == null) {
+            return builder;
+        }
+        return builder
+                .employeeNumber(handler.getEmployeeNumber())
+                .employeeName(handler.getEmployeeName())
+                .employeeRole(handler.getEmployeeRole())
+                .bankLocationId(handler.getBankLocationId())
+                .bankLocationName(handler.getBankLocationName())
+                .bankLocationType(handler.getBankLocationType())
+                .bankLocationCity(handler.getBankLocationCity())
+                .bankLocationState(handler.getBankLocationState());
     }
 }

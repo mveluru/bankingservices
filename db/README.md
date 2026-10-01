@@ -9,6 +9,7 @@ seeds demo accounts and bank locations on first start. They exist to build/inspe
 | `ddl/` | `01_create_tables.sql` | `CREATE DATABASE` + all 7 tables, unique index and foreign keys (incl. the account suspension columns) |
 | | `02_drop_tables.sql` | Drops all tables (**destructive**) |
 | | `04_customer_phone_migration.sql` | Idempotent migration adding `customers.phone_number varchar(20)` if missing (run before or after the app first starts on this version; new databases don't need it) |
+| | `05_transaction_handler_migration.sql` | Idempotent migration adding the nullable `account_transactions` columns that record who handled a transaction (`employee_number/name/role`) and where (`bank_location_id/name/type/city/state`); not needed on a fresh database |
 | | `03_account_suspension_migration.sql` | **Migration for a database created before account suspension** (idempotent, run before or after the app first starts): adds any missing `suspended`, `suspended_start`, `suspended_end`, `suspension_notes` columns, defaults `suspended` to 0 and widens `account_status` to include `SUSPENDED` (Hibernate's `ddl-auto: update` adds columns but won't alter an existing enum column). Not needed on a fresh database |
 | `data/` | `01_seed_customers_accounts.sql` | The 52 demo accounts + customers with phones `512-555-0001..0052` (same as `AccountDataSeeder`) |
 | | `02_sample_transactions.sql` | 5 transactions + 2 withdrawal-history rows for the statement endpoint |

@@ -20,4 +20,15 @@ public class AccountTransaction {
     private LocalDate transactionDate;
     /** "cash" or "check"; only set for DEPOSIT transactions, null for WITHDRAWAL. */
     private String depositType;
+
+    /** Employee who handled the transaction; null for customer-initiated ones. */
+    private String employeeNumber;
+    private String employeeName;
+    private EmployeeRole employeeRole;
+    /** Branch office or ATM where it was handled (snapshot); null when not recorded. */
+    private Long bankLocationId;
+    private String bankLocationName;
+    private LocationType bankLocationType;
+    private String bankLocationCity;
+    private String bankLocationState;
 }

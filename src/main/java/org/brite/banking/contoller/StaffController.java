@@ -36,18 +36,24 @@ public class StaffController {
     private final StaffAccountService staffAccountService;
     private final EmployeeService employeeService;
 
-    /** Needs WITHDRAW (teller and up). POST /v1/api/staff/accounts/withdraw */
+    /**
+     * Needs WITHDRAW (teller and up). The transaction records the employee and the branch/ATM
+     * ({@code locationId}, default the employee's own branch).
+     * POST /v1/api/staff/accounts/withdraw?locationId=
+     */
     @PostMapping("/accounts/withdraw")
     public ResponseEntity<Account> withdraw(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+                                            @RequestParam(required = false) Long locationId,
                                             @Valid @RequestBody WithdrawalRequest request) {
-        return ResponseEntity.ok(staffAccountService.withdraw(employee, request));
+        return ResponseEntity.ok(staffAccountService.withdraw(employee, locationId, request));
     }
 
-    /** Needs DEPOSIT (teller and up). POST /v1/api/staff/accounts/deposit */
+    /** Needs DEPOSIT (teller and up); records employee and branch/ATM like withdraw. POST /v1/api/staff/accounts/deposit?locationId= */
     @PostMapping("/accounts/deposit")
     public ResponseEntity<Account> deposit(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+                                           @RequestParam(required = false) Long locationId,
                                            @Valid @RequestBody DepositForm request) {
-        return ResponseEntity.ok(staffAccountService.deposit(employee, request));
+        return ResponseEntity.ok(staffAccountService.deposit(employee, locationId, request));
     }
 
     /** Needs SUSPEND_ACCOUNT (manager and up). POST /v1/api/staff/accounts/{accountNumber}/suspend */
