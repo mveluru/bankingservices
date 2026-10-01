@@ -76,6 +76,12 @@ banking:
   employee-login:
     max-failed-attempts: 5
     lockout-minutes: 15
+  jwt:
+    # Signing secret for login tokens: set BANKING_JWT_SECRET (>= 32 chars, e.g. `openssl rand -base64 48`). Never commit it.
+    # Blank = a random key per start, so tokens die on restart.
+    secret: ${BANKING_JWT_SECRET:}
+    issuer: bankingservices
+    expiration-minutes: 30
   customer-login:
     max-failed-attempts: 5
     lockout-minutes: 15

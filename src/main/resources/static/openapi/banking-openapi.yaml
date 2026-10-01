@@ -58,7 +58,7 @@ tags:
   - name: Staff
     description: Employee-facing endpoints. The acting employee (`X-Employee-Number`) must hold the privilege for the action; privileges come from the role (`TELLER` < `MANAGER` < `AREA_MANAGER`).
   - name: Login
-    description: Verify an employee or customer username and 8-digit password. Returns who the caller is; issues no session or token.
+    description: Verify an employee or customer username and 8-digit password. Returns a signed JWT access token and who the caller is. No endpoint requires the token yet.
   - name: Portal (BFF)
     description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call.
   - name: Clients
@@ -1195,8 +1195,12 @@ paths:
       operationId: staffLogin
       summary: Employee login
       description: |
-        Verifies the username (case-insensitive) and 8-digit password and returns who the caller is. **No session
-        or token is issued** - other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id`.
+        Verifies the username (case-insensitive) and 8-digit password and returns a signed **JWT access token**
+        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **No endpoint requires the token yet** -
+        other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id` - so it is groundwork for
+        replacing those headers. Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
+        (employee number / customer id), `type` (`employee`/`customer`), `role` (employees), `jti`, `iat`, `exp`;
+        no personal data.
         Unknown username and wrong password give the same `401`. After 5 wrong passwords the login is `LOCKED` for
         15 minutes (`423`); while locked, even the right password is refused. A right password on an `INACTIVE` or
         `SUSPENDED` login is `403` (or the employee isn't `ACTIVE` - on leave or terminated). The password is never logged or returned.
@@ -1210,10 +1214,13 @@ paths:
               password: '20260010'
       responses:
         '200':
-          description: Credentials verified.
+          description: Credentials verified; token issued.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: no-store}
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/Employee'}
+              schema: {$ref: '#/components/schemas/StaffLoginResponse'}
         '400':
           description: Missing `username` or `password` (Spring Boot default JSON error).
           content:
@@ -1245,8 +1252,12 @@ paths:
       operationId: customerLogin
       summary: Customer login
       description: |
-        Verifies the username (case-insensitive) and 8-digit password and returns who the caller is. **No session
-        or token is issued** - other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id`.
+        Verifies the username (case-insensitive) and 8-digit password and returns a signed **JWT access token**
+        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **No endpoint requires the token yet** -
+        other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id` - so it is groundwork for
+        replacing those headers. Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
+        (employee number / customer id), `type` (`employee`/`customer`), `role` (employees), `jti`, `iat`, `exp`;
+        no personal data.
         Unknown username and wrong password give the same `401`. After 5 wrong passwords the login is `LOCKED` for
         15 minutes (`423`); while locked, even the right password is refused. A right password on an `INACTIVE` or
         `SUSPENDED` login is `403`. The password is never logged or returned.
@@ -1260,10 +1271,13 @@ paths:
               password: '20260005'
       responses:
         '200':
-          description: Credentials verified.
+          description: Credentials verified; token issued.
+          headers:
+            Cache-Control:
+              schema: {type: string, example: no-store}
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/AuthenticatedCustomer'}
+              schema: {$ref: '#/components/schemas/CustomerLoginResponse'}
         '400':
           description: Missing `username` or `password` (Spring Boot default JSON error).
           content:
@@ -1847,6 +1861,22 @@ components:
       properties:
         username: {type: string, example: lucas.meyer}
         password: {type: string, description: Exactly 8 digits. Masked in request logs., example: '20260010'}
+
+    StaffLoginResponse:
+      type: object
+      properties:
+        accessToken: {type: string, description: Signed JWT (HS256). A credential - never log it., example: eyJhbGciOiJIUzI1NiJ9...}
+        tokenType: {type: string, example: Bearer}
+        expiresIn: {type: integer, format: int64, description: Seconds until the token expires., example: 1800}
+        employee: {$ref: '#/components/schemas/Employee'}
+
+    CustomerLoginResponse:
+      type: object
+      properties:
+        accessToken: {type: string, description: Signed JWT (HS256). A credential - never log it., example: eyJhbGciOiJIUzI1NiJ9...}
+        tokenType: {type: string, example: Bearer}
+        expiresIn: {type: integer, format: int64, example: 1800}
+        customer: {$ref: '#/components/schemas/AuthenticatedCustomer'}
 
     AuthenticatedCustomer:
       type: object

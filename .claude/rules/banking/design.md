@@ -48,4 +48,5 @@ Adding a persisted field to a domain object means: add to the entity, both mappe
 ## Configuration
 - Business limits: `@ConfigurationProperties(prefix = "banking.constraints")` (`AccountConstraints`), bound with `@ConfigurationPropertiesScan`.
 - Gateway toggles: `banking.rate-limit.*`, `banking.request-logging.*`.
+- Login tokens: `banking.jwt.*` (`JwtProperties`: `secret` from `BANKING_JWT_SECRET`, `issuer`, `expiration-minutes`).
 - Login lockout: `banking.employee-login.*` and `banking.customer-login.*` (`max-failed-attempts`, `lockout-minutes`; `EmployeeLoginProperties`/`CustomerLoginProperties` in `rules`).

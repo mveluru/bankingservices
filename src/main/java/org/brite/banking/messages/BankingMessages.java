@@ -34,6 +34,9 @@ public final class BankingMessages {
     public static final String LOGIN_STATUS_REQUIRED = "status is required (ACTIVE, INACTIVE, LOCKED or SUSPENDED)";
     public static final String LOGIN_NOT_FOUND = "No login found for %s %s";
     public static final String LOGIN_STATUS_REASON_TOO_LONG = "Reason must be at most 200 characters";
+    public static final String INVALID_TOKEN = "Invalid or expired token";
+    public static final String JWT_SECRET_TOO_SHORT = "banking.jwt.secret must be at least 32 characters";
+    public static final String JWT_EXPIRATION_INVALID = "banking.jwt.expiration-minutes must be positive";
     public static final String CUSTOMER_NOT_FOUND = "Customer not found: %s";
     public static final String CUSTOMER_HAS_LOGIN = "Customer %s already has a login";
     public static final String EMPLOYEE_LOCKED = "Too many failed login attempts; locked until %s";
@@ -133,6 +136,11 @@ public final class BankingMessages {
     public static final String LOG_LOGIN_STATUS_CHANGED = "{} id {} login status set to {} (reason: {})";
     public static final String LOG_LOGIN_UNLOCKED = "{} id {} lock expired; login is ACTIVE again";
 
+    // JwtService log messages
+    public static final String LOG_JWT_EPHEMERAL_KEY = "banking.jwt.secret is not set (BANKING_JWT_SECRET): using a random signing key, so tokens stop working when the app restarts";
+    public static final String LOG_TOKEN_ISSUED = "Issued {} token for {} (expires {})";
+    public static final String LOG_TOKEN_REJECTED = "Rejected a {} token";
+
     // StaffAccountService log messages
     public static final String LOG_STAFF_ACTION = "Employee {} ({}) performed {} on account {}";
 
@@ -145,6 +153,7 @@ public final class BankingMessages {
     public static final String LOG_HANDLER_EMPLOYEE_LOCKED = "Employee login locked: {}";
     public static final String LOG_HANDLER_CUSTOMER_NOT_FOUND = "Customer not found: {}";
     public static final String LOG_HANDLER_LOGIN_NOT_ACTIVE = "Login not active: {}";
+    public static final String LOG_HANDLER_INVALID_TOKEN = "Invalid token: {}";
     public static final String LOG_HANDLER_ACCOUNT_CLOSED = "Account closed: {}";
     public static final String LOG_HANDLER_INSUFFICIENT_FUNDS = "Insufficient funds: {}";
     public static final String LOG_HANDLER_INVALID_REQUEST = "Invalid banking request: {}";

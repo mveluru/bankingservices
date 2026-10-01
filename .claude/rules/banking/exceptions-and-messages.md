@@ -6,13 +6,14 @@ paths:
 # Banking: exceptions and messages
 
 ## Exceptions
-- One typed unchecked exception per business failure (`AccountNotFoundException`, `AccountClosedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `LocationNotFoundException`, `EmployeeNotFoundException`, `CustomerNotFoundException`, `EmployeeNotAuthorizedException`, `LoginNotActiveException`, `InvalidCredentialsException`, `EmployeeLockedException`, `BankServiceUnavailableException`). Extend `RuntimeException`, take a message only.
+- One typed unchecked exception per business failure (`AccountNotFoundException`, `AccountClosedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `LocationNotFoundException`, `EmployeeNotFoundException`, `CustomerNotFoundException`, `EmployeeNotAuthorizedException`, `LoginNotActiveException`, `InvalidCredentialsException`, `EmployeeLockedException`, `InvalidTokenException`, `BankServiceUnavailableException`). Extend `RuntimeException`, take a message only.
 - Mapping lives solely in `BankingExceptionHandler` (`@RestControllerAdvice(basePackages = "org.brite.banking")`): each handler logs `warn` with a `LOG_HANDLER_*` constant and returns `ResponseEntity<String>` (plain text body).
 
 | Exception | Status |
 |---|---|
 | `AccountNotFoundException`, `LocationNotFoundException`, `EmployeeNotFoundException`, `CustomerNotFoundException` | 404 |
 | `InvalidCredentialsException` | 401 (one message for unknown user and wrong password) |
+| `InvalidTokenException` | 401 (bad, expired, forged or wrong-kind token; thrown by `JwtService.parse`, no endpoint calls it yet) |
 | `EmployeeNotAuthorizedException`, `LoginNotActiveException` | 403 |
 | `EmployeeLockedException` (also used for customer logins) | 423 |
 | `AccountClosedException`, `AccountSuspendedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `IllegalArgumentException` | 400 |

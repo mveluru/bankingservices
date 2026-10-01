@@ -64,6 +64,15 @@ public class BankingExceptionHandler {
                 .body(ex.getMessage());
     }
 
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<String> handleInvalidToken(
+            InvalidTokenException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_INVALID_TOKEN, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(LoginNotActiveException.class)
     public ResponseEntity<String> handleLoginNotActive(
             LoginNotActiveException ex) {

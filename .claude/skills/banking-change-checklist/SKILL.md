@@ -32,7 +32,10 @@ pip install openapi-spec-validator && openapi-spec-validator src/main/resources/
 ```
 YAML gotchas: quote plain scalars containing `: ` and flow-sequence items containing `,`.
 
-## 4. Before committing
+## 4. Documentation is checked automatically
+The `doc-sync.py` Stop hook blocks the end of a turn that changed code/config/pom/db/hooks/skills without updating `README.md`, `.claude/CLAUDE.md` or the rules, the OpenAPI spec (API surface) and `db/` (entities/seeders). Do the doc updates in the same turn as the code, or end the final message with `Docs: no update needed (reason)` when that is true.
+
+## 5. Before committing
 - `git status`: the change should include code + tests + `db/` + OpenAPI + README + the `.claude` docs that apply. Leave unrelated IDE files (`.idea/workspace.xml`) out.
 - The PostToolUse hook (`.claude/hooks/banking-sync-reminder.py`) prints the relevant reminders after banking edits; treat them as the short form of this checklist.
 - If a live MySQL was touched (migration, seed, smoke test), say exactly what changed. Never delete account/customer rows to clean up tests: close the account instead.

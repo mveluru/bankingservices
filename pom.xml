@@ -20,6 +20,8 @@
         <spring-cloud.version>2025.0.3</spring-cloud.version>
         <!-- Boot does not manage the JaCoCo plugin; pin it (0.8.14+ is needed for Java 25) so builds are reproducible -->
         <jacoco.version>0.8.15</jacoco.version>
+        <!-- JWT signing/parsing for the login endpoints; Boot does not manage jjwt -->
+        <jjwt.version>0.12.6</jjwt.version>
         <lombok.version>1.18.48</lombok.version>
         <org.mapstruct.version>1.6.3</org.mapstruct.version>
     </properties>
@@ -85,6 +87,23 @@
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>com.networknt</groupId>

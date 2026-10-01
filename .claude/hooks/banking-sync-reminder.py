@@ -63,7 +63,14 @@ if has("banking/service/Employee", "banking/service/Staff", "banking/service/Log
         "(EmployeeService.requirePrivilege), and customer-initiated deposit/withdraw is gated by CustomerCredentialService.requireActiveLoginIfPresent. "
         "Keep .claude/rules/banking/employees-and-logins.md, the OpenAPI Staff/Login tags + enums (EmployeeRole, EmployeePrivilege, LoginStatus), "
         "the README staff rows and EmployeeServiceTest/StaffControllerTest/*Credential*Test in step. X-Employee-Number and X-Customer-Id are "
-        "claimed identities, not authentication; there is no token yet.")
+        "claimed identities, not authentication; login issues a JWT but nothing requires it yet.")
+
+if has("service/JwtService", "service/LoginService", "rules/JwtProperties", "domain/IssuedToken", "domain/TokenClaims", "LoginResponse"):
+    notes.append(
+        "JWT: the signing secret comes only from BANKING_JWT_SECRET (>= 32 chars, never committed, no real secret in tests); HMAC only and keep "
+        "alg:none refused; no personal data or passwords in claims; never log a token; login responses stay Cache-Control: no-store and no token is "
+        "issued unless verify succeeded. A token is not enforced anywhere yet: if you add a bearer filter, re-check login/employee status, put it in front "
+        "of the rate limiter, and update employees-and-logins.md, security.md, OpenAPI (securitySchemes) and the README. Keep JwtServiceTest in step.")
 
 if has("Credential", "LoginRequest", "LoginController", "BankingRequestLoggingFilter", "LoginSupport"):
     notes.append(

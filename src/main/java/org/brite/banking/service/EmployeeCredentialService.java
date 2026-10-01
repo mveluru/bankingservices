@@ -24,7 +24,7 @@ import java.util.Optional;
 
 /**
  * Creates and verifies employee logins: a username and an 8-digit password, stored only as a
- * BCrypt hash in its own table. This only checks credentials; it issues no session or token.
+ * BCrypt hash in its own table. This only checks credentials; the access token is issued by {@link LoginService}.
  */
 @Service
 @Slf4j

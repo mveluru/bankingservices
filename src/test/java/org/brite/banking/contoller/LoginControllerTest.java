@@ -10,7 +10,10 @@ import org.brite.banking.exception.EmployeeLockedException;
 import org.brite.banking.exception.InvalidCredentialsException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.service.CustomerCredentialService;
+import org.brite.banking.rules.JwtProperties;
 import org.brite.banking.service.EmployeeCredentialService;
+import org.brite.banking.service.JwtService;
+import org.brite.banking.service.LoginService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -25,6 +28,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -32,13 +36,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class LoginControllerTest {
     private EmployeeCredentialService employeeService;
     private CustomerCredentialService customerService;
+    private JwtService jwtService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         employeeService = mock(EmployeeCredentialService.class);
         customerService = mock(CustomerCredentialService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(employeeService, customerService))
+        JwtProperties properties = new JwtProperties();
+        properties.setSecret("controller-test-secret-at-least-32-chars!!");
+        jwtService = new JwtService(properties);
+        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(new LoginService(employeeService, customerService, jwtService)))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))
@@ -57,8 +65,11 @@ class LoginControllerTest {
 
         mockMvc.perform(post("/v1/api/staff/login").contentType(MediaType.APPLICATION_JSON).content(body("lucas.meyer", "20260010")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.employeeNumber").value("EMP-000010"))
-                .andExpect(jsonPath("$.privileges.length()").value(3))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.expiresIn").value(1800))
+                .andExpect(jsonPath("$.employee.employeeNumber").value("EMP-000010"))
+                .andExpect(jsonPath("$.employee.privileges.length()").value(3))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("20260010"))));
     }
 
@@ -69,9 +80,11 @@ class LoginControllerTest {
 
         mockMvc.perform(post("/v1/api/customers/login").contentType(MediaType.APPLICATION_JSON).content(body("customer0005", "20260005")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.customerId").value(5))
-                .andExpect(jsonPath("$.firstName").value("Alice"))
-                .andExpect(jsonPath("$.length()").value(3));
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.customer.customerId").value(5))
+                .andExpect(jsonPath("$.customer.firstName").value("Alice"))
+                .andExpect(jsonPath("$.customer.length()").value(3));
     }
 
     @Test
@@ -105,5 +118,36 @@ class LoginControllerTest {
         mockMvc.perform(post("/v1/api/staff/login").contentType(MediaType.APPLICATION_JSON).content(body(" ", "20260010")))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(employeeService, customerService);
+    }
+
+    @Test
+    void theReturnedTokensVerifyAndIdentifyTheRightPrincipal() throws Exception {
+        when(employeeService.verify("lucas.meyer", "20260010")).thenReturn(Employee.builder()
+                .employeeNumber("EMP-000010").role(EmployeeRole.TELLER).status(EmployeeStatus.ACTIVE).build());
+        when(customerService.verify("customer0005", "20260005")).thenReturn(
+                AuthenticatedCustomer.builder().customerId(5L).firstName("Alice").lastName("Smith").build());
+
+        String staffToken = com.fasterxml.jackson.databind.json.JsonMapper.builder().build().readTree(
+                mockMvc.perform(post("/v1/api/staff/login").contentType(MediaType.APPLICATION_JSON).content(body("lucas.meyer", "20260010")))
+                        .andReturn().getResponse().getContentAsString()).get("accessToken").asText();
+        String customerToken = com.fasterxml.jackson.databind.json.JsonMapper.builder().build().readTree(
+                mockMvc.perform(post("/v1/api/customers/login").contentType(MediaType.APPLICATION_JSON).content(body("customer0005", "20260005")))
+                        .andReturn().getResponse().getContentAsString()).get("accessToken").asText();
+
+        var staff = jwtService.parse(staffToken);
+        org.junit.jupiter.api.Assertions.assertEquals("employee", staff.getType());
+        org.junit.jupiter.api.Assertions.assertEquals("EMP-000010", staff.getSubject());
+        org.junit.jupiter.api.Assertions.assertEquals(EmployeeRole.TELLER, staff.getRole());
+        var customer = jwtService.parse(customerToken);
+        org.junit.jupiter.api.Assertions.assertEquals("customer", customer.getType());
+        org.junit.jupiter.api.Assertions.assertEquals("5", customer.getSubject());
+    }
+
+    @Test
+    void aFailedLoginNeverReturnsAToken() throws Exception {
+        when(employeeService.verify("lucas.meyer", "00000000")).thenThrow(new InvalidCredentialsException("Invalid username or password"));
+        mockMvc.perform(post("/v1/api/staff/login").contentType(MediaType.APPLICATION_JSON).content(body("lucas.meyer", "00000000")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("eyJ"))));
     }
 }
