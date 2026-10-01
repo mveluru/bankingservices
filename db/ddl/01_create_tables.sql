@@ -100,6 +100,23 @@ CREATE TABLE IF NOT EXISTS bank_location_services (
     primary key (bank_location_id, service)
 ) engine=InnoDB;
 
+CREATE TABLE IF NOT EXISTS bank_employees (
+    hire_date date not null,
+    id bigint not null auto_increment,
+    bank_location_id bigint,
+    supervisor_id bigint,
+    phone_number varchar(20) not null,
+    employee_number varchar(20) not null,
+    region varchar(50),
+    first_name varchar(100) not null,
+    job_title varchar(100) not null,
+    last_name varchar(100) not null,
+    email varchar(150) not null,
+    role enum ('AREA_MANAGER','MANAGER','TELLER') not null,
+    status enum ('ACTIVE','ON_LEAVE','TERMINATED') not null,
+    primary key (id)
+) engine=InnoDB;
+
 -- Constraints (kept out of CREATE TABLE so table order doesn't matter).
 alter table accounts
    add constraint idx_accounts_account_number unique (account_number);
@@ -123,3 +140,9 @@ alter table withdrawal_history
    add constraint FKiqdmc315ip4x3pj5y3qog2bpi
    foreign key (account_id)
    references accounts (id);
+
+alter table bank_employees
+   add constraint idx_bank_employees_employee_number unique (employee_number);
+
+alter table bank_employees
+   add constraint idx_bank_employees_email unique (email);
