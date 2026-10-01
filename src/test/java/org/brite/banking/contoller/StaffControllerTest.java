@@ -350,4 +350,32 @@ class StaffControllerTest {
                         .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"ACTIVE\"}"))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void managerCanCreateACustomerLoginAndAnInvalidPasswordIs400() throws Exception {
+        employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
+        when(customerCredentialService.createLogin(5L, "alice.smith", "12345678")).thenReturn(
+                LoginStatusView.builder().username("alice.smith").status(LoginStatus.ACTIVE).build());
+        when(customerCredentialService.createLogin(5L, "alice.smith", "1234")).thenThrow(new IllegalArgumentException("Password must be exactly 8 digits"));
+
+        mockMvc.perform(post("/v1/api/staff/customers/5/login").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"alice.smith\",\"password\":\"12345678\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.username").value("alice.smith"))
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("12345678"))));
+        mockMvc.perform(post("/v1/api/staff/customers/5/login").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"alice.smith\",\"password\":\"1234\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Password must be exactly 8 digits"));
+    }
+
+    @Test
+    void tellerCannotCreateACustomerLogin() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(post("/v1/api/staff/customers/5/login").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"alice.smith\",\"password\":\"12345678\"}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(customerCredentialService);
+    }
 }

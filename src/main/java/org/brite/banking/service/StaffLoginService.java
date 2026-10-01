@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.ChangeLoginStatusRequest;
+import org.brite.banking.request.LoginRequest;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,6 +22,15 @@ public class StaffLoginService {
     public LoginStatusView changeEmployeeLoginStatus(String actingEmployee, String employeeNumber, ChangeLoginStatusRequest request) {
         employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_EMPLOYEES);
         return employeeCredentialService.changeStatus(employeeNumber, request.getStatus(), request.getReason());
+    }
+
+    /**
+     * Needs {@code MANAGE_CUSTOMER_LOGINS} (managers and up). Gives a customer a login (username + 8-digit password).
+     * Customers can't use the protected account and portal endpoints without one.
+     */
+    public LoginStatusView createCustomerLogin(String actingEmployee, Long customerId, LoginRequest request) {
+        employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_CUSTOMER_LOGINS);
+        return customerCredentialService.createLogin(customerId, request.getUsername(), request.getPassword());
     }
 
     /** Needs {@code MANAGE_CUSTOMER_LOGINS} (managers and up). */

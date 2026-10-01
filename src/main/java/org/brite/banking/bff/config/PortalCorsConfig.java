@@ -7,7 +7,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Lets the banking UI portal (a different origin) call the BFF. Preflight requests carry no
- * {@code X-Customer-Id}, so {@code BankingRateLimitFilter} lets them through and this mapping
+ * {@code X-Customer-Id} or {@code Authorization}, so {@code BankingRateLimitFilter} and the authentication filter lets them through and this mapping
  * answers them. The gateway/rate-limit headers are exposed so the portal can read them.
  */
 @Configuration
@@ -20,7 +20,7 @@ public class PortalCorsConfig implements WebMvcConfigurer {
         registry.addMapping("/bff/**")
                 .allowedOrigins(properties.getAllowedOrigins().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PATCH", "OPTIONS")
-                .allowedHeaders("Content-Type", "X-Customer-Id")
+                .allowedHeaders("Content-Type", "X-Customer-Id", "Authorization")
                 .exposedHeaders("X-BTID", "X-RateLimit-Limit", "X-RateLimit-Remaining")
                 .maxAge(3600);
     }

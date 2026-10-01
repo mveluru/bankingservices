@@ -6,6 +6,8 @@ import org.brite.banking.bff.dto.AccountOverviewResponse;
 import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalHomeResponse;
 import org.brite.banking.bff.service.PortalOrchestrationService;
+import org.brite.banking.gateway.CustomerAuthenticationFilter;
+import org.brite.banking.service.CustomerAccessService;
 import org.brite.banking.domain.BankStatement;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.request.AccountRegistrationRequest;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,20 +29,26 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 
-/** Backend-for-frontend endpoints for the banking UI portal: one call per screen. */
+/**
+ * Backend-for-frontend endpoints for the banking UI portal: one call per screen. Every one except {@code POST accounts/open}
+ * needs {@code Authorization: Bearer <customer token>} ({@link CustomerAuthenticationFilter}) and only reaches the caller's
+ * own accounts ({@link CustomerAccessService}; another customer's account is {@code 403}, the home screen lists only the caller's).
+ */
 @RestController
 @RequestMapping("/bff/v1/portal")
 @RequiredArgsConstructor
 public class PortalController {
     private final PortalOrchestrationService portalService;
+    private final CustomerAccessService customerAccess;
 
     /**
      * Home screen: active accounts plus branches/ATMs (optionally limited to a state).
      * GET /bff/v1/portal/home?state=TX
      */
     @GetMapping("/home")
-    public ResponseEntity<PortalHomeResponse> home(@RequestParam(required = false) String state) {
-        return ResponseEntity.ok(portalService.home(state));
+    public ResponseEntity<PortalHomeResponse> home(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                   @RequestParam(required = false) String state) {
+        return ResponseEntity.ok(portalService.home(state, customerAccess.requireAuthenticated(customerId)));
     }
 
     /**
@@ -47,8 +56,10 @@ public class PortalController {
      * GET /bff/v1/portal/accounts/CH-0000088291/overview?days=30
      */
     @GetMapping("/accounts/{accountNumber}/overview")
-    public ResponseEntity<AccountOverviewResponse> overview(@PathVariable String accountNumber,
+    public ResponseEntity<AccountOverviewResponse> overview(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                            @PathVariable String accountNumber,
                                                             @RequestParam(required = false) Integer days) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(portalService.overview(accountNumber, days));
     }
 
@@ -57,7 +68,9 @@ public class PortalController {
      * POST /bff/v1/portal/accounts/withdraw
      */
     @PostMapping("/accounts/withdraw")
-    public ResponseEntity<AccountOverviewResponse> withdraw(@Valid @RequestBody WithdrawalRequest request) {
+    public ResponseEntity<AccountOverviewResponse> withdraw(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                            @Valid @RequestBody WithdrawalRequest request) {
+        customerAccess.requireOwnAccount(customerId, request.getAccountNumber());
         return ResponseEntity.ok(portalService.withdraw(request));
     }
 
@@ -66,7 +79,9 @@ public class PortalController {
      * POST /bff/v1/portal/accounts/deposit
      */
     @PostMapping("/accounts/deposit")
-    public ResponseEntity<AccountOverviewResponse> deposit(@Valid @RequestBody DepositForm request) {
+    public ResponseEntity<AccountOverviewResponse> deposit(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                           @Valid @RequestBody DepositForm request) {
+        customerAccess.requireOwnAccount(customerId, request.getAccountNumber());
         return ResponseEntity.ok(portalService.deposit(request));
     }
 
@@ -75,8 +90,10 @@ public class PortalController {
      * POST /bff/v1/portal/accounts/CH-0000010001/suspend
      */
     @PostMapping("/accounts/{accountNumber}/suspend")
-    public ResponseEntity<AccountOverviewResponse> suspend(@PathVariable String accountNumber,
+    public ResponseEntity<AccountOverviewResponse> suspend(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                           @PathVariable String accountNumber,
                                                            @Valid @RequestBody SuspendAccountRequest request) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(portalService.suspend(accountNumber, request));
     }
 
@@ -85,8 +102,10 @@ public class PortalController {
      * PATCH /bff/v1/portal/accounts/CH-0000010001/suspension
      */
     @PatchMapping("/accounts/{accountNumber}/suspension")
-    public ResponseEntity<AccountOverviewResponse> updateSuspension(@PathVariable String accountNumber,
+    public ResponseEntity<AccountOverviewResponse> updateSuspension(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                                    @PathVariable String accountNumber,
                                                                     @Valid @RequestBody UpdateSuspensionRequest request) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(portalService.updateSuspension(accountNumber, request));
     }
 
@@ -95,7 +114,9 @@ public class PortalController {
      * POST /bff/v1/portal/accounts/CH-0000010001/reactivate
      */
     @PostMapping("/accounts/{accountNumber}/reactivate")
-    public ResponseEntity<AccountOverviewResponse> reactivate(@PathVariable String accountNumber) {
+    public ResponseEntity<AccountOverviewResponse> reactivate(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                              @PathVariable String accountNumber) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(portalService.reactivate(accountNumber));
     }
 
@@ -104,7 +125,9 @@ public class PortalController {
      * POST /bff/v1/portal/accounts/CH-0000010001/close
      */
     @PostMapping("/accounts/{accountNumber}/close")
-    public ResponseEntity<AccountOverviewResponse> close(@PathVariable String accountNumber) {
+    public ResponseEntity<AccountOverviewResponse> close(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                         @PathVariable String accountNumber) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(portalService.close(accountNumber));
     }
 
@@ -115,9 +138,11 @@ public class PortalController {
      */
     @PostMapping("/accounts/{accountNumber}/statement")
     public ResponseEntity<BankStatement> statement(
+            @RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
             @PathVariable String accountNumber,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate beginDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(portalService.statement(accountNumber, beginDate, endDate));
     }
 

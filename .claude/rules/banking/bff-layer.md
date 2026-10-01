@@ -29,12 +29,14 @@ bff.config  PortalProperties (banking.portal.*), PortalCorsConfig
 - Mutating passthroughs (implemented: `withdraw`, `deposit`, `suspend`, `PATCH suspension`, `reactivate`, `close`): call the existing service method (it owns the rules, cache eviction and notifications), then return `overview(accountNumber, null)` so the portal redraws from one response. If the service throws, propagate it (no overview is built). Reuse the banking request types (`WithdrawalRequest`, `DepositForm`, `SuspendAccountRequest`, `UpdateSuspensionRequest`) instead of cloning them.
 
 ## CORS
-- `PortalCorsConfig` maps `/bff/**` for `banking.portal.allowed-origins`, methods GET/POST/PATCH/OPTIONS (add a method here whenever a portal endpoint uses a new verb), allowed headers `Content-Type`+`X-Customer-Id`, exposes `X-BTID` and `X-RateLimit-*`.
+- `PortalCorsConfig` maps `/bff/**` for `banking.portal.allowed-origins`, methods GET/POST/PATCH/OPTIONS (add a method here whenever a portal endpoint uses a new verb), allowed headers `Content-Type`+`X-Customer-Id`+`Authorization`, exposes `X-BTID` and `X-RateLimit-*`.
 - Preflights carry no custom headers, so `BankingRateLimitFilter` passes `OPTIONS` + `Access-Control-Request-Method` through. Limitation: a `400`/`429` written by the rate-limit filter has no CORS headers, so the browser can't read it; the portal should treat a CORS/network failure on `/bff` as possibly rate limiting.
 - Don't use `*` origins; list the portal hosts.
 
-## Auth (not built yet)
-`X-Customer-Id` is a rate-limit key, not authentication. When the portal gets login, add authentication in front of the rate limiter and derive the customer from the token instead of a client-supplied header.
+## Auth
+- Every portal endpoint except `POST accounts/open` requires `Authorization: Bearer <customer JWT>` (`CustomerAuthenticationFilter`, which also re-checks the customer's login is ACTIVE on every request). The BFF is therefore **not** a place to trust a client-supplied identity: every handler takes the customer from `CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE` and calls `CustomerAccessService.requireOwnAccount` before delegating (someone else's account → 403); `home` is scoped to the customer (`PortalOrchestrationService.home(state, customerId)`).
+- `PortalCorsConfig` allows the `Authorization` header (preflights carry no custom headers, so the filters let `OPTIONS` + `Access-Control-Request-Method` through). A `401`/`403` written by a filter has no CORS headers, so the browser can't read it: the portal should treat a CORS/network failure on `/bff` as possibly an expired token or rate limiting and log in again.
+- `X-Customer-Id` is still required by the rate limiter and is only a rate-limit key, never an identity.
 
 ## Tests
 - Service: plain Mockito (`PortalOrchestrationServiceTest`), including the not-found and bad-`days` paths, that rejected input never calls collaborators, that each mutation delegates then returns the refreshed overview, and that a suspended-account rejection propagates without building an overview.

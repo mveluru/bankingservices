@@ -4,6 +4,10 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import org.brite.banking.bff.controller.PortalController;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
 import org.brite.banking.bff.service.PortalOrchestrationService;
+import org.brite.banking.gateway.CustomerAuthenticationFilter;
+import org.brite.banking.repository.AccountRepository;
+import org.brite.banking.service.CustomerAccessService;
+import java.util.Optional;
 import org.brite.banking.domain.AccountStatus;
 import org.brite.banking.domain.AccountType;
 import org.brite.banking.domain.BankStatement;
@@ -45,7 +49,10 @@ class PortalControllerTest {
     @BeforeEach
     void setUp() {
         service = mock(PortalOrchestrationService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new PortalController(service))
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        when(accountRepository.findCustomerIdByAccountNumber(any())).thenReturn(Optional.of(5L));   // customer 5 owns every account here
+        mockMvc = MockMvcBuilders.standaloneSetup(new PortalController(service, new CustomerAccessService(accountRepository)))
+                .defaultRequest(get("/").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))

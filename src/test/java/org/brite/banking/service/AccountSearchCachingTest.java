@@ -26,7 +26,7 @@ class AccountSearchCachingTest {
     void listAccountStatuses_isCacheableUnderTheSharedAccountSearchCache() throws NoSuchMethodException {
         Method method = AccountStatusStatementService.class.getMethod("listAccountStatuses",
                 String.class, AccountStatus.class, LocalDate.class, LocalDate.class,
-                LocalDate.class, LocalDate.class, Integer.class, Pageable.class);
+                LocalDate.class, LocalDate.class, Integer.class, Long.class, Pageable.class);
 
         Cacheable cacheable = method.getAnnotation(Cacheable.class);
 

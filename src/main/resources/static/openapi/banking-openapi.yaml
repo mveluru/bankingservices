@@ -50,7 +50,7 @@ servers:
 
 tags:
   - name: Accounts
-    description: Account registration, lookup, transactions, closing, search and statements.
+    description: Account registration, lookup, transactions, closing, search and statements. Everything except registration (`POST /newaccount`) needs the customer token, and only reaches the caller's own accounts.
   - name: Account suspension
     description: Suspend, update and reactivate accounts. A suspended account can't transact.
   - name: Locations
@@ -60,7 +60,7 @@ tags:
   - name: Login
     description: Verify an employee or customer username and 8-digit password. Returns a signed JWT access token and who the caller is. The employee token is required by every other staff endpoint.
   - name: Portal (BFF)
-    description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call.
+    description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call. Everything except `POST accounts/open` needs the customer token, and only reaches the caller's own accounts.
   - name: Clients
     description: Sample client record.
   - name: Payments
@@ -76,6 +76,9 @@ paths:
     get:
       tags: [Accounts]
       operationId: listAccounts
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Search accounts (paginated)
       description: |
         Returns account status rows filtered by any combination of the optional filters,
@@ -190,6 +193,10 @@ paths:
                 empty: false
         '400':
           $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -197,6 +204,9 @@ paths:
     post:
       tags: [Accounts]
       operationId: lookupAccount
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Look up an account and its customer profile
       description: Returns the full `Account` (including balance and customer) for an account number.
       requestBody:
@@ -213,6 +223,10 @@ paths:
               schema: {$ref: '#/components/schemas/Account'}
         '400':
           $ref: '#/components/responses/BadRequestJson'
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           description: No account with that number. Plain-text body.
           content:
@@ -275,6 +289,9 @@ paths:
     post:
       tags: [Accounts]
       operationId: withdraw
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Withdraw funds
       description: |
         Withdraws `withdrawAmount` from a checking or savings account. The account type is
@@ -330,10 +347,12 @@ paths:
                   value: Account CH-0000010004 is closed and cannot be used for transactions
                 suspended:
                   value: Account CH-0000050001 is suspended and cannot be used for transactions until it is reactivated
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '403':
-          $ref: '#/components/responses/LoginNotActive'
+          $ref: '#/components/responses/CustomerForbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -341,6 +360,9 @@ paths:
     post:
       tags: [Accounts]
       operationId: deposit
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Deposit funds
       description: |
         Deposits `amount` into a checking or savings account. As with withdrawals, the
@@ -388,10 +410,12 @@ paths:
                   value: Cash deposits cannot exceed 5000.00
                 depositType:
                   value: Deposit type must be 'cash' or 'check'
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '403':
-          $ref: '#/components/responses/LoginNotActive'
+          $ref: '#/components/responses/CustomerForbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -399,6 +423,9 @@ paths:
     post:
       tags: [Accounts]
       operationId: closeAccount
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Close one account
       description: >-
         Transitions an `ACTIVE` or `SUSPENDED` account to `CLOSED` and stamps `closedDate` with
@@ -417,6 +444,10 @@ paths:
             text/plain:
               schema: {type: string}
               example: Account CH-0000010004 is already closed
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -426,6 +457,9 @@ paths:
     post:
       tags: [Account suspension]
       operationId: suspendAccount
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Suspend an account
       description: |
         `ACTIVE` -> `SUSPENDED`. While suspended the account rejects **every** withdraw and
@@ -465,6 +499,10 @@ paths:
                   value: Account CH-0000050001 is already suspended
                 closed:
                   value: Account CH-0000010004 is closed and cannot be suspended
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -474,6 +512,9 @@ paths:
     patch:
       tags: [Account suspension]
       operationId: updateSuspension
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Update a current suspension
       description: |
         Changes the end and/or notes of a suspension; only the fields supplied change, and at
@@ -506,6 +547,10 @@ paths:
             text/plain:
               schema: {type: string}
               example: Account CH-0000010001 is not suspended
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -515,6 +560,9 @@ paths:
     post:
       tags: [Account suspension]
       operationId: reactivateAccount
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Reactivate a suspended account
       description: |
         `SUSPENDED` -> `ACTIVE`; the suspension flag, dates and notes are cleared and the
@@ -533,6 +581,10 @@ paths:
             text/plain:
               schema: {type: string}
               example: Account CH-0000010001 is not suspended
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -542,6 +594,9 @@ paths:
     post:
       tags: [Accounts]
       operationId: closeAccounts
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Bulk-close accounts (best effort)
       description: |
         Closes many accounts in one call. **Best effort, not all-or-nothing:** an unknown or
@@ -579,6 +634,10 @@ paths:
                     reason: 'Account not found: CH-9999999999'
         '400':
           $ref: '#/components/responses/BadRequestJson'
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -586,6 +645,9 @@ paths:
     get:
       tags: [Accounts]
       operationId: getStatement
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Generate a bank statement
       description: |
         Returns the account's deposit/withdrawal transactions with `transactionDate` between
@@ -633,6 +695,10 @@ paths:
                   value: End date cannot be before begin date
                 range:
                   value: Statement date range cannot exceed 18 months
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -1146,6 +1212,63 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/staff/customers/{customerId}/login:
+    post:
+      tags: [Staff]
+      operationId: createCustomerLogin
+      summary: Create a customer login
+      description: |
+        Requires the `MANAGE_CUSTOMER_LOGINS` privilege (managers and up). Gives a customer a login: a username
+        (`^[a-z0-9._-]{3,50}$`, stored lowercase) and an exactly-8-digit password, stored only as a BCrypt hash. A customer
+        needs a login to use the account and portal endpoints, which require the customer token from
+        `POST /v1/api/customers/login`. The login starts `ACTIVE`. The password is masked in request logs and never returned.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+          example: 11
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+            example:
+              username: alice.smith
+              password: '13572468'
+      responses:
+        '201':
+          description: The login was created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LoginStatusView'}
+        '400':
+          description: >-
+            Missing `username`/`password` (JSON validation), a username or password in the wrong format, a username that is
+            taken, or a customer who already has a login. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+              examples:
+                password:
+                  value: Password must be exactly 8 digits
+                hasLogin:
+                  value: Customer 11 already has a login
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: No customer with that id (or the token's employee no longer exists). Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/api/staff/customers/{customerId}/login-status:
     put:
       tags: [Staff]
@@ -1258,9 +1381,10 @@ paths:
       summary: Customer login
       description: |
         Verifies the username (case-insensitive) and 8-digit password and returns a signed **JWT access token**
-        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **No endpoint requires the customer
-        token yet** (customer endpoints still only need `X-Customer-Id`, a rate-limit key, not authentication); a customer
-        token is refused on staff endpoints (`403`). Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
+        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **Every customer account and
+        portal endpoint requires this token** (`/v1/api/accounts/**` and `/bff/v1/portal/**`, except the two that create a
+        customer), and a customer can only reach their own accounts; it is refused on staff endpoints (`403`). A customer
+        needs a login first: a manager creates it with `POST /v1/api/staff/customers/{customerId}/login`. Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
         (employee number / customer id), `type` (`employee`/`customer`), `role` (employees), `jti`, `iat`, `exp`;
         no personal data.
         Unknown username and wrong password give the same `401`. After 5 wrong passwords the login is `LOCKED` for
@@ -1312,6 +1436,9 @@ paths:
     get:
       tags: [Portal (BFF)]
       operationId: portalHome
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Portal home screen bundle
       description: |
         One call for the portal home screen: the newest `ACTIVE` and `SUSPENDED` accounts merged, newest
@@ -1332,6 +1459,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PortalHomeResponse'}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -1339,6 +1470,9 @@ paths:
     get:
       tags: [Portal (BFF)]
       operationId: portalAccountOverview
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Account detail with balance and recent activity
       description: |
         Balance plus the account's transactions from the last `days` days, newest first, capped
@@ -1359,6 +1493,10 @@ paths:
               schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
         '400':
           $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -1368,6 +1506,9 @@ paths:
     post:
       tags: [Portal (BFF)]
       operationId: portalWithdraw
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Withdraw and get the refreshed account overview
       description: |
         Same body, rules and side effects as `POST /v1/api/accounts/withdraw`, but the response is the
@@ -1393,10 +1534,12 @@ paths:
               schema: {$ref: '#/components/schemas/SpringErrorResponse'}
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '403':
-          $ref: '#/components/responses/LoginNotActive'
+          $ref: '#/components/responses/CustomerForbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -1404,6 +1547,9 @@ paths:
     post:
       tags: [Portal (BFF)]
       operationId: portalDeposit
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Deposit and get the refreshed account overview
       description: |
         Same body, rules and side effects as `POST /v1/api/accounts/deposit`, but the response is the
@@ -1426,10 +1572,12 @@ paths:
               schema: {$ref: '#/components/schemas/SpringErrorResponse'}
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '403':
-          $ref: '#/components/responses/LoginNotActive'
+          $ref: '#/components/responses/CustomerForbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -1437,6 +1585,9 @@ paths:
     post:
       tags: [Portal (BFF)]
       operationId: portalSuspendAccount
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Suspend an account and get the refreshed overview
       description: |
         Same body and rules as `POST /v1/api/accounts/{accountNumber}/suspend`; returns the account
@@ -1465,6 +1616,10 @@ paths:
               schema: {$ref: '#/components/schemas/SpringErrorResponse'}
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -1474,6 +1629,9 @@ paths:
     patch:
       tags: [Portal (BFF)]
       operationId: portalUpdateSuspension
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Update a suspension and get the refreshed overview
       description: Same body and rules as `PATCH /v1/api/accounts/{accountNumber}/suspension`; returns the account overview.
       parameters:
@@ -1496,6 +1654,10 @@ paths:
               schema: {$ref: '#/components/schemas/SpringErrorResponse'}
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -1505,6 +1667,9 @@ paths:
     post:
       tags: [Portal (BFF)]
       operationId: portalReactivateAccount
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Reactivate a suspended account and get the refreshed overview
       description: 'Same rules as `POST /v1/api/accounts/{accountNumber}/reactivate`; returns the account overview (`ACTIVE`, `suspended: false`).'
       parameters:
@@ -1517,6 +1682,10 @@ paths:
               schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
         '400':
           $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -1526,6 +1695,9 @@ paths:
     post:
       tags: [Portal (BFF)]
       operationId: portalCloseAccount
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Close an account and get the refreshed overview
       description: |
         Same rules as `POST /v1/api/accounts/{accountNumber}/close` (irreversible; a suspension is cleared);
@@ -1540,6 +1712,10 @@ paths:
               schema: {$ref: '#/components/schemas/AccountOverviewResponse'}
         '400':
           $ref: '#/components/responses/BadRequestText'
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -1549,6 +1725,9 @@ paths:
     post:
       tags: [Portal (BFF)]
       operationId: portalStatement
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
       summary: Generate a statement for a date range
       description: |
         Same rules and result as `GET /v1/api/accounts/{accountNumber}/statement`, including its side effect
@@ -1576,6 +1755,10 @@ paths:
               schema: {$ref: '#/components/schemas/SpringErrorResponse'}
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
         '404':
           $ref: '#/components/responses/AccountNotFound'
         '429':
@@ -1725,6 +1908,15 @@ components:
         (`banking.rate-limit.customer-header-name`) and the check can be turned off with
         `banking.rate-limit.enabled: false`.
 
+    CustomerBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        The customer access token returned by `POST /v1/api/customers/login` (HS256, 30 minutes, no refresh), sent as
+        `Authorization: Bearer <token>`. Required on every `/v1/api/accounts/**` and `/bff/v1/portal/**` operation except
+        the two that create a customer (`POST /v1/api/accounts/newaccount`, `POST /bff/v1/portal/accounts/open`). It proves who
+        logged in; the customer's login is re-checked on every request, and the customer can only reach their own accounts.
     BearerAuth:
       type: http
       scheme: bearer
@@ -1806,15 +1998,35 @@ components:
               value: "Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/staff/login"
             invalid:
               value: Invalid or expired token
-    LoginNotActive:
+    CustomerUnauthorized:
       description: >-
-        The login is `INACTIVE`, `SUSPENDED` or `LOCKED`: only an `ACTIVE` login may perform transactions.
-        Plain-text body.
+        No bearer token, or the token is invalid, expired or forged (also: the customer no longer has a login). Plain-text
+        body; the response carries `WWW-Authenticate: Bearer`. Written by the customer authentication filter.
+      headers:
+        WWW-Authenticate:
+          schema: {type: string, example: Bearer}
       content:
         text/plain:
           schema: {type: string}
           examples:
-            customer:
+            missing:
+              value: "Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/customers/login"
+            invalid:
+              value: Invalid or expired token
+    CustomerForbidden:
+      description: >-
+        The account belongs to another customer, the token is an employee token, or the customer's login is `INACTIVE`,
+        `SUSPENDED` or `LOCKED` (the login is re-checked on every request, so this applies at once even with an unexpired
+        token). Plain-text body.
+      content:
+        text/plain:
+          schema: {type: string}
+          examples:
+            notYours:
+              value: Account SV-0000044102 does not belong to the authenticated customer
+            employeeToken:
+              value: This endpoint needs a customer token
+            loginNotActive:
               value: 'Customer login is SUSPENDED; only an ACTIVE login can perform transactions'
     EmployeeForbidden:
       description: >-

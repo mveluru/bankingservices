@@ -38,6 +38,9 @@ public final class BankingMessages {
     public static final String INVALID_TOKEN = "Invalid or expired token";
     public static final String JWT_SECRET_TOO_SHORT = "banking.jwt.secret must be at least 32 characters";
     public static final String JWT_EXPIRATION_INVALID = "banking.jwt.expiration-minutes must be positive";
+    public static final String CUSTOMER_TOKEN_REQUIRED = "This endpoint needs a customer token";
+    public static final String CUSTOMER_AUTHENTICATION_REQUIRED = "Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/customers/login";
+    public static final String ACCOUNT_NOT_OWNED = "Account %s does not belong to the authenticated customer";
     public static final String CUSTOMER_NOT_FOUND = "Customer not found: %s";
     public static final String CUSTOMER_HAS_LOGIN = "Customer %s already has a login";
     public static final String EMPLOYEE_LOCKED = "Too many failed login attempts; locked until %s";
@@ -147,6 +150,13 @@ public final class BankingMessages {
     public static final String LOG_STAFF_AUTH_REJECTED = "Staff request to {} rejected: invalid or expired token";
     public static final String LOG_STAFF_AUTH_WRONG_TYPE = "Staff request to {} rejected: {} token";
 
+    // CustomerAuthenticationFilter / CustomerAccessService log messages
+    public static final String LOG_CUSTOMER_AUTH_MISSING = "Customer request to {} rejected: no bearer token";
+    public static final String LOG_CUSTOMER_AUTH_REJECTED = "Customer request to {} rejected: invalid or expired token";
+    public static final String LOG_CUSTOMER_AUTH_WRONG_TYPE = "Customer request to {} rejected: {} token";
+    public static final String LOG_CUSTOMER_AUTH_LOGIN_INACTIVE = "Customer {} request to {} rejected: login is not active";
+    public static final String LOG_ACCOUNT_ACCESS_DENIED = "Customer {} denied access to account {}";
+
     // StaffAccountService log messages
     public static final String LOG_STAFF_ACTION = "Employee {} ({}) performed {} on account {}";
 
@@ -160,6 +170,7 @@ public final class BankingMessages {
     public static final String LOG_HANDLER_CUSTOMER_NOT_FOUND = "Customer not found: {}";
     public static final String LOG_HANDLER_LOGIN_NOT_ACTIVE = "Login not active: {}";
     public static final String LOG_HANDLER_INVALID_TOKEN = "Invalid token: {}";
+    public static final String LOG_HANDLER_ACCOUNT_ACCESS_DENIED = "Account access denied: {}";
     public static final String LOG_HANDLER_ACCOUNT_CLOSED = "Account closed: {}";
     public static final String LOG_HANDLER_INSUFFICIENT_FUNDS = "Insufficient funds: {}";
     public static final String LOG_HANDLER_INVALID_REQUEST = "Invalid banking request: {}";

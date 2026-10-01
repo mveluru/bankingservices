@@ -9,6 +9,7 @@ import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.ChangeLoginStatusRequest;
+import org.brite.banking.request.LoginRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -18,6 +19,7 @@ import org.brite.banking.service.StaffLoginService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -118,6 +120,18 @@ public class StaffController {
             @PathVariable String employeeNumber,
             @Valid @RequestBody ChangeLoginStatusRequest request) {
         return ResponseEntity.ok(staffLoginService.changeEmployeeLoginStatus(employee, employeeNumber, request));
+    }
+
+    /**
+     * Needs MANAGE_CUSTOMER_LOGINS (manager and up). Creates a customer's login (username + 8-digit password); customers
+     * need one to use the protected account/portal endpoints. POST /v1/api/staff/customers/{customerId}/login
+     */
+    @PostMapping("/customers/{customerId}/login")
+    public ResponseEntity<LoginStatusView> createCustomerLogin(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable Long customerId,
+            @Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(staffLoginService.createCustomerLogin(employee, customerId, request));
     }
 
     /**

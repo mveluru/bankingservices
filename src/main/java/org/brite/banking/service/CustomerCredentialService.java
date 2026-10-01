@@ -49,7 +49,7 @@ public class CustomerCredentialService {
      * @throws CustomerNotFoundException (mapped to 404) if the customer doesn't exist
      */
     @Transactional
-    public void createLogin(Long customerId, String username, String password) {
+    public LoginStatusView createLogin(Long customerId, String username, String password) {
         String name = LoginSupport.normalize(username);
         String hash = login.hashNewLogin(name, password);
         customerRepository.findIdentityById(customerId)
@@ -60,13 +60,14 @@ public class CustomerCredentialService {
         if (credentialRepository.existsByUsername(name)) {
             throw new IllegalArgumentException(String.format(BankingMessages.EMPLOYEE_USERNAME_TAKEN, name));
         }
-        credentialRepository.save(CustomerCredential.builder()
+        CustomerCredential saved = credentialRepository.save(CustomerCredential.builder()
                 .customerId(customerId)
                 .username(name)
                 .passwordHash(hash)
                 .passwordChangedAt(LocalDateTime.now())
                 .build());
         log.info(BankingMessages.LOG_LOGIN_CREATED, "customer", customerId);
+        return LoginStatusView.builder().username(saved.getUsername()).status(saved.getStatus()).build();
     }
 
     /**
@@ -117,6 +118,23 @@ public class CustomerCredentialService {
                 throw new LoginNotActiveException(String.format(BankingMessages.CUSTOMER_LOGIN_NOT_ACTIVE, status));
             }
         });
+    }
+
+    /**
+     * Called on every request an authenticated customer makes: the token proves who logged in, but their login must
+     * still exist and be ACTIVE right now (a LOCKED login whose lock has expired counts as ACTIVE).
+     *
+     * @throws LoginNotActiveException (mapped to 403) if the login is INACTIVE, SUSPENDED or LOCKED
+     * @throws InvalidCredentialsException (mapped to 401) if the customer no longer has a login
+     */
+    @Transactional(readOnly = true)
+    public void requireActiveLogin(Long customerId) {
+        CustomerCredential credential = credentialRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new InvalidCredentialsException(BankingMessages.INVALID_CREDENTIALS));
+        LoginStatus status = credential.effectiveStatus(LocalDateTime.now());
+        if (status != LoginStatus.ACTIVE) {
+            throw new LoginNotActiveException(String.format(BankingMessages.CUSTOMER_LOGIN_NOT_ACTIVE, status));
+        }
     }
 
     /**

@@ -89,21 +89,21 @@ class PortalOrchestrationServiceTest {
 
     @Test
     void homeCombinesActiveAccountsAndNearbyLocations() {
-        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any()))
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(view("CH-0000088291", AccountStatus.ACTIVE, LocalDate.now().minusMonths(2))), PageRequest.of(0, 5), 12));
-        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any()))
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
         when(locationService.listLocations(any(), any(), eq("TX"), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(austinBranch())));
 
-        PortalHomeResponse home = service.home("TX");
+        PortalHomeResponse home = service.home("TX", 5L);
 
         assertEquals(12, home.totalActiveAccounts());
         assertEquals(0, home.totalSuspendedAccounts());
         assertEquals("CH-0000088291", home.accounts().get(0).accountNumber());
         assertEquals("Austin", home.nearbyLocations().get(0).city());
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
-        verify(statusService).listAccountStatuses(eq(null), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), pageable.capture());
+        verify(statusService).listAccountStatuses(eq(null), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), eq(5L), pageable.capture());
         assertEquals(properties.getHomeAccountLimit(), pageable.getValue().getPageSize());
     }
 
@@ -111,13 +111,13 @@ class PortalOrchestrationServiceTest {
     void homeMergesActiveAndSuspendedNewestFirstAndCapsAtTheLimit() {
         properties.setHomeAccountLimit(3);
         LocalDate today = LocalDate.now();
-        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any()))
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(view("A1", AccountStatus.ACTIVE, today.minusMonths(1)), view("A2", AccountStatus.ACTIVE, today.minusMonths(5))), PageRequest.of(0, 3), 40));
-        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any()))
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(view("S1", AccountStatus.SUSPENDED, today.minusMonths(3)), view("S2", AccountStatus.SUSPENDED, today.minusMonths(9))), PageRequest.of(0, 3), 20));
         when(locationService.listLocations(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
 
-        PortalHomeResponse home = service.home(null);
+        PortalHomeResponse home = service.home(null, 5L);
 
         assertEquals(40, home.totalActiveAccounts());
         assertEquals(20, home.totalSuspendedAccounts());
@@ -327,13 +327,13 @@ class PortalOrchestrationServiceTest {
         AccountStatusView suspended = AccountStatusView.builder().accountNumber("CH-0000050001").accountType(AccountType.CHECKING)
                 .accountStatus(AccountStatus.SUSPENDED).suspended(true).suspendedEnd(until)
                 .createdDate(LocalDate.now().minusMonths(6)).firstName("Nora").lastName("Adams").build();
-        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any()))
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.ACTIVE), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 5), 0));
-        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any()))
+        when(statusService.listAccountStatuses(any(), eq(AccountStatus.SUSPENDED), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(suspended), PageRequest.of(0, 5), 1));
         when(locationService.listLocations(any(), any(), any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of()));
 
-        PortalHomeResponse home = service.home(null);
+        PortalHomeResponse home = service.home(null, 5L);
 
         assertEquals(true, home.accounts().get(0).suspended());
         assertEquals(until, home.accounts().get(0).suspendedUntil());

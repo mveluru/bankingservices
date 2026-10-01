@@ -1,6 +1,7 @@
 package org.brite.banking.gateway;
 
 import lombok.RequiredArgsConstructor;
+import org.brite.banking.service.CustomerCredentialService;
 import org.brite.banking.service.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,7 +17,8 @@ import org.springframework.core.Ordered;
  * so Spring Boot doesn't also auto-register them for "/*". {@link BusinessTransactionIdFilter}
  * runs first (lower order value = higher precedence) so every request - including ones
  * {@link BankingRateLimitFilter} goes on to reject - gets a correlatable btid.
- * {@link StaffAuthenticationFilter} (staff paths only) runs next and demands a valid employee JWT, and
+ * {@link StaffAuthenticationFilter} (staff paths) and {@link CustomerAuthenticationFilter} (account and portal paths) run next
+ * and demand a valid employee / customer JWT, and
  * {@link BankingRequestLoggingFilter} runs last, so it only sees requests that passed rate limiting and
  * authentication, and can be switched off with {@code banking.request-logging.enabled}.
  */
@@ -40,6 +42,7 @@ public class BankingGatewayConfig {
     private final RateLimitProperties rateLimitProperties;
     private final CustomerRateLimiter customerRateLimiter;
     private final JwtService jwtService;
+    private final CustomerCredentialService customerCredentialService;
 
     @Bean
     public FilterRegistrationBean<BusinessTransactionIdFilter> businessTransactionIdFilter() {
@@ -69,6 +72,20 @@ public class BankingGatewayConfig {
         registration.setName("staffAuthenticationFilter");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         registration.addUrlPatterns("/v1/api/staff/*");
+        return registration;
+    }
+
+    /**
+     * Customer-facing account and portal endpoints need a valid customer JWT (except the two that create a customer);
+     * runs after the rate limiter, same slot as the staff filter (their URL patterns don't overlap).
+     */
+    @Bean
+    public FilterRegistrationBean<CustomerAuthenticationFilter> customerAuthenticationFilter() {
+        FilterRegistrationBean<CustomerAuthenticationFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new CustomerAuthenticationFilter(jwtService, customerCredentialService));
+        registration.setName("customerAuthenticationFilter");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+        registration.addUrlPatterns("/v1/api/accounts/*", "/bff/v1/portal/*");
         return registration;
     }
 

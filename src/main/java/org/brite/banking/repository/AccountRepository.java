@@ -64,10 +64,12 @@ public class AccountRepository {
      * sorting, and pagination instead of hand-rolled Java streams. When {@code accountNumber}
      * is given, every other filter still applies - the result is a single-element (or empty)
      * page rather than a special case, so callers get one consistent paginated shape either way.
+     * {@code customerId}, when given, restricts the result to that customer's accounts (how an authenticated
+     * customer only ever sees their own); null means every customer.
      */
     @Transactional(readOnly = true)
     public Page<Account> search(String accountNumber, AccountStatus status, LocalDate createdFrom, LocalDate createdTo,
-                                 LocalDate closedFrom, LocalDate closedTo, Pageable pageable) {
+                                 LocalDate closedFrom, LocalDate closedTo, Long customerId, Pageable pageable) {
         for (Sort.Order order : pageable.getSort()) {
             validateSortProperty(order.getProperty());
         }
@@ -76,6 +78,9 @@ public class AccountRepository {
         if (accountNumber != null) {
             String needle = accountNumber;
             spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("accountNumber")), needle.toLowerCase()));
+        }
+        if (customerId != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("customer").get("id"), customerId));
         }
         if (status != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("accountStatus"), status));

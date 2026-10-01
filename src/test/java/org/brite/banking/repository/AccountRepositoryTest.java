@@ -268,7 +268,7 @@ class AccountRepositoryTest {
         seedCheckingWithDates(AccountStatus.ACTIVE, day, null);
         seedCheckingWithDates(AccountStatus.CLOSED, day, day.plusMonths(1));
 
-        Page<Account> activeOnly = accountRepository.search(null, AccountStatus.ACTIVE, day, day, null, null, PageRequest.of(0, 10));
+        Page<Account> activeOnly = accountRepository.search(null, AccountStatus.ACTIVE, day, day, null, null, null, PageRequest.of(0, 10));
 
         assertThat(activeOnly.getTotalElements()).isEqualTo(2);
         assertThat(activeOnly.getContent()).allMatch(a -> a.getAccountStatus() == AccountStatus.ACTIVE);
@@ -280,7 +280,7 @@ class AccountRepositoryTest {
         Account inRange = seedCheckingWithDates(AccountStatus.ACTIVE, LocalDate.of(2023, 6, 1), null);
 
         Page<Account> result = accountRepository.search(null, null,
-                LocalDate.of(2023, 5, 1), LocalDate.of(2023, 12, 31), null, null, PageRequest.of(0, 10));
+                LocalDate.of(2023, 5, 1), LocalDate.of(2023, 12, 31), null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).containsExactly(inRange);
     }
@@ -292,7 +292,7 @@ class AccountRepositoryTest {
         seedCheckingWithDates(AccountStatus.CLOSED, created, LocalDate.of(2023, 9, 15));
 
         Page<Account> result = accountRepository.search(null, AccountStatus.CLOSED, null, null,
-                LocalDate.of(2023, 8, 1), LocalDate.of(2023, 8, 31), PageRequest.of(0, 10));
+                LocalDate.of(2023, 8, 1), LocalDate.of(2023, 8, 31), null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).containsExactly(inRange);
     }
@@ -304,7 +304,7 @@ class AccountRepositoryTest {
         seedCheckingWithDates(AccountStatus.ACTIVE, day, null);
 
         Page<Account> result = accountRepository.search(target.getCheckingAccountNumber(), null,
-                day, day, null, null, PageRequest.of(0, 10));
+                day, day, null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).containsExactly(target);
     }
@@ -314,7 +314,7 @@ class AccountRepositoryTest {
         Account target = seedCheckingWithDates(AccountStatus.ACTIVE, LocalDate.of(2023, 7, 1), null);
 
         Page<Account> result = accountRepository.search(target.getCheckingAccountNumber(), null,
-                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31), null, null, PageRequest.of(0, 10));
+                LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31), null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).isEmpty();
     }
@@ -325,7 +325,7 @@ class AccountRepositoryTest {
         seedCheckingWithDates(AccountStatus.ACTIVE, day, null);
         seedCheckingWithDates(AccountStatus.ACTIVE, day, null);
 
-        Page<Account> result = accountRepository.search(null, null, day, day, null, null, PageRequest.of(0, 10));
+        Page<Account> result = accountRepository.search(null, null, day, day, null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getTotalElements()).isEqualTo(2);
     }
@@ -337,8 +337,8 @@ class AccountRepositoryTest {
             seedCheckingWithDates(AccountStatus.ACTIVE, day, null);
         }
 
-        Page<Account> firstPage = accountRepository.search(null, null, day, day, null, null, PageRequest.of(0, 2));
-        Page<Account> lastPage = accountRepository.search(null, null, day, day, null, null, PageRequest.of(2, 2));
+        Page<Account> firstPage = accountRepository.search(null, null, day, day, null, null, null, PageRequest.of(0, 2));
+        Page<Account> lastPage = accountRepository.search(null, null, day, day, null, null, null, PageRequest.of(2, 2));
 
         assertThat(firstPage.getContent()).hasSize(2);
         assertThat(firstPage.getTotalElements()).isEqualTo(5);
@@ -354,6 +354,7 @@ class AccountRepositoryTest {
 
         Page<Account> result = accountRepository.search(null, null,
                 LocalDate.of(2024, 2, 1), LocalDate.of(2024, 2, 3), null, null,
+                null,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdDate")));
 
         assertThat(result.getContent()).containsExactly(newest, middle, oldest);
@@ -362,6 +363,7 @@ class AccountRepositoryTest {
     @Test
     void search_unsupportedSortProperty_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> accountRepository.search(null, null, null, null, null, null,
+                null,
                 PageRequest.of(0, 10, Sort.by("bogusField"))))
                 .isInstanceOf(IllegalArgumentException.class);
     }
@@ -528,7 +530,7 @@ class AccountRepositoryTest {
         savedCheckingNumber();
         accountRepository.suspend(suspended, LocalDateTime.now(), null, "hold");
 
-        Page<Account> page = accountRepository.search(null, AccountStatus.SUSPENDED, null, null, null, null, PageRequest.of(0, 10));
+        Page<Account> page = accountRepository.search(null, AccountStatus.SUSPENDED, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).getCheckingAccountNumber()).isEqualTo(suspended);
@@ -562,5 +564,22 @@ class AccountRepositoryTest {
         AccountTransaction customerInitiated = found.stream().filter(t -> t.getTransactionType() == TransactionType.WITHDRAWAL).findFirst().orElseThrow();
         assertThat(customerInitiated.getEmployeeNumber()).isNull();
         assertThat(customerInitiated.getBankLocationId()).isNull();
+    }
+
+    @Test
+    void search_customerId_restrictsResultsToThatCustomersAccountsAndCombinesWithOtherFilters() {
+        Account mine = accountRepository.save(newCheckingAccount());
+        Account theirs = accountRepository.save(newCheckingAccount());
+        Long myCustomerId = accountJpaRepository.findByAccountNumber(mine.getCheckingAccountNumber()).orElseThrow().getCustomer().getId();
+        Long theirCustomerId = accountJpaRepository.findByAccountNumber(theirs.getCheckingAccountNumber()).orElseThrow().getCustomer().getId();
+        assertThat(myCustomerId).isNotEqualTo(theirCustomerId);
+
+        Page<Account> own = accountRepository.search(null, null, null, null, null, null, myCustomerId, PageRequest.of(0, 10));
+        assertThat(own.getContent()).extracting(Account::getCheckingAccountNumber).containsExactly(mine.getCheckingAccountNumber());
+
+        // another customer's account number is simply not found through my scope
+        assertThat(accountRepository.search(theirs.getCheckingAccountNumber(), null, null, null, null, null, myCustomerId, PageRequest.of(0, 10)).getTotalElements()).isZero();
+        assertThat(accountRepository.search(null, null, null, null, null, null, null, PageRequest.of(0, 10)).getTotalElements()).isEqualTo(2);
+        assertThat(accountRepository.findCustomerIdByAccountNumber(mine.getCheckingAccountNumber())).contains(myCustomerId);
     }
 }

@@ -64,6 +64,15 @@ public class BankingExceptionHandler {
                 .body(ex.getMessage());
     }
 
+    @ExceptionHandler(AccountAccessDeniedException.class)
+    public ResponseEntity<String> handleAccountAccessDenied(
+            AccountAccessDeniedException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_ACCOUNT_ACCESS_DENIED, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(InvalidTokenException.class)
     public ResponseEntity<String> handleInvalidToken(
             InvalidTokenException ex) {

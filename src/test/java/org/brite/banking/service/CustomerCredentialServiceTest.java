@@ -57,6 +57,7 @@ class CustomerCredentialServiceTest {
 
     @Test
     void createLoginStoresOnlyABcryptHash() {
+        when(credentials.save(any())).thenAnswer(inv -> inv.getArgument(0));
         service.createLogin(5L, "Alice.Smith", "12345678");
 
         ArgumentCaptor<CustomerCredential> captor = ArgumentCaptor.forClass(CustomerCredential.class);
@@ -169,5 +170,31 @@ class CustomerCredentialServiceTest {
         when(customers.findIdentityById(8L)).thenReturn(Optional.of(AuthenticatedCustomer.builder().customerId(8L).build()));
         when(credentials.findByCustomerId(8L)).thenReturn(Optional.empty());
         assertThrows(CustomerNotFoundException.class, () -> service.changeStatus(8L, LoginStatus.ACTIVE, null));
+    }
+
+    @Test
+    void createLoginReturnsTheNewLoginsUsernameAndActiveStatus() {
+        when(credentials.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        LoginStatusView view = service.createLogin(5L, "Alice.Smith", "12345678");
+        assertEquals("alice.smith", view.getUsername());
+        assertEquals(LoginStatus.ACTIVE, view.getStatus());
+    }
+
+    @Test
+    void requireActiveLoginAcceptsOnlyAnExistingActiveLogin() {
+        storedWith(LoginStatus.ACTIVE, null);
+        service.requireActiveLogin(5L);
+
+        for (LoginStatus status : new LoginStatus[]{LoginStatus.INACTIVE, LoginStatus.SUSPENDED}) {
+            storedWith(status, null);
+            assertThrows(LoginNotActiveException.class, () -> service.requireActiveLogin(5L), status.name());
+        }
+        storedWith(LoginStatus.LOCKED, LocalDateTime.now().plusMinutes(5));
+        assertThrows(LoginNotActiveException.class, () -> service.requireActiveLogin(5L));
+        storedWith(LoginStatus.LOCKED, LocalDateTime.now().minusMinutes(1));        // expired lock counts as active
+        service.requireActiveLogin(5L);
+
+        when(credentials.findByCustomerId(5L)).thenReturn(Optional.empty());        // login removed after the token was issued
+        assertThrows(InvalidCredentialsException.class, () -> service.requireActiveLogin(5L));
     }
 }

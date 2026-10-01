@@ -6,7 +6,7 @@ paths:
 # Banking: exceptions and messages
 
 ## Exceptions
-- One typed unchecked exception per business failure (`AccountNotFoundException`, `AccountClosedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `LocationNotFoundException`, `EmployeeNotFoundException`, `CustomerNotFoundException`, `EmployeeNotAuthorizedException`, `LoginNotActiveException`, `InvalidCredentialsException`, `EmployeeLockedException`, `InvalidTokenException`, `BankServiceUnavailableException`). Extend `RuntimeException`, take a message only.
+- One typed unchecked exception per business failure (`AccountNotFoundException`, `AccountClosedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `LocationNotFoundException`, `EmployeeNotFoundException`, `CustomerNotFoundException`, `EmployeeNotAuthorizedException`, `LoginNotActiveException`, `InvalidCredentialsException`, `EmployeeLockedException`, `InvalidTokenException`, `AccountAccessDeniedException`, `BankServiceUnavailableException`). Extend `RuntimeException`, take a message only.
 - Mapping lives solely in `BankingExceptionHandler` (`@RestControllerAdvice(basePackages = "org.brite.banking")`): each handler logs `warn` with a `LOG_HANDLER_*` constant and returns `ResponseEntity<String>` (plain text body).
 
 | Exception | Status |
@@ -14,7 +14,7 @@ paths:
 | `AccountNotFoundException`, `LocationNotFoundException`, `EmployeeNotFoundException`, `CustomerNotFoundException` | 404 |
 | `InvalidCredentialsException` | 401 (one message for unknown user and wrong password) |
 | `InvalidTokenException` | 401 (bad, expired, forged or wrong-kind token from `JwtService.parse`, or no authenticated employee in `EmployeeService`; the staff filter writes its own 401/403 text) |
-| `EmployeeNotAuthorizedException`, `LoginNotActiveException` | 403 |
+| `EmployeeNotAuthorizedException`, `LoginNotActiveException`, `AccountAccessDeniedException` (another customer's account) | 403 |
 | `EmployeeLockedException` (also used for customer logins) | 423 |
 | `AccountClosedException`, `AccountSuspendedException`, `InsufficientFundsException`, `MinBalanceException`, `MaxDepositAmountException`, `AgeException`, `StatementRangeExceededException`, `IllegalArgumentException` | 400 |
 | `BankServiceUnavailableException` | no handler; thrown by `BankClient` in the payment resilience demo |

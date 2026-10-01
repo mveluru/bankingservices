@@ -13,7 +13,9 @@ import org.brite.banking.request.BulkCloseAccountsRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
+import org.brite.banking.gateway.CustomerAuthenticationFilter;
 import org.brite.banking.service.BankStatementService;
+import org.brite.banking.service.CustomerAccessService;
 import org.brite.banking.service.ClientAccountService;
 import org.brite.banking.service.AccountStatusStatementService;
 import org.brite.banking.service.AccountSuspensionService;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -35,6 +38,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 
+/**
+ * Customer-facing account endpoints. Every one except {@code POST /newaccount} needs {@code Authorization: Bearer <customer token>}
+ * ({@link CustomerAuthenticationFilter}), and a customer can only reach their own accounts ({@link CustomerAccessService}):
+ * another customer's account is {@code 403}, and the account list shows only the caller's accounts.
+ */
 @RestController
 @RequestMapping("/v1/api/accounts")
 @RequiredArgsConstructor
@@ -43,6 +51,7 @@ public class ClientAccountController {
     private final BankStatementService bankStatementService;
     private final AccountStatusStatementService accountStatusStatementService;
     private final AccountSuspensionService accountSuspensionService;
+    private final CustomerAccessService customerAccess;
 
     /**
      * Scenario G: Retrieve account ids/details within a createdDate/closedDate range.
@@ -58,6 +67,7 @@ public class ClientAccountController {
      */
     @GetMapping
     public ResponseEntity<Page<AccountStatusView>> listAccounts(
+            @RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
             @RequestParam(required = false) String accountNumber,
             @RequestParam(required = false) AccountStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate createdFrom,
@@ -67,7 +77,8 @@ public class ClientAccountController {
             @RequestParam(required = false) Integer months,
             @PageableDefault(size = 20, sort = "createdDate") Pageable pageable) {
         Page<AccountStatusView> accounts = accountStatusStatementService.listAccountStatuses(
-                accountNumber, status, createdFrom, createdTo, closedFrom, closedTo, months, pageable);
+                accountNumber, status, createdFrom, createdTo, closedFrom, closedTo, months,
+                customerAccess.requireAuthenticated(customerId), pageable);
         return ResponseEntity.ok(accounts);
     }
 
@@ -76,7 +87,9 @@ public class ClientAccountController {
      * POST /api/accounts/lookup
      */
     @PostMapping("/lookup")
-    public ResponseEntity<?> lookupAccount(@Valid @RequestBody AccountLookupRequest request) {
+    public ResponseEntity<?> lookupAccount(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                           @Valid @RequestBody AccountLookupRequest request) {
+        customerAccess.requireOwnAccount(customerId, request.getAccountNumber());
         return accountService.lookupAccountDetails(request)
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity
@@ -99,7 +112,9 @@ public class ClientAccountController {
      * POST /api/accounts/withdraw
      */
     @PostMapping("/withdraw")
-    public ResponseEntity<Account> withdraw(@Valid @RequestBody WithdrawalRequest request) {
+    public ResponseEntity<Account> withdraw(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                            @Valid @RequestBody WithdrawalRequest request) {
+        customerAccess.requireOwnAccount(customerId, request.getAccountNumber());
         Account updatedAccount = accountService.withdrawAndSaveToAccount(request);
         return ResponseEntity.ok(updatedAccount);
     }
@@ -109,7 +124,9 @@ public class ClientAccountController {
      * POST /api/accounts/deposit
      */
     @PostMapping("/deposit")
-    public ResponseEntity<Account> deposit(@Valid @RequestBody DepositForm request) {
+    public ResponseEntity<Account> deposit(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                           @Valid @RequestBody DepositForm request) {
+        customerAccess.requireOwnAccount(customerId, request.getAccountNumber());
         Account updatedAccount = accountService.depositAndSaveToAccount(request);
         return ResponseEntity.ok(updatedAccount);
     }
@@ -119,7 +136,9 @@ public class ClientAccountController {
      * POST /api/accounts/{accountNumber}/close
      */
     @PostMapping("/{accountNumber}/close")
-    public ResponseEntity<Account> closeAccount(@PathVariable String accountNumber) {
+    public ResponseEntity<Account> closeAccount(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                @PathVariable String accountNumber) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         Account closedAccount = accountService.closeAccount(accountNumber);
         return ResponseEntity.ok(closedAccount);
     }
@@ -130,8 +149,10 @@ public class ClientAccountController {
      * POST /api/accounts/{accountNumber}/suspend
      */
     @PostMapping("/{accountNumber}/suspend")
-    public ResponseEntity<Account> suspendAccount(@PathVariable String accountNumber,
+    public ResponseEntity<Account> suspendAccount(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                  @PathVariable String accountNumber,
                                                   @Valid @RequestBody SuspendAccountRequest request) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(accountSuspensionService.suspendAccount(accountNumber, request));
     }
 
@@ -140,8 +161,10 @@ public class ClientAccountController {
      * PATCH /api/accounts/{accountNumber}/suspension
      */
     @PatchMapping("/{accountNumber}/suspension")
-    public ResponseEntity<Account> updateSuspension(@PathVariable String accountNumber,
+    public ResponseEntity<Account> updateSuspension(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                    @PathVariable String accountNumber,
                                                     @Valid @RequestBody UpdateSuspensionRequest request) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(accountSuspensionService.updateSuspension(accountNumber, request));
     }
 
@@ -150,7 +173,9 @@ public class ClientAccountController {
      * POST /api/accounts/{accountNumber}/reactivate
      */
     @PostMapping("/{accountNumber}/reactivate")
-    public ResponseEntity<Account> reactivateAccount(@PathVariable String accountNumber) {
+    public ResponseEntity<Account> reactivateAccount(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                     @PathVariable String accountNumber) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(accountSuspensionService.reactivateAccount(accountNumber));
     }
 
@@ -161,7 +186,9 @@ public class ClientAccountController {
      * POST /api/accounts/close
      */
     @PostMapping("/close")
-    public ResponseEntity<BulkCloseAccountsResult> closeAccounts(@Valid @RequestBody BulkCloseAccountsRequest request) {
+    public ResponseEntity<BulkCloseAccountsResult> closeAccounts(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
+                                                                 @Valid @RequestBody BulkCloseAccountsRequest request) {
+        customerAccess.requireOwnAccounts(customerId, request.getAccountNumbers());
         BulkCloseAccountsResult result = accountService.closeAccounts(request.getAccountNumbers());
         return ResponseEntity.ok(result);
     }
@@ -172,9 +199,11 @@ public class ClientAccountController {
      */
     @GetMapping("/{accountNumber}/statement")
     public ResponseEntity<BankStatement> statement(
+            @RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
             @PathVariable String accountNumber,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate beginDate,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        customerAccess.requireOwnAccount(customerId, accountNumber);
         BankStatement statement = bankStatementService.generateStatement(accountNumber, beginDate, endDate);
         return ResponseEntity.ok(statement);
     }

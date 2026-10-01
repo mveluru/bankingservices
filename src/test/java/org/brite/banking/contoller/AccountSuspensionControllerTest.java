@@ -1,6 +1,10 @@
 package org.brite.banking.contoller;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.brite.banking.gateway.CustomerAuthenticationFilter;
+import org.brite.banking.repository.AccountRepository;
+import org.brite.banking.service.CustomerAccessService;
+import java.util.Optional;
 import org.brite.banking.domain.Account;
 import org.brite.banking.domain.AccountStatus;
 import org.brite.banking.domain.AccountType;
@@ -33,6 +37,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -47,9 +52,12 @@ class AccountSuspensionControllerTest {
     @BeforeEach
     void setUp() {
         suspensionService = mock(AccountSuspensionService.class);
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        when(accountRepository.findCustomerIdByAccountNumber(any())).thenReturn(Optional.of(5L));   // customer 5 owns every account here
         mockMvc = MockMvcBuilders.standaloneSetup(new ClientAccountController(
                         mock(ClientAccountService.class), mock(BankStatementService.class),
-                        mock(AccountStatusStatementService.class), suspensionService))
+                        mock(AccountStatusStatementService.class), suspensionService, new CustomerAccessService(accountRepository)))
+                .defaultRequest(get("/").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))

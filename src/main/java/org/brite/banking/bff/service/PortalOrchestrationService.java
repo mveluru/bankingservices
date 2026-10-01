@@ -65,10 +65,10 @@ public class PortalOrchestrationService {
      * The account search takes one status at a time, so each status is queried (both hit the account-search cache)
      * and the two short lists are merged.
      */
-    public PortalHomeResponse home(String state) {
+    public PortalHomeResponse home(String state, Long customerId) {
         log.debug(BankingMessages.LOG_PORTAL_HOME, state);
-        Page<AccountStatusView> active = recentAccounts(AccountStatus.ACTIVE);
-        Page<AccountStatusView> suspended = recentAccounts(AccountStatus.SUSPENDED);
+        Page<AccountStatusView> active = recentAccounts(AccountStatus.ACTIVE, customerId);
+        Page<AccountStatusView> suspended = recentAccounts(AccountStatus.SUSPENDED, customerId);
         List<PortalAccountSummary> accounts = Stream.concat(active.getContent().stream(), suspended.getContent().stream())
                 .sorted(Comparator.comparing(AccountStatusView::getCreatedDate, Comparator.nullsLast(Comparator.reverseOrder())))
                 .limit(properties.getHomeAccountLimit())
@@ -77,9 +77,9 @@ public class PortalOrchestrationService {
         return new PortalHomeResponse(active.getTotalElements(), suspended.getTotalElements(), accounts, nearbyLocations(state));
     }
 
-    private Page<AccountStatusView> recentAccounts(AccountStatus status) {
+    private Page<AccountStatusView> recentAccounts(AccountStatus status, Long customerId) {
         return accountStatusStatementService.listAccountStatuses(
-                null, status, null, null, null, null, null,
+                null, status, null, null, null, null, null, customerId,
                 PageRequest.of(0, properties.getHomeAccountLimit(), Sort.by(Sort.Direction.DESC, "createdDate")));
     }
 

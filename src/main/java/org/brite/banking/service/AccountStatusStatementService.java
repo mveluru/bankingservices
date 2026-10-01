@@ -44,7 +44,8 @@ public class AccountStatusStatementService {
      * bypassing the range); when it's omitted/null, every matching account is returned.
      * <p>
      * Cached for 10 minutes (see {@code spring.cache.caffeine.spec} in application.yml)
-     * since {@link AccountStatusView} never exposes balance - it's only invalidated by
+     * since {@link AccountStatusView} never exposes balance (and {@code customerId}, being a method argument, is part of the
+     * cache key, so one customer's cached page is never served to another) - it's only invalidated by
      * {@code ClientAccountService.registerNewClientAccount}/{@code closeAccount} and the
      * {@code AccountSuspensionService} mutations, the only operations that change a field
      * this view actually shows.
@@ -53,7 +54,7 @@ public class AccountStatusStatementService {
     public Page<AccountStatusView> listAccountStatuses(String accountNumber, AccountStatus status,
                                                        LocalDate createdFrom, LocalDate createdTo,
                                                        LocalDate closedFrom, LocalDate closedTo,
-                                                       Integer months, Pageable pageable) {
+                                                       Integer months, Long customerId, Pageable pageable) {
         if (months != null && months <= 0) {
             log.warn(BankingMessages.LOG_ACCOUNT_SEARCH_REJECTED_MONTHS, months);
             throw new IllegalArgumentException(String.format(BankingMessages.MONTHS_MUST_BE_POSITIVE, months));
@@ -80,7 +81,7 @@ public class AccountStatusStatementService {
         }
 
         log.debug(BankingMessages.LOG_ACCOUNT_SEARCH, accountNumber, status, effectiveCreatedFrom, effectiveCreatedTo, closedFrom, closedTo, pageable.getPageNumber());
-        Page<Account> accounts = accountRepository.search(accountNumber, status, effectiveCreatedFrom, effectiveCreatedTo, closedFrom, closedTo, pageable);
+        Page<Account> accounts = accountRepository.search(accountNumber, status, effectiveCreatedFrom, effectiveCreatedTo, closedFrom, closedTo, customerId, pageable);
         return accounts.map(this::toView);
     }
 

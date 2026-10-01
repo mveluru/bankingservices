@@ -54,7 +54,7 @@ HTTP → gateway filters (btid → rate limit → request log)
 ```
 staff request → StaffAuthenticationFilter (JWT) → StaffController → StaffAccountService / StaffLoginService / EmployeeService.requirePrivilege
               → (privilege + ACTIVE employee + ACTIVE login) → ClientAccountService / AccountSuspensionService (unchanged rules)
-customer request (no handler) → ClientAccountService → CustomerCredentialService.requireActiveLoginIfPresent(owner)
+customer request → CustomerAuthenticationFilter (JWT, login ACTIVE) → Client/Portal controller → CustomerAccessService (own accounts only) → ClientAccountService (→ CustomerCredentialService.requireActiveLoginIfPresent as defence in depth)
 ```
 
 ## Account lifecycle (see `account-lifecycle.md`)
