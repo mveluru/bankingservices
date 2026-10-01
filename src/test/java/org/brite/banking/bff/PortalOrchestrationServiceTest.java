@@ -168,13 +168,11 @@ class PortalOrchestrationServiceTest {
     }
 
     @Test
-    void openAccountReturnsNewAccountAndBranchesInCustomersState() {
-        AccountRegistrationRequest request = AccountRegistrationRequest.builder().state("TX").accountType("checking").build();
-        when(clientAccountService.registerNewClientAccount(request)).thenReturn(checking("CH-0000010053", new BigDecimal("0.00")));
+    void openAccountResponseShowsTheNewAccountAndBranchesInTheCustomersState() {
         when(locationService.listLocations(any(), any(), eq("TX"), any(), any(), any()))
                 .thenReturn(new PageImpl<>(List.of(austinBranch())));
 
-        OpenAccountResponse response = service.openAccount(request);
+        OpenAccountResponse response = service.openAccountResponse(checking("CH-0000010053", new BigDecimal("0.00")), "TX");
 
         assertEquals("CH-0000010053", response.account().accountNumber());
         assertEquals(0, response.account().recentActivity().size());

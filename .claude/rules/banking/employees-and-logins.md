@@ -24,7 +24,7 @@ paths:
 | Concept | Where | Notes |
 |---|---|---|
 | Employee profile | `bank_employees` (`EmployeeEntity`, domain `Employee`) | `employeeNumber` `EMP-000010`, `role`, `status` (employment: `ACTIVE`/`ON_LEAVE`/`TERMINATED`), `bankLocationId`, `region` (area managers), `supervisorId`. Ids are plain columns, **not foreign keys**. |
-| Role → privileges | `EmployeeRole.getPrivileges()` | **Derived, never stored.** `TELLER` view/deposit/withdraw; `MANAGER` + suspend/update-suspension/reactivate/close/branch reports/`MANAGE_CUSTOMER_LOGINS`; `AREA_MANAGER` + `MANAGE_EMPLOYEES`. Each role includes the one below. |
+| Role → privileges | `EmployeeRole.getPrivileges()` | **Derived, never stored.** `TELLER` view/deposit/withdraw/`OPEN_ACCOUNT` (open an account for a customer at the office; every role has it, via `StaffAccountService.openAccount`); `MANAGER` + suspend/update-suspension/reactivate/close/branch reports/`MANAGE_CUSTOMER_LOGINS`; `AREA_MANAGER` + `MANAGE_EMPLOYEES`. Each role includes the one below. |
 | Employee login | `bank_employee_credentials` | Own table, one row per employee (`employeeId`), lowercase `username`, BCrypt `passwordHash`, failure/lock/last-login columns, `status`. |
 | Customer login | `customer_credentials` | Same shape, keyed by `customerId`. |
 | Login status | `LoginStatus` `ACTIVE`/`INACTIVE`/`LOCKED`/`SUSPENDED` | **Only `ACTIVE` may transact.** |

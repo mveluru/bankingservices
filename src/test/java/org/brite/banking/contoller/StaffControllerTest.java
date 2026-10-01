@@ -206,7 +206,7 @@ class StaffControllerTest {
         mockMvc.perform(get("/v1/api/staff/employees/EMP-T").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.employeeNumber").value("EMP-T"))
-                .andExpect(jsonPath("$.privileges.length()").value(3));
+                .andExpect(jsonPath("$.privileges.length()").value(4));
     }
 
     @Test

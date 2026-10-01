@@ -1,7 +1,7 @@
 package org.brite.banking.contoller;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
-import org.brite.banking.bff.controller.PortalController;
+import org.brite.banking.bff.controller.CustomerPortalController;
 import org.brite.banking.bff.service.PortalOrchestrationService;
 import org.brite.banking.domain.Account;
 import org.brite.banking.domain.AccountStatus;
@@ -64,7 +64,7 @@ class CustomerAccessControllerTest {
         CustomerAccessService access = new CustomerAccessService(accounts);
         mockMvc = MockMvcBuilders.standaloneSetup(
                         new ClientAccountController(accountService, statementService, statusService, access),
-                        new PortalController(portalService, access))
+                        new CustomerPortalController(portalService, access))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .defaultRequest(get("/").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L))

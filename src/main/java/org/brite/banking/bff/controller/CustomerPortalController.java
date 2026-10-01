@@ -3,17 +3,14 @@ package org.brite.banking.bff.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
-import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalHomeResponse;
 import org.brite.banking.bff.service.PortalOrchestrationService;
 import org.brite.banking.gateway.CustomerAuthenticationFilter;
 import org.brite.banking.service.CustomerAccessService;
 import org.brite.banking.domain.BankStatement;
 import org.brite.banking.domain.DepositForm;
-import org.brite.banking.request.AccountRegistrationRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,14 +24,13 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 
 /**
- * Backend-for-frontend endpoints for the banking UI portal: one call per screen. Every one except {@code POST accounts/open}
- * needs {@code Authorization: Bearer <customer token>} ({@link CustomerAuthenticationFilter}) and only reaches the caller's
+ * Backend-for-frontend endpoints for the customer portal: one call per screen. Every one needs {@code Authorization: Bearer <customer token>} ({@link CustomerAuthenticationFilter}) and only reaches the caller's
  * own accounts ({@link CustomerAccessService}; another customer's account is {@code 403}, the home screen lists only the caller's). Suspending and reactivating are staff-only and not offered here.
  */
 @RestController
 @RequestMapping("/bff/v1/portal")
 @RequiredArgsConstructor
-public class PortalController {
+public class CustomerPortalController {
     private final PortalOrchestrationService portalService;
     private final CustomerAccessService customerAccess;
 
@@ -106,14 +102,5 @@ public class PortalController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         customerAccess.requireOwnAccount(customerId, accountNumber);
         return ResponseEntity.ok(portalService.statement(accountNumber, beginDate, endDate));
-    }
-
-    /**
-     * Open an account and get nearby branches in the same call.
-     * POST /bff/v1/portal/accounts/open
-     */
-    @PostMapping("/accounts/open")
-    public ResponseEntity<OpenAccountResponse> openAccount(@Valid @RequestBody AccountRegistrationRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(portalService.openAccount(request));
     }
 }

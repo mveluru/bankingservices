@@ -9,6 +9,7 @@ import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.TransactionHandler;
 import org.brite.banking.messages.BankingMessages;
+import org.brite.banking.request.AccountRegistrationRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -46,6 +47,19 @@ public class StaffAccountService {
         Employee employee = employeeService.requirePrivilege(employeeNumber, EmployeePrivilege.DEPOSIT);
         Account account = clientAccountService.depositAndSaveToAccount(request, handler(employee, locationId));
         logAction(employee, EmployeePrivilege.DEPOSIT, request.getAccountNumber());
+        return account;
+    }
+
+    /**
+     * Opens an account for a customer, for example one standing at the office: needs the {@code OPEN_ACCOUNT} privilege (every role has it) and
+     * then goes through the same {@link ClientAccountService#registerNewClientAccount} as every registration, so age, validation, caching and
+     * notifications are unchanged. The check runs before anything is created.
+     */
+    public Account openAccount(String employeeNumber, AccountRegistrationRequest request) {
+        Employee employee = employeeService.requirePrivilege(employeeNumber, EmployeePrivilege.OPEN_ACCOUNT);
+        Account account = clientAccountService.registerNewClientAccount(request);
+        logAction(employee, EmployeePrivilege.OPEN_ACCOUNT,
+                account.getCheckingAccountNumber() != null ? account.getCheckingAccountNumber() : account.getSavingAccountNumber());
         return account;
     }
 

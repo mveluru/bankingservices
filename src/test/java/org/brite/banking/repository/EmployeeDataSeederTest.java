@@ -66,7 +66,7 @@ class EmployeeDataSeederTest {
     void tellersCanDepositAndWithdrawButNotChangeAccountStatus() {
         Set<EmployeePrivilege> tellerPrivileges = EmployeeRole.TELLER.getPrivileges();
         assertTrue(tellerPrivileges.containsAll(Set.of(
-                EmployeePrivilege.VIEW_ACCOUNT, EmployeePrivilege.DEPOSIT, EmployeePrivilege.WITHDRAW)));
+                EmployeePrivilege.VIEW_ACCOUNT, EmployeePrivilege.DEPOSIT, EmployeePrivilege.WITHDRAW, EmployeePrivilege.OPEN_ACCOUNT)));
         assertFalse(tellerPrivileges.contains(EmployeePrivilege.SUSPEND_ACCOUNT));
         assertFalse(tellerPrivileges.contains(EmployeePrivilege.REACTIVATE_ACCOUNT));
         assertFalse(tellerPrivileges.contains(EmployeePrivilege.CLOSE_ACCOUNT));

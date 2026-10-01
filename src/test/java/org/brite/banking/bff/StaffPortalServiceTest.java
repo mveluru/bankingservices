@@ -1,9 +1,11 @@
 package org.brite.banking.bff;
 
 import org.brite.banking.bff.dto.AccountOverviewResponse;
+import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.bff.service.PortalOrchestrationService;
 import org.brite.banking.bff.service.StaffPortalService;
+import org.brite.banking.domain.Account;
 import org.brite.banking.domain.AccountStatus;
 import org.brite.banking.domain.AccountType;
 import org.brite.banking.domain.DepositForm;
@@ -13,6 +15,7 @@ import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.EmployeeStatus;
 import org.brite.banking.exception.AccountSuspendedException;
 import org.brite.banking.exception.EmployeeNotAuthorizedException;
+import org.brite.banking.request.AccountRegistrationRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.brite.banking.service.EmployeeService;
@@ -124,5 +127,29 @@ class StaffPortalServiceTest {
         assertFalse(card.privileges().contains(EmployeePrivilege.SUSPEND_ACCOUNT));
         assertFalse(card.toString().contains("brite-bank.example") || card.toString().contains("555-0210"), "no email or phone on the card");
         assertEquals("Lucas", service.employee("EMP-A", "EMP-000010").firstName());
+    }
+
+    @Test
+    void openingAnAccountForACustomerAtTheOfficeCreatesItThroughTheBankingStaffServiceThenBuildsTheResponse() {
+        AccountRegistrationRequest request = AccountRegistrationRequest.builder().state("TX").accountType("checking").build();
+        Account created = Account.builder().checkingAccountNumber("CH-0000010096").build();
+        OpenAccountResponse response = new OpenAccountResponse(overviewOf("CH-0000010096"), List.of());
+        when(accounts.openAccount("EMP-T", request)).thenReturn(created);
+        when(portal.openAccountResponse(created, "TX")).thenReturn(response);
+
+        assertSame(response, service.openAccount("EMP-T", request));
+
+        var order = inOrder(accounts, portal);
+        order.verify(accounts).openAccount("EMP-T", request);
+        order.verify(portal).openAccountResponse(created, "TX");
+    }
+
+    @Test
+    void aRejectedOpenAccountPropagatesAndNothingIsBuilt() {
+        AccountRegistrationRequest request = AccountRegistrationRequest.builder().state("TX").build();
+        when(accounts.openAccount("EMP-X", request)).thenThrow(new EmployeeNotAuthorizedException("Employee EMP-X is ON_LEAVE and cannot perform this action"));
+
+        assertThrows(EmployeeNotAuthorizedException.class, () -> service.openAccount("EMP-X", request));
+        verifyNoInteractions(portal);
     }
 }

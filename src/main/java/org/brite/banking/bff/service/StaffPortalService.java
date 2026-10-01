@@ -2,13 +2,16 @@ package org.brite.banking.bff.service;
 
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
+import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalEmployee;
+import org.brite.banking.domain.Account;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
+import org.brite.banking.request.AccountRegistrationRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -37,6 +40,16 @@ public class StaffPortalService {
     public AccountOverviewResponse overview(String employee, String accountNumber, Integer days) {
         employeeService.requirePrivilege(employee, EmployeePrivilege.VIEW_ACCOUNT);
         return portalService.overview(accountNumber, days);
+    }
+
+    /**
+     * Opens an account for a customer at the office (needs OPEN_ACCOUNT, checked by the banking staff service before anything is created), then
+     * builds the response: the new account's overview plus branches/ATMs in the customer's state. The customer still needs a login
+     * (see the customer credential calls) before they can use the customer portal.
+     */
+    public OpenAccountResponse openAccount(String employee, AccountRegistrationRequest request) {
+        Account account = staffAccountService.openAccount(employee, request);
+        return portalService.openAccountResponse(account, request.getState());
     }
 
     public AccountOverviewResponse withdraw(String employee, Long locationId, WithdrawalRequest request) {

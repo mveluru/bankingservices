@@ -62,7 +62,7 @@ tags:
   - name: Staff portal (BFF)
     description: Screen-shaped endpoints for the staff portal (the employee counterpart of Portal (BFF)), under `/bff/v1/staff`. Everything except login, the question catalog and the two password-reset calls needs the employee token; the banking staff services enforce each privilege before anything changes, and account actions return the refreshed account overview.
   - name: Portal (BFF)
-    description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call. Everything except `POST accounts/open` needs the customer token, and only reaches the caller's own accounts. There is no suspend or reactivate here, which is staff-only work.
+    description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call. Everything needs the customer token and only reaches the caller's own accounts, apart from sign-in, the question catalog and the password-reset calls. There is no open-account, suspend or reactivate here. Opening an account is a staff-portal call (a customer is helped at the office), and suspend/reactivate are staff-only.
   - name: Clients
     description: Sample client record.
   - name: Payments
@@ -2119,6 +2119,46 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/staff/accounts/open:
+    post:
+      tags: [Staff portal (BFF)]
+      operationId: staffPortalOpenAccount
+      summary: Open an account for a customer at the office
+      description: |
+        Requires the `OPEN_ACCOUNT` privilege (every role, so any employee at the front desk). **Only staff can open an account in the BFF**:
+        the customer portal has no open-account call. Same body, validation, rules and side effects (age check, notifications, cache) as
+        `POST /v1/api/accounts/newaccount`, because it registers through the same service after the privilege check; the response adds the
+        branches/ATMs in the customer's `state`. The new customer has no login yet: a manager creates it with
+        `POST /bff/v1/staff/customers/{customerId}/login` before they can use the customer portal.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AccountRegistrationRequest'}
+      responses:
+        '201':
+          description: Account created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OpenAccountResponse'}
+        '400':
+          description: >-
+            Validation failure (JSON body), or a business rule was violated, for example under the minimum age (plain-text body).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+            text/plain:
+              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/staff/accounts/{accountNumber}/overview:
     get:
       tags: [Staff portal (BFF)]
@@ -2908,36 +2948,6 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
-  /bff/v1/portal/accounts/open:
-    post:
-      tags: [Portal (BFF)]
-      operationId: portalOpenAccount
-      summary: Open an account and get nearby branches
-      description: |
-        Same rules, validation and side effects as `POST /v1/api/accounts/newaccount`, plus
-        the branches/ATMs in the customer's `state` in the same response.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/AccountRegistrationRequest'}
-      responses:
-        '201':
-          description: Account created.
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/OpenAccountResponse'}
-        '400':
-          description: >-
-            Validation failure (JSON body), or a business rule was violated (plain-text body).
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
-            text/plain:
-              schema: {type: string}
-        '429':
-          $ref: '#/components/responses/TooManyRequests'
-
   /v1/client/name:
     get:
       tags: [Clients]
@@ -3059,7 +3069,7 @@ components:
       description: |
         The customer access token returned by `POST /v1/api/customers/login` (HS256, 30 minutes, no refresh), sent as
         `Authorization: Bearer <token>`. Required on every `/v1/api/accounts/**`, `/v1/api/customers/**` and `/bff/v1/portal/**` operation except
-        the ones a user without a token must reach: the two that create a customer (`POST /v1/api/accounts/newaccount`, `POST /bff/v1/portal/accounts/open`), the login and the two password-reset calls. It proves who
+        the ones a user without a token must reach: the banking registration (`POST /v1/api/accounts/newaccount`), the login and the two password-reset calls. It proves who
         logged in; the customer's login is re-checked on every request, and the customer can only reach their own accounts.
     BearerAuth:
       type: http
@@ -3338,12 +3348,12 @@ components:
       type: string
       enum: [TELLER, MANAGER, AREA_MANAGER]
       description: |
-        `TELLER`: VIEW_ACCOUNT, DEPOSIT, WITHDRAW. `MANAGER`: plus SUSPEND_ACCOUNT, UPDATE_SUSPENSION,
+        `TELLER`: VIEW_ACCOUNT, DEPOSIT, WITHDRAW, OPEN_ACCOUNT. `MANAGER`: plus SUSPEND_ACCOUNT, UPDATE_SUSPENSION,
         REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_CUSTOMER_LOGINS. `AREA_MANAGER`: plus MANAGE_EMPLOYEES.
 
     EmployeePrivilege:
       type: string
-      enum: [VIEW_ACCOUNT, DEPOSIT, WITHDRAW, SUSPEND_ACCOUNT, UPDATE_SUSPENSION, REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_EMPLOYEES, MANAGE_CUSTOMER_LOGINS]
+      enum: [VIEW_ACCOUNT, DEPOSIT, WITHDRAW, OPEN_ACCOUNT, SUSPEND_ACCOUNT, UPDATE_SUSPENSION, REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_EMPLOYEES, MANAGE_CUSTOMER_LOGINS]
 
     Employee:
       type: object

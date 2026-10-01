@@ -173,7 +173,7 @@ class CustomerAuthenticationFilterTest {
 
     @Test
     void onlyTheEndpointsAUserWithoutATokenMustReachAreOpen() throws Exception {
-        for (String[] open : new String[][]{{"POST", "/v1/api/accounts/newaccount"}, {"POST", "/bff/v1/portal/accounts/open"},
+        for (String[] open : new String[][]{{"POST", "/v1/api/accounts/newaccount"},
                 {"POST", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/questions"}, {"POST", "/v1/api/customers/password-reset"},
                 {"POST", "/bff/v1/portal/login"}, {"GET", "/bff/v1/portal/security-questions/catalog"},
                 {"POST", "/bff/v1/portal/password-reset/questions"}, {"POST", "/bff/v1/portal/password-reset"}}) {
@@ -182,7 +182,7 @@ class CustomerAuthenticationFilterTest {
             assertNotNull(chain.getRequest(), open[1]);
         }
         for (String[] closed : new String[][]{{"GET", "/v1/api/accounts/newaccount"}, {"POST", "/v1/api/accounts/newaccount/"},
-                {"POST", "/v1/api/accounts/newaccountx"}, {"GET", "/bff/v1/portal/accounts/open"}, {"POST", "/v1/api/accounts/lookup"},
+                {"POST", "/v1/api/accounts/newaccountx"}, {"POST", "/bff/v1/portal/accounts/open"}, {"POST", "/v1/api/accounts/lookup"},
                 {"PUT", "/v1/api/customers/security-questions"}, {"GET", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/other"},
                 {"PUT", "/bff/v1/portal/password"}, {"PUT", "/bff/v1/portal/security-questions"}, {"GET", "/bff/v1/portal/login"},
                 {"POST", "/bff/v1/portal/security-questions/catalog"}, {"GET", "/bff/v1/portal/password-reset"}}) {

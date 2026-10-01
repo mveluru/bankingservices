@@ -22,7 +22,6 @@ import org.brite.banking.exception.AccountNotFoundException;
 import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.repository.TransactionRepository;
 import org.brite.banking.request.AccountLookupRequest;
-import org.brite.banking.request.AccountRegistrationRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.brite.banking.service.AccountStatusStatementService;
 import org.brite.banking.service.BankStatementService;
@@ -110,13 +109,15 @@ public class PortalOrchestrationService {
         return toOverview(account, window, activity);
     }
 
-    /** Opens the account (all rules and notifications live in {@link ClientAccountService}) and adds nearby branches. */
-    public OpenAccountResponse openAccount(AccountRegistrationRequest request) {
-        Account account = clientAccountService.registerNewClientAccount(request);
-        log.info(BankingMessages.LOG_PORTAL_ACCOUNT_OPENED, request.getState());
+    /**
+     * The response for an account that has just been opened (by the staff portal, after the banking staff service created it): the new account's
+     * overview plus branches/ATMs in {@code state}. Creating the account, with all its rules and notifications, is not done here.
+     */
+    public OpenAccountResponse openAccountResponse(Account account, String state) {
+        log.info(BankingMessages.LOG_PORTAL_ACCOUNT_OPENED, state);
         return new OpenAccountResponse(
                 toOverview(account, properties.getDefaultActivityDays(), List.of()),
-                nearbyLocations(request.getState()));
+                nearbyLocations(state));
     }
 
     /**

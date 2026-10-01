@@ -79,7 +79,7 @@ class StaffPortalAuthControllerTest {
                 .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(jsonPath("$.accessToken").value("signed.jwt"))
                 .andExpect(jsonPath("$.employee.employeeNumber").value("EMP-000010"))
-                .andExpect(jsonPath("$.employee.privileges.length()").value(3))
+                .andExpect(jsonPath("$.employee.privileges.length()").value(4))
                 .andExpect(content().string(not(containsString("20260010"))));
     }
 

@@ -3,6 +3,7 @@ package org.brite.banking.bff;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.brite.banking.bff.controller.StaffPortalController;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
+import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.bff.service.StaffPortalService;
 import org.brite.banking.domain.AccountStatus;
@@ -50,6 +51,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** Standalone MockMvc: routing, binding, status mapping and the acting-employee attribute of the staff portal endpoints. */
 class StaffPortalControllerTest {
     private static final String ATTR = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE;
+    private static final String OPEN_ACCOUNT = "{\"firstName\":\"David\",\"lastName\":\"Miller\",\"dateOfBirth\":\"08/19/1994\",\"phoneNumber\":\"713-555-0142\","
+            + "\"street\":\"789 Pine Rd\",\"addressLine1\":\"789 Pine Rd\",\"city\":\"Houston\",\"state\":\"TX\",\"zip\":\"77001\",\"accountType\":\"checking\"}";
     private static final String DEPOSIT = "{\"accountNumber\":\"CH-0000010001\",\"amount\":50,\"accountType\":\"CHECKING\",\"depositType\":\"check\","
             + "\"street\":\"1 Main St\",\"addressLine1\":\"1 Main St\",\"city\":\"Austin\",\"state\":\"TX\",\"zip\":\"78701\"}";
 
@@ -100,6 +103,27 @@ class StaffPortalControllerTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.accountStatus").value("CLOSED"));
         mockMvc.perform(get("/bff/v1/staff/accounts/CH-0000010001/overview").param("days", "7").requestAttr(ATTR, "EMP-T"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.accountNumber").value("CH-0000010001"));
+    }
+
+    @Test
+    void staffOpenAnAccountForACustomerAndGetTheOverviewAndNearbyBranches() throws Exception {
+        when(service.openAccount(eq("EMP-T"), any())).thenReturn(new OpenAccountResponse(overview(AccountStatus.ACTIVE), List.of()));
+
+        mockMvc.perform(post("/bff/v1/staff/accounts/open").requestAttr(ATTR, "EMP-T").contentType(MediaType.APPLICATION_JSON).content(OPEN_ACCOUNT))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.account.accountNumber").value("CH-0000010001"))
+                .andExpect(jsonPath("$.nearbyLocations.length()").value(0));
+    }
+
+    @Test
+    void openingAnAccountNeedsAnAllowedEmployeeAndAValidBody() throws Exception {
+        doThrow(new EmployeeNotAuthorizedException("Employee EMP-X is ON_LEAVE and cannot perform this action")).when(service).openAccount(eq("EMP-X"), any());
+
+        mockMvc.perform(post("/bff/v1/staff/accounts/open").requestAttr(ATTR, "EMP-X").contentType(MediaType.APPLICATION_JSON).content(OPEN_ACCOUNT))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/bff/v1/staff/accounts/open").requestAttr(ATTR, "EMP-T").contentType(MediaType.APPLICATION_JSON).content("{\"firstName\":\"Ada\"}"))
+                .andExpect(status().isBadRequest());
+        verify(service, org.mockito.Mockito.never()).openAccount(eq("EMP-T"), any());
     }
 
     @Test

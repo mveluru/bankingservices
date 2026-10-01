@@ -1,7 +1,7 @@
 package org.brite.banking.bff;
 
 import com.fasterxml.jackson.databind.SerializationFeature;
-import org.brite.banking.bff.controller.PortalController;
+import org.brite.banking.bff.controller.CustomerPortalController;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
 import org.brite.banking.bff.service.PortalOrchestrationService;
 import org.brite.banking.gateway.CustomerAuthenticationFilter;
@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** Standalone MockMvc (no Spring context, so no MySQL): param binding, status codes, JSON shape, error mapping. */
-class PortalControllerTest {
+class CustomerPortalControllerTest {
     private PortalOrchestrationService service;
     private MockMvc mockMvc;
 
@@ -51,7 +51,7 @@ class PortalControllerTest {
         service = mock(PortalOrchestrationService.class);
         AccountRepository accountRepository = mock(AccountRepository.class);
         when(accountRepository.findCustomerIdByAccountNumber(any())).thenReturn(Optional.of(5L));   // customer 5 owns every account here
-        mockMvc = MockMvcBuilders.standaloneSetup(new PortalController(service, new CustomerAccessService(accountRepository)))
+        mockMvc = MockMvcBuilders.standaloneSetup(new CustomerPortalController(service, new CustomerAccessService(accountRepository)))
                 .defaultRequest(get("/").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
@@ -90,14 +90,6 @@ class PortalControllerTest {
         mockMvc.perform(get("/bff/v1/portal/accounts/CH-0000088291/overview").param("days", "500"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("days must be between 1 and 90"));
-    }
-
-    @Test
-    void openAccountRejectsInvalidBodyBeforeCallingService() throws Exception {
-        mockMvc.perform(post("/bff/v1/portal/accounts/open").contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isBadRequest());
-
-        verify(service, never()).openAccount(any());
     }
 
     @Test

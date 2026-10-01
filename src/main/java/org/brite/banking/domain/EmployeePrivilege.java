@@ -5,6 +5,7 @@ public enum EmployeePrivilege {
     VIEW_ACCOUNT,
     DEPOSIT,
     WITHDRAW,
+    OPEN_ACCOUNT,
     SUSPEND_ACCOUNT,
     UPDATE_SUSPENSION,
     REACTIVATE_ACCOUNT,

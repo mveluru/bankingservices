@@ -62,7 +62,7 @@ class StaffPortalAuthServiceTest {
 
         assertEquals("signed.jwt.value", response.accessToken());
         assertEquals("EMP-000010", response.employee().employeeNumber());
-        assertEquals(3, response.employee().privileges().size());
+        assertEquals(4, response.employee().privileges().size());
         assertSame(branch, response.branch());
         assertFalse(response.toString().contains("signed.jwt.value"), "the token must not appear in toString");
         assertFalse(response.toString().contains("brite-bank.example"));

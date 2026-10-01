@@ -3,17 +3,20 @@ package org.brite.banking.bff.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
+import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.bff.service.StaffPortalService;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
+import org.brite.banking.request.AccountRegistrationRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -26,7 +29,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Backend-for-frontend endpoints for the staff portal: the employee counterpart of {@link PortalController}. Every call needs
+ * Backend-for-frontend endpoints for the staff portal: the employee counterpart of {@link CustomerPortalController}. Every call needs
  * {@code Authorization: Bearer <employee token>} ({@link StaffAuthenticationFilter}) and takes the acting employee from it; the banking
  * services enforce the privilege before anything changes (403) and account actions return the refreshed account overview. Customer logins,
  * their status and their passwords are served by {@link CustomerPortalAuthController}; an employee's own login status and password calls are in {@link StaffPortalAuthController}.
@@ -45,6 +48,16 @@ public class StaffPortalController {
                                                             @PathVariable String accountNumber,
                                                             @RequestParam(required = false) Integer days) {
         return ResponseEntity.ok(staffPortalService.overview(employee, accountNumber, days));
+    }
+
+    /**
+     * Open an account for a customer at the office (OPEN_ACCOUNT, every role): the new account's overview plus nearby branches in one call. Only staff
+     * can do this in the BFF; the customer then needs a login (create-login call). POST /bff/v1/staff/accounts/open
+     */
+    @PostMapping("/accounts/open")
+    public ResponseEntity<OpenAccountResponse> openAccount(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
+                                                           @Valid @RequestBody AccountRegistrationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(staffPortalService.openAccount(employee, request));
     }
 
     /** Withdraw as an employee (WITHDRAW); the transaction records them and the branch/ATM ({@code locationId}, default their branch). POST /bff/v1/staff/accounts/withdraw?locationId= */

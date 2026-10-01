@@ -69,7 +69,7 @@ class LoginControllerTest {
                 .andExpect(jsonPath("$.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.expiresIn").value(1800))
                 .andExpect(jsonPath("$.employee.employeeNumber").value("EMP-000010"))
-                .andExpect(jsonPath("$.employee.privileges.length()").value(3))
+                .andExpect(jsonPath("$.employee.privileges.length()").value(4))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("20260010"))));
     }
 
