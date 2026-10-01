@@ -9,6 +9,7 @@ Match the surrounding code. Java 25, Spring Boot 3.5, 4-space indent, no tabs, n
 
 ## Naming
 - Packages: lowercase. **Keep the existing typos** `contoller` and `validtors`; do not rename or "fix" them.
+- Never use `@Data`/`toString` on anything holding a password or hash (`@ToString(exclude = ...)`).
 - Classes: `*Controller`, `*Service`, `*Repository` (facade), `*JpaRepository` (Spring Data), `*Entity`, `*Embeddable`, `*Request`, `*Exception`, `*Filter`, `*Mapper`, `*Seeder`.
 - Constants: `UPPER_SNAKE` in `BankingMessages`; prefixes `LOG_*`, `VALIDATION_*`, none for exception text.
 - Test classes: `<ClassUnderTest>Test`; methods are camelCase sentences, e.g. `getLocationThrowsLocationNotFoundWhenMissing`.

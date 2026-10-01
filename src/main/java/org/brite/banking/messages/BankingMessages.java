@@ -189,6 +189,8 @@ public final class BankingMessages {
     public static final String VALIDATION_ZIP_REQUIRED = "Zip code is required";
 
     // AccountLookupRequest-specific validation messages
+    public static final String VALIDATION_USERNAME_REQUIRED = "username is required";
+    public static final String VALIDATION_PASSWORD_REQUIRED = "password is required";
     public static final String VALIDATION_PHONE_REQUIRED = "Phone number is required";
     public static final String VALIDATION_PHONE_FORMAT = "Phone number must be in the format 512-555-0101";
     public static final String VALIDATION_SUSPENSION_NOTES_REQUIRED = "Suspension notes are required";

@@ -19,6 +19,11 @@ paths:
 - Concurrency: `AccountEntity` uses `@Version`; a concurrent update surfaces `ObjectOptimisticLockingFailureException`. There is no retry; do not swallow it.
 - Mapping: `toDomain`/`toEntity` private methods in the facade; null-safe on embeddables.
 
+## Employees, logins and transaction handlers
+- Facades: `EmployeeRepository` (read-only, domain `Employee`), `EmployeeCredentialRepository`/`CustomerCredentialRepository` (upsert by owner id, status fields mapped), `CustomerRepository` (id + name only, for login). `AccountRepository.findCustomerIdByAccountNumber` backs the customer-login transaction rule. `TransactionRepository` maps the employee/branch snapshot columns.
+- Seeders (`EmployeeDataSeeder`, `EmployeeCredentialSeeder`, `CustomerCredentialSeeder`) are run-once, depend on their base seeder by constructor injection, and use DEMO credentials only (BCrypt-hashed); mirrors `db/data/07`-`09`.
+- New columns on existing tables (`account_transactions` handler columns, login `status`) shipped with idempotent migrations `db/ddl/05`/`06`.
+
 ## Seeders
 - `@Component` with `@PostConstruct`, seed **only if the table is empty**. Dates are `LocalDate.now().minusMonths(N)`. Seeded numbers/ids are documented in the README/OpenAPI examples; don't renumber.
 - Seeder changes → regenerate/update `db/data/*.sql`.

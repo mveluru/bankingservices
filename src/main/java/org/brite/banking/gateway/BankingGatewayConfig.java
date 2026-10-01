@@ -24,6 +24,7 @@ public class BankingGatewayConfig {
     private static final String[] BANKING_URL_PATTERNS = {
             "/v1/api/accounts/*",
             "/v1/api/staff/*",
+            "/v1/api/customers/*",
             "/v1/api/locations",
             "/v1/api/locations/*",
             "/v1/client/*",

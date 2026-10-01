@@ -37,9 +37,15 @@ Adding a persisted field to a domain object means: add to the entity, both mappe
 - Enum-from-string conversions go through a `@Named` method that normalises case.
 
 ## Enums and views
-- Domain enums (`AccountType`, `AccountStatus`, `LocationType`, `BankOperationServices`, `TransactionType`) are the single source of truth for allowed values; the OpenAPI enum lists must match.
+- Domain enums (`AccountType`, `AccountStatus`, `LocationType`, `BankOperationServices`, `TransactionType`, `EmployeeRole`, `EmployeePrivilege`, `EmployeeStatus`, `LoginStatus`) are the single source of truth for allowed values; the OpenAPI enum lists must match.
 - Read-only projections (e.g. `AccountStatusView`) are separate classes. Do not expose balances in anything cached.
+
+## Employees and logins
+- Employee profile, credentials and customer credentials are three separate tables; credentials are never part of a profile or response object (`EmployeeCredential`/`CustomerCredential` exclude the hash from `toString`; `AuthenticatedCustomer` carries only id + name). Cross-table references are plain id columns, not foreign keys.
+- Privileges are derived from `EmployeeRole`, never stored. `TransactionHandler` (employee + branch/ATM snapshot) is copied onto `AccountTransaction`/`AccountTransactionEntity`; snapshots, not references.
+- Status columns use `@ColumnDefault("'ACTIVE'")` so rows that predate the column stay active. Details: `employees-and-logins.md`.
 
 ## Configuration
 - Business limits: `@ConfigurationProperties(prefix = "banking.constraints")` (`AccountConstraints`), bound with `@ConfigurationPropertiesScan`.
 - Gateway toggles: `banking.rate-limit.*`, `banking.request-logging.*`.
+- Login lockout: `banking.employee-login.*` and `banking.customer-login.*` (`max-failed-attempts`, `lockout-minutes`; `EmployeeLoginProperties`/`CustomerLoginProperties` in `rules`).

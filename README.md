@@ -9,7 +9,8 @@ A Spring Boot 3 REST application demonstrating configuration properties binding 
 - **Configuration Management**: Strongly-typed properties bound via `@ConfigurationProperties` for notification options (App, Email, SMS, Retry).
 - **Configs API**: moved to the separate `configservice` project (`/v1/configs`, port 8083).
 - **Banking APIs**: Client/account lookup, registration, withdrawal, and deposit (`/v1/client`, `/v1/api/accounts`) — accounts, customers, transactions, and withdrawal history are persisted via Spring Data JPA to the same MySQL database as the events module (see below), so data survives app restarts — plus async notification demos (`/notify`, `/report`) backed by `@Async`. Account numbers are always `CH-`/`SV-` (checking/savings) followed by a zero-padded 10-digit number (e.g. `CH-0000088291`), whether seeded or generated on registration. 52 demo accounts (26 checking, 26 savings) are seeded on first startup against an empty database (see [Data Model](#-banking-data-model-jpa) below).
-- **Banking API Gateway & Rate Limiter**: Every banking endpoint (`/v1/api/accounts/**`, `/v1/api/locations/**`, `/v1/client/**`, `/v1/payment/**`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/**`) sits behind a `Filter`-based gateway ingress layer that requires an `X-Customer-Id` header and caps each customer to a configurable number of requests per day (`banking.rate-limit`, default 1000/day) — see [Banking API gateway](#-banking-api-gateway--rate-limiter) below. Events/configs endpoints are unaffected.
+- **Staff, logins & login status**: bank employees (`TELLER` / `MANAGER` / `AREA_MANAGER`) with role-derived privileges, employee and customer logins (username + 8-digit BCrypt-hashed password, each in its own table, lockout after repeated failures), a login status (`ACTIVE`/`INACTIVE`/`LOCKED`/`SUSPENDED`) where **only `ACTIVE` may transact**, staff endpoints that enforce the privileges and record who/where on each transaction, and `POST /v1/api/staff/login` / `/v1/api/customers/login` — see [Staff, logins & login status](#staff-logins--login-status-design). No token is issued yet.
+- **Banking API Gateway & Rate Limiter**: Every banking endpoint (`/v1/api/accounts/**`, `/v1/api/locations/**`, `/v1/api/staff/**`, `/v1/api/customers/login`, `/v1/client/**`, `/v1/payment/**`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/**`) sits behind a `Filter`-based gateway ingress layer that requires an `X-Customer-Id` header and caps each customer to a configurable number of requests per day (`banking.rate-limit`, default 1000/day) — see [Banking API gateway](#-banking-api-gateway--rate-limiter) below. Events/configs endpoints are unaffected.
 - **Business Transaction ID (btid) Tracing**: The same gateway stamps every banking request with a unique `btid` (`X-BTID` response header) before it reaches any controller. The id is stored in SLF4J's MDC, so every log line from every layer of that request — controller, service, repository — carries it, letting you grep one request's full log trail with a single id.
 - **Account Constraints**: Configurable business rules (`banking.constraints`) enforced on registration/withdrawal/deposit — minimum age to open an account, minimum balance retained after a withdrawal (checking/savings), and a maximum single cash-deposit amount.
 - **Bank Statement**: `/v1/api/accounts/{accountNumber}/statement` returns an account's deposit/withdrawal history for a given date range, capped by a configurable maximum range in months.
@@ -87,6 +88,12 @@ banking:
     enabled: true
     requests-per-day: 1000
     customer-header-name: X-Customer-Id
+  employee-login:          # wrong passwords before an employee login locks, and for how long
+    max-failed-attempts: 5
+    lockout-minutes: 15
+  customer-login:          # same for customer logins
+    max-failed-attempts: 5
+    lockout-minutes: 15
   suspension:
     expiry-job:
       enabled: true        # reactivates suspensions whose end has passed
@@ -137,6 +144,8 @@ All REST endpoints are prefixed with `http://localhost:8081/brite`:
 | `POST` | `/v1/api/staff/accounts/withdraw` · `/deposit` | **Employee-facing.** Same body and rules as the customer endpoints, but the acting employee is named in `X-Employee-Number` and must be `ACTIVE` with `WITHDRAW` / `DEPOSIT` (tellers and up). The transaction records the employee and the branch/ATM (`?locationId=`, default the employee's own branch; none for an area manager who omits it; `404` if unknown) and they show on the statement. `403` if not allowed, `404` unknown employee, `400` missing header |
 | `POST` / `PATCH` | `/v1/api/staff/accounts/{accountNumber}/suspend` · `/suspension` (PATCH) · `/reactivate` · `/close` | Same rules as the customer endpoints; need `SUSPEND_ACCOUNT` / `UPDATE_SUSPENSION` / `REACTIVATE_ACCOUNT` / `CLOSE_ACCOUNT` (managers and up; a teller gets `403`). The check runs before anything is changed |
 | `GET` | `/v1/api/staff/employees?role=&page=&size=&sort=` | Lists employee profiles; needs `MANAGE_EMPLOYEES` (area managers). Sortable by `lastName` (default), `firstName`, `employeeNumber`, `role`, `hireDate` |
+| `POST` | `/v1/api/staff/login` | Body `{username, password}` (8-digit password). Verifies an employee login and returns the `Employee` profile with its role `privileges`. `401` unknown user or wrong password (same message), `423` locked (5 wrong passwords lock it for 15 min), `403` login `INACTIVE`/`SUSPENDED` or employee not `ACTIVE`, `400` missing field. **Issues no session or token** — other staff endpoints still use `X-Employee-Number`. The password is never logged (the request logger masks it) or returned |
+| `POST` | `/v1/api/customers/login` | Same body and error codes; returns only `{customerId, firstName, lastName}`. Demo login: `customer0001` / `20260001` |
 | `GET` | `/v1/api/staff/employees/{employeeNumber}` | One profile with its derived `privileges`; an employee can read their own, anyone else's needs `MANAGE_EMPLOYEES` |
 | `PUT` | `/v1/api/staff/employees/{employeeNumber}/login-status` | Body `{status, reason?}` (`status` = `ACTIVE`/`INACTIVE`/`LOCKED`/`SUSPENDED`, reason ≤ 200 chars). Sets an employee's login status; needs `MANAGE_EMPLOYEES` (area managers). **Only an `ACTIVE` login may perform transactions** (an employee with an inactive, suspended or locked login, or none, gets `403` on every staff endpoint). `ACTIVE` also clears the failure count and any lock |
 | `PUT` | `/v1/api/staff/customers/{customerId}/login-status` | Same body; sets a customer's login status; needs `MANAGE_CUSTOMER_LOGINS` (managers and up). A customer whose login isn't `ACTIVE` gets `403` on deposits/withdrawals (customer and portal endpoints); a customer with no login is not restricted yet. `404` for an unknown customer or one without a login |
@@ -159,7 +168,7 @@ All REST endpoints are prefixed with `http://localhost:8081/brite`:
 
 ### Banking API gateway & rate limiter
 
-`BankingRateLimitFilter` (`org.brite.banking.gateway`) is a servlet `Filter` registered only for the banking module's URL patterns (`/v1/api/accounts/*`, `/v1/api/locations`, `/v1/api/locations/*`, `/v1/client/*`, `/v1/payment/*`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/*`, `/v1/api/staff/*`) — it runs before `DispatcherServlet`, so rejected requests never reach a controller. It acts as a lightweight API-gateway ingress layer with two responsibilities:
+`BankingRateLimitFilter` (`org.brite.banking.gateway`) is a servlet `Filter` registered only for the banking module's URL patterns (`/v1/api/accounts/*`, `/v1/api/locations`, `/v1/api/locations/*`, `/v1/client/*`, `/v1/payment/*`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/*`, `/v1/api/staff/*`, `/v1/api/customers/*`) — it runs before `DispatcherServlet`, so rejected requests never reach a controller. It acts as a lightweight API-gateway ingress layer with two responsibilities:
 
 1. **Customer identification** — every request must carry the header configured by `banking.rate-limit.customer-header-name` (default `X-Customer-Id`). Missing/blank header → `400` with a plain-text explanation.
 2. **Per-customer daily rate limit** — each customer ID is capped at `banking.rate-limit.requests-per-day` (default **1000**) requests per calendar day, tracked in-memory and reset at midnight. Exceeding it → `429 Too Many Requests`.
@@ -177,8 +186,8 @@ Banking used to be a `ConcurrentHashMap`-backed mock store; it's now backed by r
 | `AccountEntity` | `accounts` | One row per real account (checking **or** savings) — not one row per customer pairing. `@Version` column for optimistic locking on concurrent withdraw/deposit. Status is `ACTIVE`, `SUSPENDED` or `CLOSED`; suspension is stored in `suspended` (flag), `suspended_start`/`suspended_end` (datetimes, end null = indefinite) and `suspension_notes`. |
 | `CustomerEntity` | `customers` | `@ManyToOne` from `AccountEntity`, cascades on save. Holds name, date of birth, `phoneNumber` (`###-###-####`, nullable for customers registered before the field existed) and the embedded address. |
 | `AddressEmbeddable` | — | `@Embeddable`, inlined as columns on `CustomerEntity`/`WithdrawalHistoryEntity` — no separate table. |
-| `EmployeeEntity` / `EmployeeCredentialEntity` | `bank_employees` / `bank_employee_credentials` | Staff profiles (role `TELLER`/`MANAGER`/`AREA_MANAGER`, branch, region, supervisor; privileges derive from the role) and, in a separate table, each employee's login: unique `username` plus a BCrypt `passwordHash` of an exactly-8-digit password, with failed-attempt/lock/last-login columns. `EmployeeCredentialService.verify(username, password)` checks a login (wrong password and unknown user look identical; 5 failures lock it for 15 minutes — `banking.employee-login.*`). Demo logins are seeded for all 21 employees (`lucas.meyer` / `20260010`: username = email local part, password = `2026` + 4-digit employee number). No login endpoint exposes it yet. Each login has a `status` (`ACTIVE`/`INACTIVE`/`LOCKED`/`SUSPENDED`); only `ACTIVE` may perform transactions. |
-| `CustomerCredentialEntity` | `customer_credentials` | A customer's login in its own table, same shape and rules as the employee login (unique lowercase `username`, BCrypt `passwordHash` of an exactly-8-digit password, failed-attempt/lock/last-login columns). `CustomerCredentialService.verify(username, password)` returns only the customer's id and name; 5 wrong passwords lock it for 15 minutes (`banking.customer-login.*`). Demo logins for the first 10 customers (`customer0001` / `20260001`). No endpoint exposes it yet. |
+| `EmployeeEntity` / `EmployeeCredentialEntity` | `bank_employees` / `bank_employee_credentials` | Staff profiles (role `TELLER`/`MANAGER`/`AREA_MANAGER`, branch, region, supervisor; privileges derive from the role) and, in a separate table, each employee's login: unique `username` plus a BCrypt `passwordHash` of an exactly-8-digit password, with failed-attempt/lock/last-login columns. `EmployeeCredentialService.verify(username, password)` checks a login (wrong password and unknown user look identical; 5 failures lock it for 15 minutes — `banking.employee-login.*`). Demo logins are seeded for all 21 employees (`lucas.meyer` / `20260010`: username = email local part, password = `2026` + 4-digit employee number). `POST /v1/api/staff/login` and `POST /v1/api/customers/login` verify it (no token issued). Each login has a `status` (`ACTIVE`/`INACTIVE`/`LOCKED`/`SUSPENDED`); only `ACTIVE` may perform transactions. |
+| `CustomerCredentialEntity` | `customer_credentials` | A customer's login in its own table, same shape and rules as the employee login (unique lowercase `username`, BCrypt `passwordHash` of an exactly-8-digit password, failed-attempt/lock/last-login columns). `CustomerCredentialService.verify(username, password)` returns only the customer's id and name; 5 wrong passwords lock it for 15 minutes (`banking.customer-login.*`). Demo logins for the first 10 customers (`customer0001` / `20260001`). `POST /v1/api/customers/login` verifies it (no token issued). |
 | `AccountTransactionEntity` | `account_transactions` | One row per deposit/withdrawal, including `depositType`. Staff-handled ones also snapshot the employee (`employeeNumber`, `employeeName`, `employeeRole`) and the branch/ATM (`bankLocationId`, `Name`, `Type`, `City`, `State`); all null for customer-initiated transactions. |
 | `WithdrawalHistoryEntity` | `withdrawal_history` | Separate withdrawal-specific history (write-only, nothing reads it back — same as before the migration). |
 | `BankLocationEntity` | `bank_locations`, `bank_location_services` | A bank office and/or ATM: `locationType` (`OFFICE`/`ATM`/`BOTH`), address (`BankAddressEmbeddable`, inlined), office hours 08:00–16:00 in `America/Chicago` (Central time), office phone, and the set of `BankOperationServices` it serves (`BANKING`, `SAFE_DEPOSIT_LOCKER`, `LOANS_MORTGAGES`, `NOTARY`, `WIRE_TRANSFER`, `FOREIGN_EXCHANGE`, `ATM_CASH_WITHDRAWAL`, `ATM_DEPOSIT`) in the second table. ATM-only rows have no hours or phone. Domain shapes: `BankLocations`, `BankAddress`. |
@@ -186,6 +195,34 @@ Banking used to be a `ConcurrentHashMap`-backed mock store; it's now backed by r
 Raw Spring Data repositories live in `org.brite.banking.repository.jpa` (`AccountJpaRepository` — extends `JpaSpecificationExecutor` for the dynamic account-search filtering — plus `CustomerJpaRepository`, `AccountTransactionJpaRepository`, `WithdrawalHistoryJpaRepository`); application code never touches them directly. `AccountRepository`/`TransactionRepository`/`WithdrawalRepository` (same names/packages as before) wrap them and keep their old public method signatures.
 
 `BankLocationDataSeeder` likewise seeds 20 demo bank locations (8 office, 6 ATM, 6 office+ATM across Central-time cities) when `bank_locations` is empty. `AccountDataSeeder` seeds the 52 demo accounts on first startup, but only if the `accounts` table is empty. `AccountStatusDemoSeeder` then adds 40 more — 20 `CLOSED` (`CH-0000030001..30010`, `SV-0000040001..40010`) and 20 `SUSPENDED` (`CH-0000050001..50010`, `SV-0000060001..60010`, 14 with an end date and 6 indefinite, all with notes) — for any of those numbers that don't exist yet, so an existing database gets them on the next start (92 accounts in total). Every seeded customer has a phone number, `512-555-0001`…`0092` (customer N = `512-555-000N`); an older database gets them from `db/data/06_backfill_customer_phones.sql`. The base seeder only runs on an empty table because data now persists across restarts, so unconditional reseeding would create duplicates every time the app starts. Account numbers are still generated the same way as before (zero-padded 10-digit `CH-`/`SV-` numbers, starting from a `10001` counter), so previously-documented account numbers remain valid.
+
+### Staff, logins & login status (design)
+
+```
+staff request ─▶ StaffController ─▶ EmployeeService.requirePrivilege ─▶ StaffAccountService / StaffLoginService
+                  (X-Employee-Number)   ACTIVE employee + ACTIVE login + role privilege        │
+                                                                                               ▼
+customer request ─▶ ClientAccountService ◀─────────────── same business rules as always (closed/suspended/balance...)
+  (no employee)       └─ owner has a login? it must be ACTIVE (CustomerCredentialService)
+```
+
+| Role | Privileges (derived from the role, not stored) |
+| :--- | :--- |
+| `TELLER` | view account, deposit, withdraw |
+| `MANAGER` | teller + suspend, update suspension, reactivate, close, branch reports, **manage customer logins** |
+| `AREA_MANAGER` | manager + **manage employees** (employee profiles and employee login status) |
+
+| Login status | Meaning | Set by |
+| :--- | :--- | :--- |
+| `ACTIVE` | may log in and perform transactions | default; an administrator |
+| `LOCKED` | refused (`423`); automatic after 5 wrong passwords for 15 minutes, or an administrator's lock with no expiry | the system / an administrator |
+| `INACTIVE`, `SUSPENDED` | refused (`403`) until set back to `ACTIVE`; a wrong password never changes them | an administrator |
+
+- **Rule:** only an `ACTIVE` login can do its assigned transactions. Employees need an `ACTIVE` employment status **and** an `ACTIVE` login (no login at all is refused) on every staff endpoint. A customer who has a login that isn't `ACTIVE` can't deposit or withdraw; a customer with no login isn't restricted yet, because the customer and portal endpoints don't require a login.
+- **Who handled it:** staff deposits/withdrawals store the employee (number, name, role) and the branch/ATM (`?locationId=`, default the employee's own branch) on the transaction; customer-initiated ones leave them empty.
+- **Credentials:** username `^[a-z0-9._-]{3,50}$` (case-insensitive) and an exactly-8-digit password, stored only as a BCrypt hash in `bank_employee_credentials` / `customer_credentials`. 8 digits is only 10^8 combinations, so the lockout is the real protection. Passwords are never logged (the request logger masks `password`), returned or put in an error message; unknown user and wrong password give the same `401`.
+- **Not authentication yet:** `X-Employee-Number` and `X-Customer-Id` are claimed identities. The login endpoints verify credentials but issue no session or token, so enforcement is only as strong as the caller's honesty until a token is added in front of the rate limiter.
+- **Demo data (fictional, DEMO ONLY):** 21 employees (`db/data/07`), logins for all of them (`lucas.meyer` / `20260010`: password = `2026` + 4-digit employee number, `db/data/08`) and for the first 10 customers (`customer0001` / `20260001`, `db/data/09`).
 
 ### Resilience demo — `/v1/payment`
 
@@ -290,6 +327,22 @@ curl -H "X-Customer-Id: cust-1" "http://localhost:8081/brite/v1/api/locations?ty
 # Bank offices with safe-deposit lockers
 curl -H "X-Customer-Id: cust-1" "http://localhost:8081/brite/v1/api/locations?type=OFFICE&service=SAFE_DEPOSIT_LOCKER"
 
+# Employee login, then act as a teller / manager (X-Employee-Number is the acting employee; no token is issued)
+curl -s -X POST http://localhost:8081/brite/v1/api/staff/login \
+  -H "Content-Type: application/json" -H "X-Customer-Id: demo-customer-1" \
+  -d '{"username":"lucas.meyer","password":"20260010"}'
+curl -s -X POST "http://localhost:8081/brite/v1/api/staff/accounts/deposit?locationId=1" \
+  -H "Content-Type: application/json" -H "X-Customer-Id: demo-customer-1" -H "X-Employee-Number: EMP-000010" \
+  -d '{"accountNumber":"CH-0000088291","amount":50,"accountType":"CHECKING","depositType":"check","street":"1 Main St","addressLine1":"1 Main St","city":"Austin","state":"TX","zip":"78701"}'
+# A teller can't suspend (403); a manager (EMP-000004) can. Set a login's status (area manager EMP-000001):
+curl -s -X PUT http://localhost:8081/brite/v1/api/staff/employees/EMP-000010/login-status \
+  -H "Content-Type: application/json" -H "X-Customer-Id: demo-customer-1" -H "X-Employee-Number: EMP-000001" \
+  -d '{"status":"SUSPENDED","reason":"Under review"}'
+# Customer login
+curl -s -X POST http://localhost:8081/brite/v1/api/customers/login \
+  -H "Content-Type: application/json" -H "X-Customer-Id: demo-customer-1" \
+  -d '{"username":"customer0001","password":"20260001"}'
+
 # Look Up a Client Account (banking endpoints require X-Customer-Id, rate-limited to 1000/day)
 curl -s -X POST http://localhost:8081/brite/v1/api/accounts/lookup \
   -H "Content-Type: application/json" -H "X-Customer-Id: demo-customer-1" \
@@ -369,6 +422,10 @@ mvn test
 | `BankingRateLimitFilterTest` | Plain unit test (no Spring context/MySQL) — missing-header rejection, within-limit pass-through + headers, over-limit `429` |
 | `BusinessTransactionIdFilterTest` | Plain unit test (no Spring context/MySQL) — btid is in MDC while the chain runs, echoed as `X-BTID`, cleared after (even on exception), and unique per request |
 | `ExecutionTimeLoggingAspectTest` | Plain unit test (no Spring context/MySQL) — the `@Around` advice returns the join point's result and propagates exceptions unchanged |
+| `EmployeeServiceTest` / `StaffControllerTest` | Plain unit test / standalone MockMvc — each role's privileges, ON_LEAVE/TERMINATED employees, **inactive/suspended/locked/missing logins are rejected**, a rejected employee never reaches the account service, who/where recorded on staff deposits and withdrawals, login-status endpoints per privilege |
+| `EmployeeCredentialServiceTest` / `CustomerCredentialServiceTest` | Plain unit tests with real BCrypt — 8-digit password and username rules, hash-only storage, same error for unknown user and wrong password, lock at the limit, admin statuses never overwritten by wrong passwords, expired lock, `changeStatus`, customer transaction check |
+| `EmployeeCredentialPersistenceTest` / `CustomerCredentialPersistenceTest` / `EmployeeDataSeederTest` | `@DataJpaTest` on H2 **outside a test transaction** — failed attempts survive the thrown exception, locking, admin status changes, seeded logins verify, seeders |
+| `LoginControllerTest` | Standalone MockMvc — both login endpoints: 200 body (no password), 401/403/423/400 mapping |
 | `AccountSearchCachingTest` | Plain unit test (no Spring context/MySQL) — reflection check that `listAccountStatuses` carries `@Cacheable` and `registerNewClientAccount`/`closeAccount` carry the matching `@CacheEvict` |
 
 ### Banking UI portal BFF

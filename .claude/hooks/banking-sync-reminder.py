@@ -25,12 +25,18 @@ def has(*fragments):
     return any(f in rel for f in fragments)
 
 
-if has("banking/entity/") or rel.endswith("AccountDataSeeder.java") or rel.endswith("AccountStatusDemoSeeder.java") \
-        or rel.endswith("BankLocationDataSeeder.java") or rel.endswith("domain/AccountStatus.java"):
+SEEDERS = ("AccountDataSeeder.java", "AccountStatusDemoSeeder.java", "BankLocationDataSeeder.java",
+           "EmployeeDataSeeder.java", "EmployeeCredentialSeeder.java", "CustomerCredentialSeeder.java")
+DB_ENUMS = ("domain/AccountStatus.java", "domain/LoginStatus.java", "domain/EmployeeRole.java",
+            "domain/EmployeeStatus.java", "domain/LocationType.java", "domain/TransactionType.java")
+
+if has("banking/entity/") or rel.endswith(SEEDERS) or rel.endswith(DB_ENUMS):
     notes.append(
-        "Entity/seeder/status-enum change: update db/ddl/01_create_tables.sql, db/data/* (seed mirrors), db/dml/*, db/README.md. "
-        "ddl-auto:update never alters an existing enum column, so widening an enum also needs a db/ddl/NN_*_migration.sql "
-        "applied to live databases. Keep seed dates relative and account numbers CH-/SV- + 10 digits.")
+        "Entity/seeder/enum change: update db/ddl/01_create_tables.sql, db/data/* (seed mirrors: 01/05 accounts, 04 locations, "
+        "07 employees, 08 employee logins, 09 customer logins), db/dml/* (incl. 03_reset_banking_data.sql when a table is added), db/README.md. "
+        "ddl-auto:update never alters an existing enum column, so widening an enum (AccountStatus, LoginStatus, EmployeeRole...) also needs "
+        "an idempotent db/ddl/NN_*_migration.sql applied to live databases (new columns on existing tables get one too: 04-06 are the pattern). "
+        "Keep seed dates relative and account numbers CH-/SV- + 10 digits. Demo credentials are DEMO ONLY and stored as BCrypt hashes.")
 
 if has("banking/contoller/", "banking/request/", "banking/bff/controller/", "banking/bff/dto/") \
         or rel.endswith("BankingExceptionHandler.java"):
@@ -48,6 +54,26 @@ if has("banking/repository/AccountRepository.java", "banking/service/AccountSusp
     notes.append(
         "Account lifecycle invariant: a SUSPENDED account must reject every withdraw/deposit (status and suspended flag written together). "
         "Keep .claude/rules/banking/account-lifecycle.md and the AccountRepositoryTest suspension tests in step.")
+
+if has("banking/service/Employee", "banking/service/Staff", "banking/service/LoginSupport", "banking/service/CustomerCredential",
+       "banking/contoller/StaffController", "banking/contoller/LoginController", "banking/domain/Employee", "banking/domain/Login",
+       "banking/domain/CustomerCredential", "banking/domain/TransactionHandler"):
+    notes.append(
+        "Employee/login rules: privileges derive from EmployeeRole (not a column); only an ACTIVE employee with an ACTIVE login may act "
+        "(EmployeeService.requirePrivilege), and customer-initiated deposit/withdraw is gated by CustomerCredentialService.requireActiveLoginIfPresent. "
+        "Keep .claude/rules/banking/employees-and-logins.md, the OpenAPI Staff/Login tags + enums (EmployeeRole, EmployeePrivilege, LoginStatus), "
+        "the README staff rows and EmployeeServiceTest/StaffControllerTest/*Credential*Test in step. X-Employee-Number and X-Customer-Id are "
+        "claimed identities, not authentication; there is no token yet.")
+
+if has("Credential", "LoginRequest", "LoginController", "BankingRequestLoggingFilter", "LoginSupport"):
+    notes.append(
+        "Credentials: never log, return or put in an exception/URL a password or hash; store only BCrypt hashes; usernames lowercase, passwords exactly "
+        "8 digits (the lockout is the real protection, see banking.*-login.*). Any new credential field must be masked in "
+        "BankingRequestLoggingFilter.mask (with a test), and the domain/request toString must exclude it.")
+
+if has("gateway/BankingGatewayConfig.java"):
+    notes.append(
+        "BANKING_URL_PATTERNS changed: mirror it in README (gateway section), CLAUDE.md (gateway section) and .claude/rules/banking/gateway-layer.md.")
 
 if rel.startswith("src/main/java/org/brite/banking/") and "/bff/" not in rel and not rel.endswith("BankingMessages.java"):
     notes.append("Add new user-visible/log strings to BankingMessages, not as literals. Add or update the matching test.")

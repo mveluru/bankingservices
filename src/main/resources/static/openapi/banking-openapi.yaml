@@ -57,6 +57,8 @@ tags:
     description: Bank offices and ATMs.
   - name: Staff
     description: Employee-facing endpoints. The acting employee (`X-Employee-Number`) must hold the privilege for the action; privileges come from the role (`TELLER` < `MANAGER` < `AREA_MANAGER`).
+  - name: Login
+    description: Verify an employee or customer username and 8-digit password. Returns who the caller is; issues no session or token.
   - name: Portal (BFF)
     description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call.
   - name: Clients
@@ -1187,6 +1189,106 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/staff/login:
+    post:
+      tags: [Login]
+      operationId: staffLogin
+      summary: Employee login
+      description: |
+        Verifies the username (case-insensitive) and 8-digit password and returns who the caller is. **No session
+        or token is issued** - other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id`.
+        Unknown username and wrong password give the same `401`. After 5 wrong passwords the login is `LOCKED` for
+        15 minutes (`423`); while locked, even the right password is refused. A right password on an `INACTIVE` or
+        `SUSPENDED` login is `403` (or the employee isn't `ACTIVE` - on leave or terminated). The password is never logged or returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+            example:
+              username: lucas.meyer
+              password: '20260010'
+      responses:
+        '200':
+          description: Credentials verified.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Employee'}
+        '400':
+          description: Missing `username` or `password` (Spring Boot default JSON error).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+        '401':
+          description: Unknown username or wrong password. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+              example: Invalid username or password
+        '403':
+          description: Right password but the login is `INACTIVE`/`SUSPENDED` (or the employee isn't `ACTIVE` - on leave or terminated). Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: The login is `LOCKED`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+              example: 'Too many failed login attempts; locked until 2026-10-01T09:15:00'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/customers/login:
+    post:
+      tags: [Login]
+      operationId: customerLogin
+      summary: Customer login
+      description: |
+        Verifies the username (case-insensitive) and 8-digit password and returns who the caller is. **No session
+        or token is issued** - other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id`.
+        Unknown username and wrong password give the same `401`. After 5 wrong passwords the login is `LOCKED` for
+        15 minutes (`423`); while locked, even the right password is refused. A right password on an `INACTIVE` or
+        `SUSPENDED` login is `403`. The password is never logged or returned.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/LoginRequest'}
+            example:
+              username: customer0005
+              password: '20260005'
+      responses:
+        '200':
+          description: Credentials verified.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuthenticatedCustomer'}
+        '400':
+          description: Missing `username` or `password` (Spring Boot default JSON error).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+        '401':
+          description: Unknown username or wrong password. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+              example: Invalid username or password
+        '403':
+          description: Right password but the login is `INACTIVE`/`SUSPENDED`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: The login is `LOCKED`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+              example: 'Too many failed login attempts; locked until 2026-10-01T09:15:00'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/portal/home:
     get:
       tags: [Portal (BFF)]
@@ -1738,6 +1840,21 @@ components:
         State of an employee or customer login; **only `ACTIVE` may perform transactions**. `LOCKED` is set
         automatically after too many wrong passwords (it expires at `lockedUntil`) or by an administrator
         (no expiry); `INACTIVE` and `SUSPENDED` are set by an administrator until set back to `ACTIVE`.
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: {type: string, example: lucas.meyer}
+        password: {type: string, description: Exactly 8 digits. Masked in request logs., example: '20260010'}
+
+    AuthenticatedCustomer:
+      type: object
+      description: Who a successful customer login belongs to; no date of birth, phone or address.
+      properties:
+        customerId: {type: integer, format: int64}
+        firstName: {type: string}
+        lastName: {type: string}
 
     ChangeLoginStatusRequest:
       type: object

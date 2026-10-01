@@ -91,4 +91,16 @@ class BankingRequestLoggingFilterTest {
         assertThat(appender.list.get(0).getFormattedMessage())
                 .startsWith("Request GET /v1/api/accounts?status=ACTIVE&months=6");
     }
+
+    @Test
+    void masksPasswordsInEveryJsonForm() {
+        assertThat(BankingRequestLoggingFilter.mask("{\"username\":\"lucas.meyer\",\"password\":\"20260010\"}"))
+                .contains("\"username\":\"lucas.meyer\"", "\"password\":\"***\"")
+                .doesNotContain("20260010");
+        assertThat(BankingRequestLoggingFilter.mask("{\"password\": 20260010, \"username\":\"x\"}"))
+                .contains("\"password\": \"***\"", "\"username\":\"x\"")
+                .doesNotContain("20260010");
+        assertThat(BankingRequestLoggingFilter.mask("{\"Password\" : \"ab\\\"cd1234\"}"))
+                .doesNotContain("cd1234", "ab");
+    }
 }

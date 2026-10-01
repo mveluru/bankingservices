@@ -23,7 +23,7 @@ seeds demo accounts and bank locations on first start. They exist to build/inspe
 | `dml/` | `01_account_operations.sql` | Register / withdraw / deposit / close / bulk-close as guarded SQL |
 | | `02_queries.sql` | Lookup, paginated search, statement, reporting queries (read-only) |
 | | `04_account_suspension.sql` | Suspend / update / reactivate / expire-finished-suspensions as guarded SQL, plus suspended-account reporting |
-| | `03_reset_banking_data.sql` | Deletes all banking rows, restarts ids (**destructive**) |
+| | `03_reset_banking_data.sql` | Deletes all banking rows, **including employees and both login tables** (logins reference customers/employees by id, and ids restart at 1), restarts ids (**destructive**; guarded by the db-destructive-guard hook) |
 
 Run in order, e.g. `mysql -u <user> -p < db/ddl/01_create_tables.sql`, then the `data/` files.
 

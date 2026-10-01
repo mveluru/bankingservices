@@ -3,6 +3,9 @@ server:
     8081
   servlet:
     context-path: /brite
+  error:
+    # DevTools turns stack traces in error bodies on by default; never return them (see rules/security.md)
+    include-stacktrace: never
 
 logging:
   pattern:

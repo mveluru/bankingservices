@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
  * request. {@code beforeRequest} is deliberately a no-op: the body isn't cached yet, so a
  * "before" line would always log an empty payload.
  * <p>
- * Date of birth and phone number are masked before logging - they're the fields in these payloads
+ * Date of birth, phone number and login passwords are masked before logging - they're the fields in these payloads
  * that are more sensitive than the names/addresses the app already logs elsewhere. Headers are not
  * logged at all.
  */
@@ -29,6 +29,8 @@ import java.util.regex.Pattern;
 public class BankingRequestLoggingFilter extends AbstractRequestLoggingFilter {
     private static final Pattern DATE_OF_BIRTH = Pattern.compile("(\"dateOfBirth\"\\s*:\\s*\")[^\"]*(\")");
     private static final Pattern PHONE_NUMBER = Pattern.compile("(\"phoneNumber\"\\s*:\\s*\")[^\"]*(\")");
+    /** A JSON string (with escapes) or a bare number/literal, so no form of the value survives. */
+    private static final Pattern PASSWORD = Pattern.compile("(\"password\"\\s*:\\s*)(\"(?:[^\"\\\\]|\\\\.)*\"|[^,}\\s]+)", Pattern.CASE_INSENSITIVE);
 
     public BankingRequestLoggingFilter(int maxPayloadLength) {
         setIncludeQueryString(true);
@@ -50,6 +52,7 @@ public class BankingRequestLoggingFilter extends AbstractRequestLoggingFilter {
 
     static String mask(String message) {
         String masked = DATE_OF_BIRTH.matcher(message).replaceAll("$1***$2");
-        return PHONE_NUMBER.matcher(masked).replaceAll("$1***$2");
+        masked = PHONE_NUMBER.matcher(masked).replaceAll("$1***$2");
+        return PASSWORD.matcher(masked).replaceAll("$1\"***\"");
     }
 }

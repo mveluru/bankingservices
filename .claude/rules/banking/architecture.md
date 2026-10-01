@@ -32,6 +32,8 @@ HTTP → gateway filters (btid → rate limit → request log)
 | `bff` | Portal orchestration: controller + service + record DTOs + CORS/config; composes services in process | `service`, `repository` (read-only facades), `domain`, `request`, `messages` |
 | `gateway` | Servlet filters + config (not controllers) | `messages` |
 
+`contoller` also hosts `StaffController` (employee-facing, `X-Employee-Number`) and `LoginController`; see `employees-and-logins.md`.
+
 ## Dependency rules
 - Dependencies point downward only. Controllers never touch repositories; services never touch `repository.jpa` or entities.
 - Entities never leak past the repository facade. Public facade signatures use domain objects.
@@ -43,9 +45,17 @@ HTTP → gateway filters (btid → rate limit → request log)
 - Account numbers carry the type: `CH-`/`SV-` + at least 10 zero-padded digits. Withdraw/deposit derive type from the prefix.
 - One `AccountEntity` row per real account; the `Account` domain object pairs checking/saving fields.
 - `AccountStatus.CLOSED` blocks withdraw/deposit before any balance check. No reopen path.
-- Every new banking endpoint path must be added to `BankingGatewayConfig.BANKING_URL_PATTERNS`.
+- Every new banking endpoint path must be added to `BankingGatewayConfig.BANKING_URL_PATTERNS` (staff: `/v1/api/staff/*`, customer login: `/v1/api/customers/*`).
+- Employee/login rules (privileges derive from the role; only an ACTIVE employee with an ACTIVE login acts; customer-initiated deposit/withdraw need an ACTIVE login when the owner has one) are in `employees-and-logins.md`. Credentials live in their own tables and never leave the service/facade layers.
 - Anything that changes a field in `AccountStatusView` must evict `AccountStatusStatementService.ACCOUNT_SEARCH_CACHE`.
 - Schema or seed change → update `db/` scripts and `banking-openapi.yaml` in the same change.
+
+## Staff and logins (see `employees-and-logins.md`)
+```
+staff request → StaffController → StaffAccountService / StaffLoginService / EmployeeService.requirePrivilege
+              → (privilege + ACTIVE employee + ACTIVE login) → ClientAccountService / AccountSuspensionService (unchanged rules)
+customer request (no handler) → ClientAccountService → CustomerCredentialService.requireActiveLoginIfPresent(owner)
+```
 
 ## Account lifecycle (see `account-lifecycle.md`)
 - `AccountStatus` is `ACTIVE`/`SUSPENDED`/`CLOSED`. A **suspended account can't transact** until it is ACTIVE again; suspension data (`suspended` flag, start/end, notes) is cleared on reactivate/close.

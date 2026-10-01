@@ -32,6 +32,12 @@ Do not mock `*JpaRepository` to test a `Specification`; a mock can't prove the S
 - No `Thread.sleep`; no reliance on seeded MySQL data or test order.
 - Run: `mvn test -Dtest=ClassName#method`; the full suite needs MySQL up, the banking unit/H2 tests do not.
 
+## Employee / login coverage (keep when touching `employees-and-logins.md` areas)
+- Service (Mockito + real `BCryptPasswordEncoder(4)`): each privilege per role, ON_LEAVE/TERMINATED employee, missing/inactive/suspended/locked/expired-lock login, password format and username rules, duplicates, same message for unknown user and wrong password, lock at the limit, lock refuses the right password, admin statuses never overwritten by wrong passwords, `changeStatus` validation.
+- Controller (standalone MockMvc, real `EmployeeService`/`StaffAccountService` over mocked repositories): 400 missing header, 404 unknown employee, 403 per role, **a rejected employee never reaches the account service**, handler recorded on deposit/withdraw (own branch, `locationId` override, area manager none, unknown location 404), login-status endpoints per privilege, `LoginControllerTest` status mapping.
+- Persistence (H2, **outside a test transaction** via `@Transactional(propagation = NOT_SUPPORTED)` so commits are real): failed attempts survive the thrown exception, lock, admin status change, seeded logins verify. Each test uses a different seeded user because the data is shared.
+- Gateway: password masking in all JSON forms (`BankingRequestLoggingFilterTest`).
+
 ## Suspension coverage (keep when touching the lifecycle)
 - Repository (H2): suspend sets status/flag/start/end/notes; already-suspended and closed rejections; **withdraw and deposit on a suspended account throw and leave the balance unchanged**; reactivate clears fields and re-enables transactions; partial update; end-before-stored-start; close-from-suspended; expiry reactivates only finished suspensions (not running or indefinite ones); `status=SUSPENDED` search.
 - Service (Mockito): default start, no future start, end after start and in the future, empty update rejected with no repository call, reactivate and expiry delegation.

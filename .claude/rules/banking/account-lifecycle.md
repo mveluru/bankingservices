@@ -31,6 +31,10 @@ paths:
 - `suspendedEnd == null` means indefinite. Only the expiry job (or an explicit reactivate) ends a suspension; it runs `AccountSuspensionService.reactivateExpiredSuspensions()` through the bean proxy so the cache is evicted.
 - Every suspension mutation evicts `ACCOUNT_SEARCH_CACHE` (status + suspension fields are in `AccountStatusView`).
 
+## Who may drive the lifecycle
+- Customer endpoints are unchanged. The staff endpoints (`/v1/api/staff/accounts/...`) need `SUSPEND_ACCOUNT` / `UPDATE_SUSPENSION` / `REACTIVATE_ACCOUNT` / `CLOSE_ACCOUNT` (managers and up) and an ACTIVE employee with an ACTIVE login; the account state machine above is unchanged and still enforced by the facade. See `employees-and-logins.md`.
+- Prefer closing over deleting: ending an account is `close` (stamps `closedDate`, keeps the row and the ids that logins and transactions reference).
+
 ## Adding a status or a field to the lifecycle
 1. Enum value / entity column / domain field / `AccountStatusView` + `toView` / `toDomain`+`toEntity` in the facade.
 2. **DB**: `ddl-auto: update` adds columns but never alters an existing enum column: write an **idempotent** `db/ddl/NN_*_migration.sql` (guard `ADD COLUMN` with an `information_schema` check + `PREPARE`, since Hibernate may already have added the columns; `ALTER TABLE ... MODIFY COLUMN account_status enum(...)` is naturally re-runnable), update `db/ddl/01_create_tables.sql` (enum values alphabetical, as Hibernate emits), `db/data`, `db/dml`, `db/README.md`, and apply the migration to any live database before starting the app.

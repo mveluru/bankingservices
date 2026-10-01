@@ -5,7 +5,8 @@ drop and reset scripts. Statements that touch only non-banking tables (events, e
 pass through untouched. Returns permissionDecision "ask" so the user confirms.
 
 Banking tables guarded (names must match db/ddl/01_create_tables.sql and the JPA entities):
-  accounts, customers, account_transactions, withdrawal_history, bank_locations, bank_location_services
+  accounts, customers, account_transactions, withdrawal_history, bank_locations, bank_location_services,
+  bank_employees, bank_employee_credentials, customer_credentials
 """
 import json
 import re
@@ -18,7 +19,13 @@ BANKING_TABLES = [
     "withdrawal_history",
     "bank_locations",
     "bank_location_services",
+    "bank_employees",
+    "bank_employee_credentials",
+    "customer_credentials",
 ]
+
+# Deleting these loses real records or breaks the links other tables hold by id; close accounts instead of deleting them.
+NEVER_DELETE = {"accounts", "customers", "bank_employees", "bank_employee_credentials", "customer_credentials"}
 
 # Scripts in this repo that are destructive for banking tables (02 also drops `events`).
 SCRIPTS = [
@@ -85,10 +92,16 @@ def main():
     for kind, tables in hits:
         uniq = list(dict.fromkeys(tables))
         lines.append(f"- {kind}: {', '.join(uniq)}")
+    touched = {t for _, tables in hits for t in tables}
+    advice = ""
+    if touched & NEVER_DELETE:
+        advice = ("\nPrefer ending an account over deleting it: POST /v1/api/accounts/{n}/close stamps closedDate and keeps the row "
+                  "(logins reference customers/employees by plain id, so deleting or renumbering rows orphans them)")
     reason = (
         "This command would drop/wipe/alter BANKING tables in db_example (not reversible):\n"
         + "\n".join(lines)
         + "\nGuarded banking tables: " + ", ".join(BANKING_TABLES)
+        + advice
         + ".\nTake/confirm a backup first (see ~/db_backups), then confirm to run."
     )
     print(json.dumps({"hookSpecificOutput": {
