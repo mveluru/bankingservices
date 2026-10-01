@@ -2,6 +2,7 @@ package org.brite.banking.gateway;
 
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.service.CustomerCredentialService;
+import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -43,6 +44,7 @@ public class BankingGatewayConfig {
     private final CustomerRateLimiter customerRateLimiter;
     private final JwtService jwtService;
     private final CustomerCredentialService customerCredentialService;
+    private final EmployeeCredentialService employeeCredentialService;
 
     @Bean
     public FilterRegistrationBean<BusinessTransactionIdFilter> businessTransactionIdFilter() {
@@ -68,7 +70,7 @@ public class BankingGatewayConfig {
     @Bean
     public FilterRegistrationBean<StaffAuthenticationFilter> staffAuthenticationFilter() {
         FilterRegistrationBean<StaffAuthenticationFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new StaffAuthenticationFilter(jwtService));
+        registration.setFilter(new StaffAuthenticationFilter(jwtService, employeeCredentialService));
         registration.setName("staffAuthenticationFilter");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
         registration.addUrlPatterns("/v1/api/staff/*");
@@ -85,7 +87,7 @@ public class BankingGatewayConfig {
         registration.setFilter(new CustomerAuthenticationFilter(jwtService, customerCredentialService));
         registration.setName("customerAuthenticationFilter");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
-        registration.addUrlPatterns("/v1/api/accounts/*", "/bff/v1/portal/*");
+        registration.addUrlPatterns("/v1/api/accounts/*", "/v1/api/customers/*", "/bff/v1/portal/*");
         return registration;
     }
 

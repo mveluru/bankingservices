@@ -47,6 +47,8 @@ public class CustomerCredentialRepository {
         entity.setLockedUntil(credential.getLockedUntil());
         entity.setLastLoginAt(credential.getLastLoginAt());
         entity.setPasswordChangedAt(credential.getPasswordChangedAt());
+        entity.setResetFailedAttempts(credential.getResetFailedAttempts());
+        entity.setResetLockedUntil(credential.getResetLockedUntil());
         entity.setStatus(credential.getStatus());
         entity.setStatusReason(credential.getStatusReason());
         entity.setStatusChangedAt(credential.getStatusChangedAt());
@@ -62,6 +64,8 @@ public class CustomerCredentialRepository {
                 .lockedUntil(e.getLockedUntil())
                 .lastLoginAt(e.getLastLoginAt())
                 .passwordChangedAt(e.getPasswordChangedAt())
+                .resetFailedAttempts(e.getResetFailedAttempts())
+                .resetLockedUntil(e.getResetLockedUntil())
                 .status(e.getStatus())
                 .statusReason(e.getStatusReason())
                 .statusChangedAt(e.getStatusChangedAt())

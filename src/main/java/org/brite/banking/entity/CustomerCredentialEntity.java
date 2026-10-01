@@ -58,6 +58,13 @@ public class CustomerCredentialEntity {
     @Column(nullable = false)
     private LocalDateTime passwordChangedAt;
 
+    /** Wrong security answers given to the password reset; see {@code banking.password-reset.*}. */
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private int resetFailedAttempts;
+
+    private LocalDateTime resetLockedUntil;
+
     /** Only ACTIVE may perform transactions; the default also covers rows that existed before this column. */
     @Enumerated(EnumType.STRING)
     @ColumnDefault("'ACTIVE'")

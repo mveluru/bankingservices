@@ -24,12 +24,13 @@ import java.util.Set;
 
 /**
  * Requires a valid customer JWT ({@code Authorization: Bearer <token>} from {@code POST /v1/api/customers/login}) on the
- * customer-facing account and portal endpoints, except the two that create a customer: {@code POST /v1/api/accounts/newaccount}
- * and {@code POST /bff/v1/portal/accounts/open}. On success the customer id (the token's subject) is placed in the request
+ * customer-facing account, portal and customer-credential endpoints, except those a user without a token must reach: the two that
+ * create a customer ({@code POST /v1/api/accounts/newaccount}, {@code POST /bff/v1/portal/accounts/open}), the login and the two
+ * password-reset calls. On success the customer id (the token's subject) is placed in the request
  * attribute {@link #CUSTOMER_ATTRIBUTE}, the only place the customer handlers take it from.
  * <p>
  * The token only proves who logged in: the customer's login is re-checked on every request, so suspending or locking a
- * login stops it at once instead of when the token expires. Which accounts the customer may touch is decided by
+ * login stops it at once instead of when the token expires, and a token issued before the password last changed (a reset) is refused. Which accounts the customer may touch is decided by
  * {@code CustomerAccessService} in the handlers. An employee token is refused here (staff use the staff endpoints).
  * Writes the plain-text response itself, like the other gateway filters.
  */
@@ -38,7 +39,8 @@ import java.util.Set;
 public class CustomerAuthenticationFilter extends OncePerRequestFilter {
     public static final String CUSTOMER_ATTRIBUTE = "banking.authenticatedCustomer";
     /** Method + path (inside the context path) of the endpoints that create a customer and so can't require a login. */
-    static final Set<String> OPEN = Set.of("POST /v1/api/accounts/newaccount", "POST /bff/v1/portal/accounts/open");
+    static final Set<String> OPEN = Set.of("POST /v1/api/accounts/newaccount", "POST /bff/v1/portal/accounts/open",
+            "POST /v1/api/customers/login", "POST /v1/api/customers/password-reset/questions", "POST /v1/api/customers/password-reset");
     private static final String BEARER = "bearer ";
 
     private final JwtService jwtService;
@@ -85,12 +87,12 @@ public class CustomerAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         try {
-            customerCredentialService.requireActiveLogin(customerId);
+            customerCredentialService.requireActiveLogin(customerId, claims.getIssuedAt());
         } catch (LoginNotActiveException | EmployeeLockedException e) {
             log.warn(BankingMessages.LOG_CUSTOMER_AUTH_LOGIN_INACTIVE, customerId, path);
             reject(response, HttpStatus.FORBIDDEN, e.getMessage());
             return;
-        } catch (InvalidCredentialsException e) {
+        } catch (InvalidCredentialsException | InvalidTokenException e) {
             log.warn(BankingMessages.LOG_CUSTOMER_AUTH_REJECTED, path);
             reject(response, HttpStatus.UNAUTHORIZED, BankingMessages.INVALID_TOKEN);
             return;

@@ -137,6 +137,8 @@ CREATE TABLE IF NOT EXISTS bank_employee_credentials (
     status_changed_at datetime(6),
     status_reason varchar(200),
     status enum ('ACTIVE','INACTIVE','LOCKED','SUSPENDED') not null default 'ACTIVE',
+    reset_failed_attempts integer not null default 0,
+    reset_locked_until datetime(6),
     primary key (id)
 ) engine=InnoDB;
 
@@ -152,6 +154,19 @@ CREATE TABLE IF NOT EXISTS customer_credentials (
     status_changed_at datetime(6),
     status_reason varchar(200),
     status enum ('ACTIVE','INACTIVE','LOCKED','SUSPENDED') not null default 'ACTIVE',
+    reset_failed_attempts integer not null default 0,
+    reset_locked_until datetime(6),
+    primary key (id)
+) engine=InnoDB;
+
+CREATE TABLE IF NOT EXISTS security_answers (
+    slot integer not null,
+    owner_id bigint not null,
+    id bigint not null auto_increment,
+    updated_at datetime(6) not null,
+    answer_hash varchar(100) not null,
+    owner_type enum ('CUSTOMER','EMPLOYEE') not null,
+    question enum ('BIRTH_CITY','CHILDHOOD_FRIEND','FIRST_CAR','FIRST_PET','FIRST_SCHOOL','FIRST_TEACHER') not null,
     primary key (id)
 ) engine=InnoDB;
 
@@ -196,3 +211,6 @@ alter table customer_credentials
 
 alter table customer_credentials
    add constraint idx_customer_credentials_username unique (username);
+
+alter table security_answers
+   add constraint idx_security_answers_owner_slot unique (owner_type, owner_id, slot);

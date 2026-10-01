@@ -8,6 +8,7 @@ import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.LoginStatusView;
+import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
 import org.brite.banking.request.LoginRequest;
 import org.brite.banking.request.SuspendAccountRequest;
@@ -120,6 +121,32 @@ public class StaffController {
             @PathVariable String employeeNumber,
             @Valid @RequestBody ChangeLoginStatusRequest request) {
         return ResponseEntity.ok(staffLoginService.changeEmployeeLoginStatus(employee, employeeNumber, request));
+    }
+
+    /**
+     * Needs MANAGE_EMPLOYEES (area manager). Sets an employee's password to a new 8-digit value (for a forgotten password when no
+     * security questions are set); their tokens stop working. PUT /v1/api/staff/employees/{employeeNumber}/password
+     */
+    @PutMapping("/employees/{employeeNumber}/password")
+    public ResponseEntity<Void> setEmployeePassword(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable String employeeNumber,
+            @Valid @RequestBody AdminSetPasswordRequest request) {
+        staffLoginService.setEmployeePassword(employee, employeeNumber, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Needs MANAGE_CUSTOMER_LOGINS (manager and up). Sets a customer's password to a new 8-digit value; their tokens stop working.
+     * PUT /v1/api/staff/customers/{customerId}/password
+     */
+    @PutMapping("/customers/{customerId}/password")
+    public ResponseEntity<Void> setCustomerPassword(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable Long customerId,
+            @Valid @RequestBody AdminSetPasswordRequest request) {
+        staffLoginService.setCustomerPassword(employee, customerId, request);
+        return ResponseEntity.noContent().build();
     }
 
     /**

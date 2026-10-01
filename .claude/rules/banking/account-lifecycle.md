@@ -32,7 +32,7 @@ paths:
 - Every suspension mutation evicts `ACCOUNT_SEARCH_CACHE` (status + suspension fields are in `AccountStatusView`).
 
 ## Who may drive the lifecycle
-- Customer endpoints are unchanged. The staff endpoints (`/v1/api/staff/accounts/...`) need `SUSPEND_ACCOUNT` / `UPDATE_SUSPENSION` / `REACTIVATE_ACCOUNT` / `CLOSE_ACCOUNT` (managers and up) and an ACTIVE employee with an ACTIVE login; the account state machine above is unchanged and still enforced by the facade. See `employees-and-logins.md`.
+- Customers can only close their own account and transact on it. The staff endpoints (`/v1/api/staff/accounts/...`) need `SUSPEND_ACCOUNT` / `UPDATE_SUSPENSION` / `REACTIVATE_ACCOUNT` / `CLOSE_ACCOUNT` (managers and up) and an ACTIVE employee with an ACTIVE login; the account state machine above is unchanged and still enforced by the facade. See `employees-and-logins.md`.
 - **Suspend, update-suspension and reactivate are staff-only**: there is no customer or portal route for them (they were removed, not just forbidden), so a customer can't lift a suspension a manager applied. Customers can still close their own account.
 - Prefer closing over deleting: ending an account is `close` (stamps `closedDate`, keeps the row and the ids that logins and transactions reference).
 

@@ -78,8 +78,10 @@ if has("service/JwtService", "service/LoginService", "rules/JwtProperties", "dom
 if has("Credential", "LoginRequest", "LoginController", "BankingRequestLoggingFilter", "LoginSupport"):
     notes.append(
         "Credentials: never log, return or put in an exception/URL a password or hash; store only BCrypt hashes; usernames lowercase, passwords exactly "
-        "8 digits (the lockout is the real protection, see banking.*-login.*). Any new credential field must be masked in "
-        "BankingRequestLoggingFilter.mask (with a test), and the domain/request toString must exclude it.")
+        "8 digits (the lockout is the real protection, see banking.*-login.*). Any new credential field (passwords, security "
+        "answers) must be masked in BankingRequestLoggingFilter.mask (with a test), and the domain/request toString must exclude it. Security answers: "
+        "normalised, BCrypt-hashed, slots replaced in place (never deleted); a password reset must never undo an administrator's login status, and a "
+        "password change must keep invalidating older tokens.")
 
 if has("gateway/BankingGatewayConfig.java"):
     notes.append(

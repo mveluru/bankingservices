@@ -12,7 +12,7 @@ paths:
 | Exception | Status |
 |---|---|
 | `AccountNotFoundException`, `LocationNotFoundException`, `EmployeeNotFoundException`, `CustomerNotFoundException` | 404 |
-| `InvalidCredentialsException` | 401 (one message for unknown user and wrong password) |
+| `InvalidCredentialsException` | 401 (one message for unknown user and wrong password; `RESET_FAILED` "Invalid username or answers" for a failed password reset) |
 | `InvalidTokenException` | 401 (bad, expired, forged or wrong-kind token from `JwtService.parse`, or no authenticated employee in `EmployeeService`; the staff filter writes its own 401/403 text) |
 | `EmployeeNotAuthorizedException`, `LoginNotActiveException`, `AccountAccessDeniedException` (another customer's account) | 403 |
 | `EmployeeLockedException` (also used for customer logins) | 423 |

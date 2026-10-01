@@ -82,6 +82,9 @@ banking:
     secret: ${BANKING_JWT_SECRET:}
     issuer: bankingservices
     expiration-minutes: 30
+  password-reset:           # wrong security answers before password reset locks for that login
+    max-failed-attempts: 3
+    lockout-minutes: 30
   customer-login:
     max-failed-attempts: 5
     lockout-minutes: 15

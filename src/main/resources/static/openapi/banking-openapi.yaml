@@ -57,6 +57,8 @@ tags:
     description: Employee-facing endpoints. Every call except the login needs a bearer token in the `Authorization` header (the employee JWT from `POST /v1/api/staff/login`); the token's employee must be ACTIVE with an ACTIVE login and hold the privilege for the action, which is re-checked on every call. Privileges come from the role (`TELLER` < `MANAGER` < `AREA_MANAGER`).
   - name: Login
     description: Verify an employee or customer username and 8-digit password. Returns a signed JWT access token and who the caller is. The employee token is required by every other staff endpoint.
+  - name: Password reset
+    description: Reset a forgotten password by answering three security questions (employees and customers), set those questions while logged in, and administrator password set.
   - name: Portal (BFF)
     description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call. Everything except `POST accounts/open` needs the customer token, and only reaches the caller's own accounts. There is no suspend or reactivate here, which is staff-only work.
   - name: Clients
@@ -1293,6 +1295,320 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/customers/password-reset/questions:
+    post:
+      tags: [Password reset]
+      operationId: customerPasswordResetQuestions
+      summary: The customer's security questions
+      description: |
+        Open endpoint (no token): the user can't log in. Returns the three questions this customer chose, in order, as code plus text. An unknown username, or a user who never chose questions, gets three **decoy** questions derived from the username, so the answer doesn't reveal whether the account exists.
+      security:
+        - CustomerId: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PasswordResetQuestionsRequest'}
+            example: {username: alice.smith}
+      responses:
+        '200':
+          description: Three questions.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/SecurityQuestionView'}}
+        '400':
+          description: Missing `username` (JSON validation).
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/customers/password-reset:
+    post:
+      tags: [Password reset]
+      operationId: customerPasswordReset
+      summary: Reset a forgotten customer password
+      description: |
+        Open endpoint (no token). Send the username, the answers to the user's **three** questions and the new 8-digit password.
+        Answers are compared case-insensitively with whitespace collapsed (`  Honda   Civic ` matches `honda civic`) and stored only as BCrypt hashes. Every answer must be right.
+        Unknown user, no questions set and wrong answers all give the same `401`. Wrong answers are counted; after `banking.password-reset.max-failed-attempts` (3) the reset is locked for `lockout-minutes` (30) and returns `423` even for right answers.
+        The login must be `ACTIVE` (an expired automatic lock counts as ACTIVE), so a reset never undoes an administrator's `INACTIVE`, `SUSPENDED` or `LOCKED` (`403`, only reported once the answers are right).
+        On success the login and reset failure counters are cleared and **every token issued before now stops working** (`401`). The new password and the answers are masked in request logs.
+      security:
+        - CustomerId: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PasswordResetRequest'}
+            example: {username: alice.smith, newPassword: '24681357', answers: [{question: FIRST_CAR, answer: Honda Civic}, {question: FIRST_SCHOOL, answer: Oak Street}, {question: FIRST_TEACHER, answer: Mrs Patel}]}
+      responses:
+        '204':
+          description: Password reset.
+        '400':
+          description: Wrong answer count (needs exactly 3), a blank or unknown question/answer (JSON validation), or a new password that isn't exactly 8 digits (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          description: Unknown user, no questions set, or wrong answers.
+          content:
+            text/plain:
+              schema: {type: string}
+              example: Invalid username or answers
+        '403':
+          description: The answers were right but the login is `INACTIVE`, `SUSPENDED` or `LOCKED`.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: Too many wrong answers; the reset is locked.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/customers/security-questions:
+    put:
+      tags: [Password reset]
+      operationId: customerSetSecurityQuestions
+      summary: Choose and answer three security questions
+      description: |
+        Requires the customer token. Pick **three different** questions from the catalog and answer each (2 to 100 characters). Replaces any earlier choice in place. Needs the **current password** so a stolen token alone can't change the questions that guard the password reset.
+        Returns the chosen questions (never the answers). The answers and current password are masked in request logs.
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SetSecurityQuestionsRequest'}
+            example: {currentPassword: '20260009', answers: [{question: FIRST_CAR, answer: Honda Civic}, {question: FIRST_SCHOOL, answer: Oak Street}, {question: FIRST_TEACHER, answer: Mrs Patel}]}
+      responses:
+        '200':
+          description: The chosen questions.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/SecurityQuestionView'}}
+        '400':
+          description: Not exactly 3 answers, a duplicate question, or an answer outside 2-100 characters.
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '423':
+          description: The login is locked from wrong passwords.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/password-reset/questions:
+    post:
+      tags: [Password reset]
+      operationId: staffPasswordResetQuestions
+      summary: The employee's security questions
+      description: |
+        Open endpoint (no token): the user can't log in. Returns the three questions this employee chose, in order, as code plus text. An unknown username, or a user who never chose questions, gets three **decoy** questions derived from the username, so the answer doesn't reveal whether the account exists.
+      security:
+        - CustomerId: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PasswordResetQuestionsRequest'}
+            example: {username: alice.smith}
+      responses:
+        '200':
+          description: Three questions.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/SecurityQuestionView'}}
+        '400':
+          description: Missing `username` (JSON validation).
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/password-reset:
+    post:
+      tags: [Password reset]
+      operationId: staffPasswordReset
+      summary: Reset a forgotten employee password
+      description: |
+        Open endpoint (no token). Send the username, the answers to the user's **three** questions and the new 8-digit password.
+        Answers are compared case-insensitively with whitespace collapsed (`  Honda   Civic ` matches `honda civic`) and stored only as BCrypt hashes. Every answer must be right.
+        Unknown user, no questions set and wrong answers all give the same `401`. Wrong answers are counted; after `banking.password-reset.max-failed-attempts` (3) the reset is locked for `lockout-minutes` (30) and returns `423` even for right answers.
+        The login must be `ACTIVE` (an expired automatic lock counts as ACTIVE), so a reset never undoes an administrator's `INACTIVE`, `SUSPENDED` or `LOCKED` (`403`, only reported once the answers are right).
+        On success the login and reset failure counters are cleared and **every token issued before now stops working** (`401`). The new password and the answers are masked in request logs.
+      security:
+        - CustomerId: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PasswordResetRequest'}
+            example: {username: alice.smith, newPassword: '24681357', answers: [{question: FIRST_CAR, answer: Honda Civic}, {question: FIRST_SCHOOL, answer: Oak Street}, {question: FIRST_TEACHER, answer: Mrs Patel}]}
+      responses:
+        '204':
+          description: Password reset.
+        '400':
+          description: Wrong answer count (needs exactly 3), a blank or unknown question/answer (JSON validation), or a new password that isn't exactly 8 digits (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          description: Unknown user, no questions set, or wrong answers.
+          content:
+            text/plain:
+              schema: {type: string}
+              example: Invalid username or answers
+        '403':
+          description: The answers were right but the login is `INACTIVE`, `SUSPENDED` or `LOCKED`.
+          content:
+            text/plain:
+              schema: {type: string}
+        '423':
+          description: Too many wrong answers; the reset is locked.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/security-questions:
+    put:
+      tags: [Password reset]
+      operationId: staffSetSecurityQuestions
+      summary: Choose and answer three security questions
+      description: |
+        Requires the employee token. Pick **three different** questions from the catalog and answer each (2 to 100 characters). Replaces any earlier choice in place. Needs the **current password** so a stolen token alone can't change the questions that guard the password reset.
+        Returns the chosen questions (never the answers). The answers and current password are masked in request logs.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SetSecurityQuestionsRequest'}
+            example: {currentPassword: '20260009', answers: [{question: FIRST_CAR, answer: Honda Civic}, {question: FIRST_SCHOOL, answer: Oak Street}, {question: FIRST_TEACHER, answer: Mrs Patel}]}
+      responses:
+        '200':
+          description: The chosen questions.
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '#/components/schemas/SecurityQuestionView'}}
+        '400':
+          description: Not exactly 3 answers, a duplicate question, or an answer outside 2-100 characters.
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '423':
+          description: The login is locked from wrong passwords.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/customers/{customerId}/password:
+    put:
+      tags: [Password reset]
+      operationId: setCustomerPassword
+      summary: Set a customer's password
+      description: |
+        Requires the `MANAGE_CUSTOMER_LOGINS (managers and up)` privilege. Sets the customer's password to a new exactly-8-digit value (stored as a BCrypt hash, masked in request logs):
+        for a forgotten password when no security questions were set, or as an administrator reset. The login failure and password-reset
+        counters are cleared, the login status is left as it is, and **every token the customer holds stops working**. Returns `204`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+          example: 9
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminSetPasswordRequest'}
+            example: {newPassword: '24681357'}
+      responses:
+        '204':
+          description: Password set.
+        '400':
+          description: Missing `newPassword` (JSON validation) or not exactly 8 digits (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: No such customer or no login. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/employees/{employeeNumber}/password:
+    put:
+      tags: [Password reset]
+      operationId: setEmployeePassword
+      summary: Set an employee's password
+      description: |
+        Requires the `MANAGE_EMPLOYEES (area managers)` privilege. Sets the employee's password to a new exactly-8-digit value (stored as a BCrypt hash, masked in request logs):
+        for a forgotten password when no security questions were set, or as an administrator reset. The login failure and password-reset
+        counters are cleared, the login status is left as it is, and **every token the employee holds stops working**. Returns `204`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: employeeNumber
+          in: path
+          required: true
+          schema: {type: string}
+          example: EMP-000020
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AdminSetPasswordRequest'}
+            example: {newPassword: '24681357'}
+      responses:
+        '204':
+          description: Password set.
+        '400':
+          description: Missing `newPassword` (JSON validation) or not exactly 8 digits (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: No such employee or no login. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/portal/home:
     get:
       tags: [Portal (BFF)]
@@ -1665,8 +1981,8 @@ components:
       bearerFormat: JWT
       description: |
         The customer access token returned by `POST /v1/api/customers/login` (HS256, 30 minutes, no refresh), sent as
-        `Authorization: Bearer <token>`. Required on every `/v1/api/accounts/**` and `/bff/v1/portal/**` operation except
-        the two that create a customer (`POST /v1/api/accounts/newaccount`, `POST /bff/v1/portal/accounts/open`). It proves who
+        `Authorization: Bearer <token>`. Required on every `/v1/api/accounts/**`, `/v1/api/customers/**` and `/bff/v1/portal/**` operation except
+        the ones a user without a token must reach: the two that create a customer (`POST /v1/api/accounts/newaccount`, `POST /bff/v1/portal/accounts/open`), the login and the two password-reset calls. It proves who
         logged in; the customer's login is re-checked on every request, and the customer can only reach their own accounts.
     BearerAuth:
       type: http
@@ -1832,6 +2148,60 @@ components:
         State of an employee or customer login; **only `ACTIVE` may perform transactions**. `LOCKED` is set
         automatically after too many wrong passwords (it expires at `lockedUntil`) or by an administrator
         (no expiry); `INACTIVE` and `SUSPENDED` are set by an administrator until set back to `ACTIVE`.
+
+    SecurityQuestion:
+      type: string
+      enum: [FIRST_CAR, FIRST_SCHOOL, FIRST_TEACHER, FIRST_PET, BIRTH_CITY, CHILDHOOD_FRIEND]
+      description: The fixed catalog a user picks three from. `FIRST_CAR` "What was your first car?", `FIRST_SCHOOL` "What was the name of your first school?", `FIRST_TEACHER` "Who was your first teacher?", `FIRST_PET`, `BIRTH_CITY`, `CHILDHOOD_FRIEND`.
+
+    SecurityQuestionView:
+      type: object
+      properties:
+        question: {$ref: '#/components/schemas/SecurityQuestion'}
+        text: {type: string, example: What was your first car?}
+
+    SecurityAnswerRequest:
+      type: object
+      required: [question, answer]
+      properties:
+        question: {$ref: '#/components/schemas/SecurityQuestion'}
+        answer: {type: string, minLength: 2, maxLength: 100, description: 'Case-insensitive with whitespace collapsed; stored only as a BCrypt hash and masked in logs.'}
+
+    SetSecurityQuestionsRequest:
+      type: object
+      required: [currentPassword, answers]
+      properties:
+        currentPassword: {type: string, description: The caller's current password.}
+        answers:
+          type: array
+          minItems: 3
+          maxItems: 3
+          description: Exactly three answers to three different questions.
+          items: {$ref: '#/components/schemas/SecurityAnswerRequest'}
+
+    PasswordResetQuestionsRequest:
+      type: object
+      required: [username]
+      properties:
+        username: {type: string, example: alice.smith}
+
+    PasswordResetRequest:
+      type: object
+      required: [username, answers, newPassword]
+      properties:
+        username: {type: string, example: alice.smith}
+        answers:
+          type: array
+          minItems: 3
+          maxItems: 3
+          items: {$ref: '#/components/schemas/SecurityAnswerRequest'}
+        newPassword: {type: string, description: 'Exactly 8 digits. Masked in request logs.', example: '24681357'}
+
+    AdminSetPasswordRequest:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword: {type: string, description: 'Exactly 8 digits. Masked in request logs.', example: '24681357'}
 
     LoginRequest:
       type: object

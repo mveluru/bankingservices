@@ -72,7 +72,7 @@ class CustomerAuthenticationFilterTest {
 
         assertNotNull(chain.getRequest());
         assertEquals(5L, request.getAttribute(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE));
-        verify(credentials).requireActiveLogin(5L);
+        verify(credentials).requireActiveLogin(org.mockito.ArgumentMatchers.eq(5L), org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -139,7 +139,7 @@ class CustomerAuthenticationFilterTest {
     @Test
     void aLoginThatIsNotActiveAnymoreIsForbiddenEvenWithAnUnexpiredToken() throws Exception {
         doThrow(new LoginNotActiveException("Customer login is SUSPENDED; only an ACTIVE login can perform transactions"))
-                .when(credentials).requireActiveLogin(5L);
+                .when(credentials).requireActiveLogin(org.mockito.ArgumentMatchers.eq(5L), org.mockito.ArgumentMatchers.any());
         MockFilterChain chain = new MockFilterChain();
 
         MockHttpServletResponse response = run(request("GET", "/v1/api/accounts", "Bearer " + customerToken(5)), chain);
@@ -151,7 +151,7 @@ class CustomerAuthenticationFilterTest {
 
     @Test
     void aTokenWhoseCustomerNoLongerHasALoginIs401() throws Exception {
-        doThrow(new InvalidCredentialsException("Invalid username or password")).when(credentials).requireActiveLogin(any());
+        doThrow(new InvalidCredentialsException("Invalid username or password")).when(credentials).requireActiveLogin(any(), any());
         MockFilterChain chain = new MockFilterChain();
 
         assertEquals(401, run(request("GET", "/v1/api/accounts", "Bearer " + customerToken(5)), chain).getStatus());
@@ -159,14 +159,29 @@ class CustomerAuthenticationFilterTest {
     }
 
     @Test
-    void onlyTheTwoCustomerCreatingEndpointsNeedNoToken() throws Exception {
-        for (String[] open : new String[][]{{"POST", "/v1/api/accounts/newaccount"}, {"POST", "/bff/v1/portal/accounts/open"}}) {
+    void aTokenIssuedBeforeThePasswordChangedIs401() throws Exception {
+        doThrow(new org.brite.banking.exception.InvalidTokenException("Invalid or expired token"))
+                .when(credentials).requireActiveLogin(org.mockito.ArgumentMatchers.eq(5L), org.mockito.ArgumentMatchers.any());
+        MockFilterChain chain = new MockFilterChain();
+
+        MockHttpServletResponse response = run(request("GET", "/v1/api/accounts", "Bearer " + customerToken(5)), chain);
+
+        assertEquals(401, response.getStatus());
+        assertEquals("Invalid or expired token", response.getContentAsString());
+        assertNull(chain.getRequest());
+    }
+
+    @Test
+    void onlyTheEndpointsAUserWithoutATokenMustReachAreOpen() throws Exception {
+        for (String[] open : new String[][]{{"POST", "/v1/api/accounts/newaccount"}, {"POST", "/bff/v1/portal/accounts/open"},
+                {"POST", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/questions"}, {"POST", "/v1/api/customers/password-reset"}}) {
             MockFilterChain chain = new MockFilterChain();
             assertEquals(200, run(request(open[0], open[1], null), chain).getStatus(), open[1]);
             assertNotNull(chain.getRequest(), open[1]);
         }
         for (String[] closed : new String[][]{{"GET", "/v1/api/accounts/newaccount"}, {"POST", "/v1/api/accounts/newaccount/"},
-                {"POST", "/v1/api/accounts/newaccountx"}, {"GET", "/bff/v1/portal/accounts/open"}, {"POST", "/v1/api/accounts/lookup"}}) {
+                {"POST", "/v1/api/accounts/newaccountx"}, {"GET", "/bff/v1/portal/accounts/open"}, {"POST", "/v1/api/accounts/lookup"},
+                {"PUT", "/v1/api/customers/security-questions"}, {"GET", "/v1/api/customers/login"}, {"POST", "/v1/api/customers/password-reset/other"}}) {
             MockFilterChain chain = new MockFilterChain();
             assertEquals(401, run(request(closed[0], closed[1], null), chain).getStatus(), closed[0] + " " + closed[1]);
             assertNull(chain.getRequest());

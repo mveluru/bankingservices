@@ -265,4 +265,36 @@ class EmployeeCredentialServiceTest {
         when(credentials.findByEmployeeId(7L)).thenReturn(Optional.empty());
         assertThrows(EmployeeNotFoundException.class, () -> service.changeStatus("EMP-000010", LoginStatus.SUSPENDED, null));
     }
+
+    @Test
+    void adminSetPasswordHashesItClearsCountersAndNeedsAnExistingLogin() {
+        employee(EmployeeStatus.ACTIVE);
+        EmployeeCredential c = stored(2, null);
+        c.setResetFailedAttempts(2);
+        when(credentials.findByEmployeeId(7L)).thenReturn(Optional.of(c));
+        when(credentials.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.adminSetPassword("EMP-000010", "24681357");
+
+        assertTrue(ENCODER.matches("24681357", c.getPasswordHash()));
+        assertEquals(0, c.getFailedAttempts());
+        assertEquals(0, c.getResetFailedAttempts());
+        assertThrows(IllegalArgumentException.class, () -> service.adminSetPassword("EMP-000010", "abc"));
+        when(credentials.findByEmployeeId(7L)).thenReturn(Optional.empty());
+        assertThrows(EmployeeNotFoundException.class, () -> service.adminSetPassword("EMP-000010", "24681357"));
+    }
+
+    @Test
+    void aTokenIssuedBeforeThePasswordChangedIsRefusedForEmployeesToo() {
+        employee(EmployeeStatus.ACTIVE);
+        EmployeeCredential c = stored(0, null);
+        c.setPasswordChangedAt(LocalDateTime.now());
+        when(credentials.findByEmployeeId(7L)).thenReturn(Optional.of(c));
+
+        service.requireTokenCurrent("EMP-000010", java.time.Instant.now().plusSeconds(5));
+        assertThrows(org.brite.banking.exception.InvalidTokenException.class,
+                () -> service.requireTokenCurrent("EMP-000010", java.time.Instant.now().minusSeconds(3600)));
+        when(employees.findByEmployeeNumber("EMP-NONE")).thenReturn(Optional.empty());
+        assertThrows(org.brite.banking.exception.InvalidTokenException.class, () -> service.requireTokenCurrent("EMP-NONE", java.time.Instant.now()));
+    }
 }

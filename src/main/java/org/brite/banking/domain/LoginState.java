@@ -16,6 +16,22 @@ public interface LoginState {
 
     void setLastLoginAt(LocalDateTime lastLoginAt);
 
+    void setPasswordHash(String passwordHash);
+
+    LocalDateTime getPasswordChangedAt();
+
+    void setPasswordChangedAt(LocalDateTime passwordChangedAt);
+
+    /** Wrong security answers given to the password reset since the last successful reset. */
+    int getResetFailedAttempts();
+
+    void setResetFailedAttempts(int resetFailedAttempts);
+
+    /** Password reset is refused until this moment after too many wrong answers; null when not locked. */
+    LocalDateTime getResetLockedUntil();
+
+    void setResetLockedUntil(LocalDateTime resetLockedUntil);
+
     LoginStatus getStatus();
 
     void setStatus(LoginStatus status);

@@ -8,6 +8,7 @@ import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.exception.CustomerNotFoundException;
 import org.brite.banking.exception.EmployeeLockedException;
 import org.brite.banking.exception.InvalidCredentialsException;
+import org.brite.banking.exception.InvalidTokenException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.repository.CustomerCredentialRepository;
@@ -17,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -129,8 +131,21 @@ public class CustomerCredentialService {
      */
     @Transactional(readOnly = true)
     public void requireActiveLogin(Long customerId) {
+        requireActiveLogin(customerId, null);
+    }
+
+    /**
+     * As above, and additionally refuses a token issued before the customer's password last changed (a reset), when {@code issuedAt} is given.
+     *
+     * @throws InvalidTokenException (mapped to 401) if the token predates the password
+     */
+    @Transactional(readOnly = true)
+    public void requireActiveLogin(Long customerId, Instant issuedAt) {
         CustomerCredential credential = credentialRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new InvalidCredentialsException(BankingMessages.INVALID_CREDENTIALS));
+        if (LoginSupport.tokenPredatesPasswordChange(credential.getPasswordChangedAt(), issuedAt)) {
+            throw new InvalidTokenException(BankingMessages.INVALID_TOKEN);
+        }
         LoginStatus status = credential.effectiveStatus(LocalDateTime.now());
         if (status != LoginStatus.ACTIVE) {
             throw new LoginNotActiveException(String.format(BankingMessages.CUSTOMER_LOGIN_NOT_ACTIVE, status));
@@ -154,5 +169,28 @@ public class CustomerCredentialService {
         return LoginStatusView.builder().username(saved.getUsername()).status(saved.getStatus())
                 .statusReason(saved.getStatusReason()).statusChangedAt(saved.getStatusChangedAt())
                 .lockedUntil(saved.getLockedUntil()).build();
+    }
+
+    /**
+     * An administrator sets the customer's password to a new 8-digit value; the failure counters (login and password reset) are
+     * cleared, the status is left as it is, and tokens issued before now stop working.
+     *
+     * @throws IllegalArgumentException (mapped to 400) if the password isn't exactly 8 digits
+     * @throws CustomerNotFoundException (mapped to 404) if there is no such customer or it has no login
+     */
+    @Transactional
+    public void adminSetPassword(Long customerId, String newPassword) {
+        String hash = login.hashNewPassword(newPassword);
+        customerRepository.findIdentityById(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException(String.format(BankingMessages.CUSTOMER_NOT_FOUND, customerId)));
+        CustomerCredential credential = credentialRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new CustomerNotFoundException(String.format(BankingMessages.LOGIN_NOT_FOUND, "customer", customerId)));
+        credential.setPasswordHash(hash);
+        credential.setPasswordChangedAt(LocalDateTime.now());
+        credential.setFailedAttempts(0);
+        credential.setResetFailedAttempts(0);
+        credential.setResetLockedUntil(null);
+        credentialRepository.save(credential);
+        log.info(BankingMessages.LOG_PASSWORD_SET_BY_ADMIN, "customer", customerId);
     }
 }

@@ -8,7 +8,10 @@ import org.brite.banking.exception.InvalidCredentialsException;
 import org.brite.banking.messages.BankingMessages;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -52,6 +55,27 @@ final class LoginSupport {
             throw new IllegalArgumentException(BankingMessages.EMPLOYEE_PASSWORD_INVALID);
         }
         return encoder.encode(password);
+    }
+
+    /**
+     * Validates a new password (exactly 8 digits) and returns its BCrypt hash.
+     *
+     * @throws IllegalArgumentException (mapped to 400) if it isn't exactly 8 digits
+     */
+    String hashNewPassword(String password) {
+        if (password == null || !PASSWORD.matcher(password).matches()) {
+            throw new IllegalArgumentException(BankingMessages.EMPLOYEE_PASSWORD_INVALID);
+        }
+        return encoder.encode(password);
+    }
+
+    /** True if the token was issued before the password last changed (second precision), i.e. it predates the reset. */
+    static boolean tokenPredatesPasswordChange(LocalDateTime passwordChangedAt, Instant issuedAt) {
+        if (passwordChangedAt == null || issuedAt == null) {
+            return false;
+        }
+        Instant changed = passwordChangedAt.atZone(ZoneId.systemDefault()).toInstant().truncatedTo(ChronoUnit.SECONDS);
+        return issuedAt.isBefore(changed);
     }
 
     /** Costs the same as a wrong password, then rejects. */

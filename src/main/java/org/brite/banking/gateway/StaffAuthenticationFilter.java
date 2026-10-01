@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.brite.banking.domain.TokenClaims;
 import org.brite.banking.exception.InvalidTokenException;
 import org.brite.banking.messages.BankingMessages;
+import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.JwtService;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -16,12 +17,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Requires a valid employee JWT ({@code Authorization: Bearer <token>} from {@code POST /v1/api/staff/login}) on every
- * staff endpoint except the login itself. On success the token's subject (the employee number) is placed in the
+ * staff endpoint except the login and the two password-reset calls (the user can't log in). On success the token's subject (the employee number) is placed in the
  * request attribute {@link #EMPLOYEE_ATTRIBUTE}, which is the only place the staff controllers take the acting
- * employee from - there is no header to forge any more.
+ * employee from - there is no header to forge any more. A token issued before the employee's password last changed
+ * (a password reset) is refused.
  * <p>
  * The token only proves who logged in. It is deliberately <em>not</em> trusted for permissions or status: every
  * request still goes through {@code EmployeeService.requirePrivilege}, which reloads the employee, their login status
@@ -33,10 +36,12 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class StaffAuthenticationFilter extends OncePerRequestFilter {
     public static final String EMPLOYEE_ATTRIBUTE = "banking.authenticatedEmployee";
-    static final String LOGIN_PATH = "/v1/api/staff/login";
+    /** Method + path (inside the context path) of the endpoints that can't need a token: the user has none yet. */
+    static final Set<String> OPEN = Set.of("POST /v1/api/staff/login", "POST /v1/api/staff/password-reset/questions", "POST /v1/api/staff/password-reset");
     private static final String BEARER = "bearer ";
 
     private final JwtService jwtService;
+    private final EmployeeCredentialService employeeCredentialService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -46,7 +51,7 @@ public class StaffAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         String path = request.getRequestURI().substring(request.getContextPath().length());
-        if (LOGIN_PATH.equals(path)) {
+        if (OPEN.contains(request.getMethod() + " " + path)) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -68,6 +73,13 @@ public class StaffAuthenticationFilter extends OncePerRequestFilter {
         if (!"employee".equals(claims.getType())) {
             log.warn(BankingMessages.LOG_STAFF_AUTH_WRONG_TYPE, path, claims.getType());
             reject(response, HttpStatus.FORBIDDEN, BankingMessages.EMPLOYEE_TOKEN_REQUIRED);
+            return;
+        }
+        try {
+            employeeCredentialService.requireTokenCurrent(claims.getSubject(), claims.getIssuedAt());
+        } catch (InvalidTokenException e) {
+            log.warn(BankingMessages.LOG_STAFF_AUTH_REJECTED, path);
+            reject(response, HttpStatus.UNAUTHORIZED, BankingMessages.INVALID_TOKEN);
             return;
         }
         request.setAttribute(EMPLOYEE_ATTRIBUTE, claims.getSubject());

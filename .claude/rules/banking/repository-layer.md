@@ -22,6 +22,7 @@ paths:
 ## Employees, logins and transaction handlers
 - Facades: `EmployeeRepository` (read-only, domain `Employee`), `EmployeeCredentialRepository`/`CustomerCredentialRepository` (upsert by owner id, status fields mapped), `CustomerRepository` (id + name only, for login). `AccountRepository.findCustomerIdByAccountNumber` backs the customer-login transaction rule. `TransactionRepository` maps the employee/branch snapshot columns.
 - Seeders (`EmployeeDataSeeder`, `EmployeeCredentialSeeder`, `CustomerCredentialSeeder`) are run-once, depend on their base seeder by constructor injection, and use DEMO credentials only (BCrypt-hashed); mirrors `db/data/07`-`09`.
+- `SecurityAnswerRepository` (`security_answers`: 3 slots per employee/customer, upsert by slot, no deletes). The credential tables gained `reset_failed_attempts`/`reset_locked_until` (migration `db/ddl/07`).
 - New columns on existing tables (`account_transactions` handler columns, login `status`) shipped with idempotent migrations `db/ddl/05`/`06`.
 
 ## Seeders

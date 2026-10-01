@@ -28,6 +28,8 @@ public class EmployeeCredential implements LoginState {
     private LocalDateTime lockedUntil;
     private LocalDateTime lastLoginAt;
     private LocalDateTime passwordChangedAt;
+    private int resetFailedAttempts;
+    private LocalDateTime resetLockedUntil;
     @Builder.Default
     private LoginStatus status = LoginStatus.ACTIVE;
     /** Why the status was last changed by an administrator; null otherwise. */

@@ -6,7 +6,7 @@ pass through untouched. Returns permissionDecision "ask" so the user confirms.
 
 Banking tables guarded (names must match db/ddl/01_create_tables.sql and the JPA entities):
   accounts, customers, account_transactions, withdrawal_history, bank_locations, bank_location_services,
-  bank_employees, bank_employee_credentials, customer_credentials
+  bank_employees, bank_employee_credentials, customer_credentials, security_answers
 """
 import json
 import re
@@ -22,6 +22,7 @@ BANKING_TABLES = [
     "bank_employees",
     "bank_employee_credentials",
     "customer_credentials",
+    "security_answers",
 ]
 
 # Deleting these loses real records or breaks the links other tables hold by id; close accounts instead of deleting them.

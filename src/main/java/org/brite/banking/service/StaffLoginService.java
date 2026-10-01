@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.ChangeLoginStatusRequest;
+import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.LoginRequest;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,18 @@ public class StaffLoginService {
     public LoginStatusView createCustomerLogin(String actingEmployee, Long customerId, LoginRequest request) {
         employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_CUSTOMER_LOGINS);
         return customerCredentialService.createLogin(customerId, request.getUsername(), request.getPassword());
+    }
+
+    /** Needs {@code MANAGE_EMPLOYEES} (area managers). Sets an employee's password (their tokens stop working). */
+    public void setEmployeePassword(String actingEmployee, String employeeNumber, AdminSetPasswordRequest request) {
+        employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_EMPLOYEES);
+        employeeCredentialService.adminSetPassword(employeeNumber, request.getNewPassword());
+    }
+
+    /** Needs {@code MANAGE_CUSTOMER_LOGINS} (managers and up). Sets a customer's password (their tokens stop working). */
+    public void setCustomerPassword(String actingEmployee, Long customerId, AdminSetPasswordRequest request) {
+        employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_CUSTOMER_LOGINS);
+        customerCredentialService.adminSetPassword(customerId, request.getNewPassword());
     }
 
     /** Needs {@code MANAGE_CUSTOMER_LOGINS} (managers and up). */

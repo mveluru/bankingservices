@@ -1,6 +1,6 @@
 -- =============================================================================
 -- DML: DESTRUCTIVE - deletes ALL banking rows (withdrawal history, transactions, accounts,
--- customers, bank locations, bank employees and both login tables) but keeps the tables, and restarts their ids at 1. Does not touch any other table (the events table belongs to eventservice).
+-- customers, bank locations, bank employees, both login tables and their security answers) but keeps the tables, and restarts their ids at 1. Does not touch any other table (the events table belongs to eventservice).
 -- Rows are deleted children-first so foreign keys don't block it.
 --
 -- Logins are deleted with their customers/employees on purpose: they reference those ids, and the ids restart
@@ -17,6 +17,7 @@
 USE db_example;
 
 START TRANSACTION;
+DELETE FROM security_answers;
 DELETE FROM customer_credentials;
 DELETE FROM bank_employee_credentials;
 DELETE FROM bank_employees;
@@ -37,3 +38,4 @@ ALTER TABLE bank_locations       AUTO_INCREMENT = 1;
 ALTER TABLE bank_employees           AUTO_INCREMENT = 1;
 ALTER TABLE bank_employee_credentials AUTO_INCREMENT = 1;
 ALTER TABLE customer_credentials     AUTO_INCREMENT = 1;
+ALTER TABLE security_answers         AUTO_INCREMENT = 1;

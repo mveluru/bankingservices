@@ -9,6 +9,7 @@ import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.EmployeeStatus;
 import org.brite.banking.exception.BankingExceptionHandler;
 import org.brite.banking.rules.JwtProperties;
+import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.EmployeeService;
 import org.brite.banking.service.JwtService;
 import org.brite.banking.service.StaffAccountService;
@@ -43,6 +44,7 @@ class StaffAuthenticationFilterTest {
     private static final String SECRET = "filter-test-secret-that-is-at-least-32-chars";
 
     private JwtService jwtService;
+    private EmployeeCredentialService employeeCredentials;
     private StaffAuthenticationFilter filter;
 
     @BeforeEach
@@ -50,7 +52,8 @@ class StaffAuthenticationFilterTest {
         JwtProperties properties = new JwtProperties();
         properties.setSecret(SECRET);
         jwtService = new JwtService(properties);
-        filter = new StaffAuthenticationFilter(jwtService);
+        employeeCredentials = mock(EmployeeCredentialService.class);
+        filter = new StaffAuthenticationFilter(jwtService, employeeCredentials);
     }
 
     private String employeeToken(String number) {
@@ -140,16 +143,34 @@ class StaffAuthenticationFilterTest {
     }
 
     @Test
-    void theLoginEndpointIsTheOnlyStaffPathThatNeedsNoToken() throws Exception {
-        MockFilterChain chain = new MockFilterChain();
-        assertEquals(200, run(request("/v1/api/staff/login", null), chain).getStatus());
-        assertNotNull(chain.getRequest());
+    void onlyTheLoginAndThePasswordResetCallsNeedNoToken() throws Exception {
+        for (String path : new String[]{"/v1/api/staff/login", "/v1/api/staff/password-reset/questions", "/v1/api/staff/password-reset"}) {
+            MockHttpServletRequest open = request(path, null);
+            open.setMethod("POST");
+            MockFilterChain chain = new MockFilterChain();
+            assertEquals(200, run(open, chain).getStatus(), path);
+            assertNotNull(chain.getRequest(), path);
+        }
 
-        for (String path : new String[]{"/v1/api/staff/login/", "/v1/api/staff/loginx", "/v1/api/staff/employees/login", "/v1/api/staff/accounts/deposit"}) {
+        for (String path : new String[]{"/v1/api/staff/login/", "/v1/api/staff/loginx", "/v1/api/staff/employees/login", "/v1/api/staff/accounts/deposit",
+                "/v1/api/staff/security-questions", "/v1/api/staff/password-reset/other"}) {
             MockFilterChain other = new MockFilterChain();
             assertEquals(401, run(request(path, null), other).getStatus(), path);
             assertNull(other.getRequest(), path);
         }
+    }
+
+    @Test
+    void aTokenIssuedBeforeThePasswordChangedIsRefused() throws Exception {
+        org.mockito.Mockito.doThrow(new org.brite.banking.exception.InvalidTokenException("Invalid or expired token"))
+                .when(employeeCredentials).requireTokenCurrent(org.mockito.ArgumentMatchers.eq("EMP-000010"), org.mockito.ArgumentMatchers.any());
+        MockFilterChain chain = new MockFilterChain();
+
+        MockHttpServletResponse response = run(request("/v1/api/staff/employees", "Bearer " + employeeToken("EMP-000010")), chain);
+
+        assertEquals(401, response.getStatus());
+        assertEquals("Invalid or expired token", response.getContentAsString());
+        assertNull(chain.getRequest());
     }
 
     @Test

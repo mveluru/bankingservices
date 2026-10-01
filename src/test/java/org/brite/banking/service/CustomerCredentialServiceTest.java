@@ -197,4 +197,34 @@ class CustomerCredentialServiceTest {
         when(credentials.findByCustomerId(5L)).thenReturn(Optional.empty());        // login removed after the token was issued
         assertThrows(InvalidCredentialsException.class, () -> service.requireActiveLogin(5L));
     }
+
+    @Test
+    void aTokenIssuedBeforeThePasswordChangedIsRefusedButOneIssuedAfterIsFine() {
+        CustomerCredential c = storedWith(LoginStatus.ACTIVE, null);
+        c.setPasswordChangedAt(LocalDateTime.now());
+
+        service.requireActiveLogin(5L, java.time.Instant.now().plusSeconds(5));
+        assertThrows(org.brite.banking.exception.InvalidTokenException.class,
+                () -> service.requireActiveLogin(5L, java.time.Instant.now().minusSeconds(3600)));
+        service.requireActiveLogin(5L);                                              // no issue time given: only the status is checked
+    }
+
+    @Test
+    void adminSetPasswordHashesItClearsCountersKeepsTheStatusAndValidates() {
+        CustomerCredential c = storedWith(LoginStatus.SUSPENDED, null);
+        c.setFailedAttempts(2);
+        c.setResetFailedAttempts(2);
+        c.setResetLockedUntil(LocalDateTime.now().plusMinutes(20));
+        when(credentials.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        service.adminSetPassword(5L, "24681357");
+
+        assertTrue(ENCODER.matches("24681357", c.getPasswordHash()));
+        assertEquals(0, c.getFailedAttempts());
+        assertEquals(0, c.getResetFailedAttempts());
+        assertNull(c.getResetLockedUntil());
+        assertEquals(LoginStatus.SUSPENDED, c.getStatus(), "an administrator's status is not changed by a password reset");
+        assertThrows(IllegalArgumentException.class, () -> service.adminSetPassword(5L, "123"));
+        assertThrows(CustomerNotFoundException.class, () -> service.adminSetPassword(99L, "24681357"));
+    }
 }

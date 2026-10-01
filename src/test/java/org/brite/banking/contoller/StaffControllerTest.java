@@ -54,6 +54,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -377,5 +378,37 @@ class StaffControllerTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"alice.smith\",\"password\":\"12345678\"}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(customerCredentialService);
+    }
+
+    @Test
+    void managerSetsACustomerPasswordAndAreaManagerAnEmployeePasswordWith204() throws Exception {
+        employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(put("/v1/api/staff/customers/5/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"24681357\"}"))
+                .andExpect(status().isNoContent()).andExpect(content().string(""));
+        verify(customerCredentialService).adminSetPassword(5L, "24681357");
+
+        employee("EMP-A", EmployeeRole.AREA_MANAGER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(put("/v1/api/staff/employees/EMP-000010/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-A")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"24681357\"}"))
+                .andExpect(status().isNoContent());
+        verify(employeeCredentialService).adminSetPassword("EMP-000010", "24681357");
+    }
+
+    @Test
+    void passwordSettingNeedsThePrivilegeAndAValidBody() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(put("/v1/api/staff/customers/5/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"24681357\"}"))
+                .andExpect(status().isForbidden());
+        employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(put("/v1/api/staff/employees/EMP-000010/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"24681357\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(put("/v1/api/staff/customers/5/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(employeeCredentialService);
+        verify(customerCredentialService, never()).adminSetPassword(any(), any());
     }
 }

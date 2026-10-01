@@ -41,6 +41,17 @@ public final class BankingMessages {
     public static final String CUSTOMER_TOKEN_REQUIRED = "This endpoint needs a customer token";
     public static final String CUSTOMER_AUTHENTICATION_REQUIRED = "Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/customers/login";
     public static final String ACCOUNT_NOT_OWNED = "Account %s does not belong to the authenticated customer";
+    public static final String RESET_FAILED = "Invalid username or answers";
+    public static final String RESET_LOCKED = "Too many wrong answers; password reset is locked until %s";
+    public static final String RESET_LOGIN_NOT_ACTIVE = "Login is %s; the password can't be reset until it is ACTIVE";
+    public static final String SECURITY_ANSWERS_COUNT = "Provide exactly 3 security answers";
+    public static final String SECURITY_QUESTIONS_DISTINCT = "The 3 security questions must be different";
+    public static final String SECURITY_ANSWER_INVALID = "Each security answer must be 2 to 100 characters";
+    public static final String CURRENT_PASSWORD_WRONG = "Current password is wrong";
+    public static final String VALIDATION_QUESTION_REQUIRED = "question is required";
+    public static final String VALIDATION_ANSWER_REQUIRED = "answer is required";
+    public static final String VALIDATION_NEW_PASSWORD_REQUIRED = "newPassword is required";
+    public static final String VALIDATION_CURRENT_PASSWORD_REQUIRED = "currentPassword is required";
     public static final String CUSTOMER_NOT_FOUND = "Customer not found: %s";
     public static final String CUSTOMER_HAS_LOGIN = "Customer %s already has a login";
     public static final String EMPLOYEE_LOCKED = "Too many failed login attempts; locked until %s";
@@ -156,6 +167,14 @@ public final class BankingMessages {
     public static final String LOG_CUSTOMER_AUTH_WRONG_TYPE = "Customer request to {} rejected: {} token";
     public static final String LOG_CUSTOMER_AUTH_LOGIN_INACTIVE = "Customer {} request to {} rejected: login is not active";
     public static final String LOG_ACCOUNT_ACCESS_DENIED = "Customer {} denied access to account {}";
+
+    // PasswordResetService log messages
+    public static final String LOG_SECURITY_ANSWERS_SET = "{} id {} set their security questions";
+    public static final String LOG_PASSWORD_RESET = "{} id {} reset their password with security answers";
+    public static final String LOG_PASSWORD_RESET_FAILED = "Failed password reset for {} id {} (wrong answers: {})";
+    public static final String LOG_PASSWORD_RESET_LOCKED = "Password reset locked for {} id {} until {} after {} wrong answers";
+    public static final String LOG_PASSWORD_RESET_UNKNOWN = "{} password reset attempt for an unknown username or without security questions";
+    public static final String LOG_PASSWORD_SET_BY_ADMIN = "{} id {} password was set by an administrator";
 
     // StaffAccountService log messages
     public static final String LOG_STAFF_ACTION = "Employee {} ({}) performed {} on account {}";

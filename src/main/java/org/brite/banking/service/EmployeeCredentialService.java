@@ -10,6 +10,7 @@ import org.brite.banking.exception.EmployeeLockedException;
 import org.brite.banking.exception.EmployeeNotAuthorizedException;
 import org.brite.banking.exception.EmployeeNotFoundException;
 import org.brite.banking.exception.InvalidCredentialsException;
+import org.brite.banking.exception.InvalidTokenException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.repository.EmployeeCredentialRepository;
@@ -19,6 +20,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -129,5 +131,43 @@ public class EmployeeCredentialService {
         return LoginStatusView.builder().username(saved.getUsername()).status(saved.getStatus())
                 .statusReason(saved.getStatusReason()).statusChangedAt(saved.getStatusChangedAt())
                 .lockedUntil(saved.getLockedUntil()).build();
+    }
+
+    /**
+     * An administrator sets the employee's password to a new 8-digit value; the failure counters (login and password reset) are
+     * cleared, the status is left as it is, and tokens issued before now stop working.
+     *
+     * @throws IllegalArgumentException (mapped to 400) if the password isn't exactly 8 digits
+     * @throws EmployeeNotFoundException (mapped to 404) if there is no such employee or it has no login
+     */
+    @Transactional
+    public void adminSetPassword(String employeeNumber, String newPassword) {
+        String hash = login.hashNewPassword(newPassword);
+        Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
+                .orElseThrow(() -> new EmployeeNotFoundException(String.format(BankingMessages.EMPLOYEE_NOT_FOUND, employeeNumber)));
+        EmployeeCredential credential = credentialRepository.findByEmployeeId(employee.getId())
+                .orElseThrow(() -> new EmployeeNotFoundException(String.format(BankingMessages.LOGIN_NOT_FOUND, "employee", employeeNumber)));
+        credential.setPasswordHash(hash);
+        credential.setPasswordChangedAt(LocalDateTime.now());
+        credential.setFailedAttempts(0);
+        credential.setResetFailedAttempts(0);
+        credential.setResetLockedUntil(null);
+        credentialRepository.save(credential);
+        log.info(BankingMessages.LOG_PASSWORD_SET_BY_ADMIN, "employee", employee.getId());
+    }
+
+    /**
+     * A token only proves who logged in at the time: one issued before the employee's password last changed (a reset) is refused.
+     *
+     * @throws InvalidTokenException (mapped to 401) if the employee or their login no longer exists, or the token predates the password
+     */
+    @Transactional(readOnly = true)
+    public void requireTokenCurrent(String employeeNumber, Instant issuedAt) {
+        EmployeeCredential credential = employeeRepository.findByEmployeeNumber(employeeNumber)
+                .flatMap(e -> credentialRepository.findByEmployeeId(e.getId()))
+                .orElseThrow(() -> new InvalidTokenException(BankingMessages.INVALID_TOKEN));
+        if (LoginSupport.tokenPredatesPasswordChange(credential.getPasswordChangedAt(), issuedAt)) {
+            throw new InvalidTokenException(BankingMessages.INVALID_TOKEN);
+        }
     }
 }

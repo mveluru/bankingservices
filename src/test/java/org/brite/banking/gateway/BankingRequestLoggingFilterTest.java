@@ -103,4 +103,14 @@ class BankingRequestLoggingFilterTest {
         assertThat(BankingRequestLoggingFilter.mask("{\"Password\" : \"ab\\\"cd1234\"}"))
                 .doesNotContain("cd1234", "ab");
     }
+
+    @Test
+    void masksNewPasswordCurrentPasswordAndSecurityAnswers() {
+        String masked = BankingRequestLoggingFilter.mask("{\"username\":\"alice.smith\",\"currentPassword\":\"13572468\",\"newPassword\": \"24681357\","
+                + "\"answers\":[{\"question\":\"FIRST_CAR\",\"answer\":\"Honda Civic\"},{\"question\":\"FIRST_SCHOOL\",\"answer\" : \"Oak Street\"}]}");
+
+        assertThat(masked).contains("\"username\":\"alice.smith\"", "\"question\":\"FIRST_CAR\"")
+                .doesNotContain("13572468", "24681357", "Honda", "Civic", "Oak");
+        assertThat(masked).contains("\"currentPassword\":\"***\"", "\"newPassword\": \"***\"", "\"answer\":\"***\"");
+    }
 }
