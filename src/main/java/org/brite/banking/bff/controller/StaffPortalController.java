@@ -33,8 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Backend-for-frontend endpoints for the staff portal: the employee counterpart of {@link PortalController}. Every call needs
  * {@code Authorization: Bearer <employee token>} ({@link StaffAuthenticationFilter}) and takes the acting employee from it; the banking
  * services enforce the privilege before anything changes (403) and account actions return the refreshed account overview. Customer logins,
- * their status and their passwords are served by {@link CustomerLoginController}, {@link CustomerLoginStatusController} and
- * {@link CustomerPasswordController}.
+ * their status and their passwords are served by {@link CustomerCredentialController}.
  */
 @RestController
 @RequestMapping("/bff/v1/staff")

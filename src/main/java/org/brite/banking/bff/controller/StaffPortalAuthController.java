@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * The staff portal's sign-in and password calls (the employee counterpart of {@link CustomerLoginController} and {@link CustomerPasswordController}). Login, the question catalog and
+ * The staff portal's sign-in and password calls (the employee counterpart of {@link CustomerCredentialController}). Login, the question catalog and
  * the two password-reset calls are open; changing the password and choosing security questions need the employee token
  * ({@link StaffAuthenticationFilter}) and take the employee from it, never from the body.
  */
