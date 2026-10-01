@@ -6,11 +6,14 @@ import org.brite.banking.domain.Account;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
+import org.brite.banking.domain.LoginStatusView;
+import org.brite.banking.request.ChangeLoginStatusRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.brite.banking.service.EmployeeService;
 import org.brite.banking.service.StaffAccountService;
+import org.brite.banking.service.StaffLoginService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -35,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class StaffController {
     private final StaffAccountService staffAccountService;
     private final EmployeeService employeeService;
+    private final StaffLoginService staffLoginService;
 
     /**
      * Needs WITHDRAW (teller and up). The transaction records the employee and the branch/ATM
@@ -99,5 +104,29 @@ public class StaffController {
     public ResponseEntity<Employee> getEmployee(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
                                                 @PathVariable String employeeNumber) {
         return ResponseEntity.ok(employeeService.getEmployee(employee, employeeNumber));
+    }
+
+    /**
+     * Needs MANAGE_EMPLOYEES (area manager). Sets an employee's login to ACTIVE, INACTIVE, LOCKED or SUSPENDED;
+     * only ACTIVE may perform transactions. PUT /v1/api/staff/employees/{employeeNumber}/login-status
+     */
+    @PutMapping("/employees/{employeeNumber}/login-status")
+    public ResponseEntity<LoginStatusView> changeEmployeeLoginStatus(
+            @RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+            @PathVariable String employeeNumber,
+            @Valid @RequestBody ChangeLoginStatusRequest request) {
+        return ResponseEntity.ok(staffLoginService.changeEmployeeLoginStatus(employee, employeeNumber, request));
+    }
+
+    /**
+     * Needs MANAGE_CUSTOMER_LOGINS (manager and up). Sets a customer's login status; a customer whose login isn't
+     * ACTIVE can't deposit or withdraw. PUT /v1/api/staff/customers/{customerId}/login-status
+     */
+    @PutMapping("/customers/{customerId}/login-status")
+    public ResponseEntity<LoginStatusView> changeCustomerLoginStatus(
+            @RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+            @PathVariable Long customerId,
+            @Valid @RequestBody ChangeLoginStatusRequest request) {
+        return ResponseEntity.ok(staffLoginService.changeCustomerLoginStatus(employee, customerId, request));
     }
 }

@@ -48,6 +48,7 @@ public class ClientAccountService {
     private final TransactionRepository transactionRepository;
     private final AccountConstraints accountConstraints;
     private final NotificationService notificationService;
+    private final CustomerCredentialService customerCredentialService;
 
     /**
      * Flow A: Look up consumer account details
@@ -161,6 +162,7 @@ public class ClientAccountService {
             throw new IllegalArgumentException(BankingMessages.ACCOUNT_TYPE_MISMATCH);
         }
 
+        requireActiveCustomerLogin(handler, accountNumber);
         log.info(BankingMessages.LOG_WITHDRAWAL_PROCESSING, withdrawAmount, requestedAcctType, accountNumber);
 
         // Single atomic repository call avoids the find-then-mutate-then-update race
@@ -243,6 +245,7 @@ public class ClientAccountService {
             throw new MaxDepositAmountException(String.format(BankingMessages.MAX_CASH_DEPOSIT_EXCEEDED, maxCashDeposit));
         }
 
+        requireActiveCustomerLogin(handler, accountNumber);
         log.info(BankingMessages.LOG_DEPOSIT_PROCESSING, depositType, amount, requestedAcctType, accountNumber);
 
         // Single atomic repository call avoids the find-then-mutate-then-update race
@@ -260,6 +263,17 @@ public class ClientAccountService {
                 .depositType(depositType), handler).build());
 
         return updatedAccount;
+    }
+
+    /**
+     * Customer-initiated transactions (no employee handler) are only allowed while the account owner's login,
+     * if they have one, is ACTIVE. Staff-handled ones are gated on the employee's login instead.
+     */
+    private void requireActiveCustomerLogin(TransactionHandler handler, String accountNumber) {
+        if (handler == null) {
+            accountRepository.findCustomerIdByAccountNumber(accountNumber)
+                    .ifPresent(customerCredentialService::requireActiveLoginIfPresent);
+        }
     }
 
     private static AccountTransaction.AccountTransactionBuilder withHandler(

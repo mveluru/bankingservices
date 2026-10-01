@@ -16,4 +16,6 @@ DROP TABLE IF EXISTS accounts;
 DROP TABLE IF EXISTS customers;
 DROP TABLE IF EXISTS bank_location_services;
 DROP TABLE IF EXISTS bank_locations;
+DROP TABLE IF EXISTS customer_credentials;
+DROP TABLE IF EXISTS bank_employee_credentials;
 DROP TABLE IF EXISTS bank_employees;

@@ -330,6 +330,8 @@ paths:
                   value: Account CH-0000050001 is suspended and cannot be used for transactions until it is reactivated
         '404':
           $ref: '#/components/responses/AccountNotFound'
+        '403':
+          $ref: '#/components/responses/LoginNotActive'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -386,6 +388,8 @@ paths:
                   value: Deposit type must be 'cash' or 'check'
         '404':
           $ref: '#/components/responses/AccountNotFound'
+        '403':
+          $ref: '#/components/responses/LoginNotActive'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -1089,6 +1093,100 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/staff/employees/{employeeNumber}/login-status:
+    put:
+      tags: [Staff]
+      operationId: changeEmployeeLoginStatus
+      summary: Set an employee login status
+      description: |
+        Requires the `MANAGE_EMPLOYEES` privilege. Sets the login to `ACTIVE`, `INACTIVE`, `LOCKED` or `SUSPENDED`;
+        only an `ACTIVE` login may perform transactions. `ACTIVE` also clears the failure count and any lock.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/EmployeeHeader'
+        - name: employeeNumber
+          in: path
+          required: true
+          schema: {type: string}
+          example: EMP-000010
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangeLoginStatusRequest'}
+            example:
+              status: SUSPENDED
+              reason: Under review
+      responses:
+        '200':
+          description: The login's new status.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LoginStatusView'}
+        '400':
+          description: Missing header or `status` (JSON validation), or a reason over 200 characters.
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown acting employee, or no such employee/customer or login. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/customers/{customerId}/login-status:
+    put:
+      tags: [Staff]
+      operationId: changeCustomerLoginStatus
+      summary: Set a customer login status
+      description: |
+        Requires the `MANAGE_CUSTOMER_LOGINS` privilege. Sets the login to `ACTIVE`, `INACTIVE`, `LOCKED` or `SUSPENDED`;
+        only an `ACTIVE` login may perform transactions. `ACTIVE` also clears the failure count and any lock.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/EmployeeHeader'
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+          example: 5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangeLoginStatusRequest'}
+            example:
+              status: SUSPENDED
+              reason: Under review
+      responses:
+        '200':
+          description: The login's new status.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/LoginStatusView'}
+        '400':
+          description: Missing header or `status` (JSON validation), or a reason over 200 characters.
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown acting employee, or no such employee/customer or login. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/portal/home:
     get:
       tags: [Portal (BFF)]
@@ -1176,6 +1274,8 @@ paths:
               schema: {type: string}
         '404':
           $ref: '#/components/responses/AccountNotFound'
+        '403':
+          $ref: '#/components/responses/LoginNotActive'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -1207,6 +1307,8 @@ paths:
               schema: {type: string}
         '404':
           $ref: '#/components/responses/AccountNotFound'
+        '403':
+          $ref: '#/components/responses/LoginNotActive'
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
@@ -1575,8 +1677,20 @@ components:
         text/plain:
           schema: {type: string}
           example: 'Bank location not found: 999'
+    LoginNotActive:
+      description: >-
+        The login is `INACTIVE`, `SUSPENDED` or `LOCKED`: only an `ACTIVE` login may perform transactions.
+        Plain-text body.
+      content:
+        text/plain:
+          schema: {type: string}
+          examples:
+            customer:
+              value: 'Customer login is SUSPENDED; only an ACTIVE login can perform transactions'
     EmployeeForbidden:
-      description: The acting employee is not ACTIVE, or their role lacks the required privilege. Plain-text body.
+      description: >-
+        The acting employee is not ACTIVE, their login is not ACTIVE (or they have none), or their role lacks the
+        required privilege. Plain-text body.
       content:
         text/plain:
           schema: {type: string}
@@ -1585,6 +1699,8 @@ components:
               value: 'Employee EMP-000010 (TELLER) is not authorized: requires SUSPEND_ACCOUNT'
             onLeave:
               value: Employee EMP-000016 is ON_LEAVE and cannot perform this action
+            loginSuspended:
+              value: 'Employee EMP-000010 login is SUSPENDED; only an ACTIVE login can perform transactions'
     TooManyRequests:
       description: >-
         The calling customer's daily quota (`banking.rate-limit.requests-per-day`) is
@@ -1615,16 +1731,40 @@ components:
       schema: {type: integer}
 
   schemas:
+    LoginStatus:
+      type: string
+      enum: [ACTIVE, INACTIVE, LOCKED, SUSPENDED]
+      description: |
+        State of an employee or customer login; **only `ACTIVE` may perform transactions**. `LOCKED` is set
+        automatically after too many wrong passwords (it expires at `lockedUntil`) or by an administrator
+        (no expiry); `INACTIVE` and `SUSPENDED` are set by an administrator until set back to `ACTIVE`.
+
+    ChangeLoginStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: {$ref: '#/components/schemas/LoginStatus'}
+        reason: {type: string, maxLength: 200}
+
+    LoginStatusView:
+      type: object
+      properties:
+        username: {type: string}
+        status: {$ref: '#/components/schemas/LoginStatus'}
+        statusReason: {type: string, nullable: true}
+        statusChangedAt: {type: string, format: date-time, nullable: true}
+        lockedUntil: {type: string, format: date-time, nullable: true, description: Set only for an automatic lock.}
+
     EmployeeRole:
       type: string
       enum: [TELLER, MANAGER, AREA_MANAGER]
       description: |
         `TELLER`: VIEW_ACCOUNT, DEPOSIT, WITHDRAW. `MANAGER`: plus SUSPEND_ACCOUNT, UPDATE_SUSPENSION,
-        REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS. `AREA_MANAGER`: plus MANAGE_EMPLOYEES.
+        REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_CUSTOMER_LOGINS. `AREA_MANAGER`: plus MANAGE_EMPLOYEES.
 
     EmployeePrivilege:
       type: string
-      enum: [VIEW_ACCOUNT, DEPOSIT, WITHDRAW, SUSPEND_ACCOUNT, UPDATE_SUSPENSION, REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_EMPLOYEES]
+      enum: [VIEW_ACCOUNT, DEPOSIT, WITHDRAW, SUSPEND_ACCOUNT, UPDATE_SUSPENSION, REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_EMPLOYEES, MANAGE_CUSTOMER_LOGINS]
 
     Employee:
       type: object

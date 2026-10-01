@@ -13,7 +13,16 @@ import org.brite.banking.domain.LocationType;
 import org.brite.banking.domain.TransactionHandler;
 import org.brite.banking.exception.LocationNotFoundException;
 import org.brite.banking.exception.BankingExceptionHandler;
+import org.brite.banking.domain.CustomerCredential;
+import org.brite.banking.domain.EmployeeCredential;
+import org.brite.banking.domain.LoginStatus;
+import org.brite.banking.domain.LoginStatusView;
+import org.brite.banking.exception.CustomerNotFoundException;
+import org.brite.banking.repository.EmployeeCredentialRepository;
 import org.brite.banking.repository.EmployeeRepository;
+import org.brite.banking.service.CustomerCredentialService;
+import org.brite.banking.service.EmployeeCredentialService;
+import org.brite.banking.service.StaffLoginService;
 import org.brite.banking.service.AccountSuspensionService;
 import org.brite.banking.service.ClientAccountService;
 import org.brite.banking.service.EmployeeService;
@@ -64,6 +73,9 @@ class StaffControllerTest {
     private AccountSuspensionService suspensionService;
     private EmployeeRepository employeeRepository;
     private LocationBasedOperationService locationService;
+    private EmployeeCredentialRepository employeeCredentials;
+    private EmployeeCredentialService employeeCredentialService;
+    private CustomerCredentialService customerCredentialService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -72,9 +84,15 @@ class StaffControllerTest {
         suspensionService = mock(AccountSuspensionService.class);
         employeeRepository = mock(EmployeeRepository.class);
         locationService = mock(LocationBasedOperationService.class);
-        EmployeeService employeeService = new EmployeeService(employeeRepository);
+        employeeCredentials = mock(EmployeeCredentialRepository.class);
+        employeeCredentialService = mock(EmployeeCredentialService.class);
+        customerCredentialService = mock(CustomerCredentialService.class);
+        when(employeeCredentials.findByEmployeeId(any())).thenReturn(Optional.of(
+                EmployeeCredential.builder().username("u").status(LoginStatus.ACTIVE).build()));
+        EmployeeService employeeService = new EmployeeService(employeeRepository, employeeCredentials);
+        StaffLoginService staffLoginService = new StaffLoginService(employeeService, employeeCredentialService, customerCredentialService);
         StaffAccountService staffAccountService = new StaffAccountService(employeeService, clientAccountService, suspensionService, locationService);
-        mockMvc = MockMvcBuilders.standaloneSetup(new StaffController(staffAccountService, employeeService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new StaffController(staffAccountService, employeeService, staffLoginService))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
@@ -101,7 +119,7 @@ class StaffControllerTest {
 
     private void employee(String number, EmployeeRole role, EmployeeStatus status, Long bankLocationId) {
         when(employeeRepository.findByEmployeeNumber(number)).thenReturn(Optional.of(
-                Employee.builder().employeeNumber(number).firstName("Test").lastName(number).role(role).status(status)
+                Employee.builder().id(1L).employeeNumber(number).firstName("Test").lastName(number).role(role).status(status)
                         .bankLocationId(bankLocationId).build()));
     }
 
@@ -257,5 +275,78 @@ class StaffControllerTest {
         verify(clientAccountService).withdrawAndSaveToAccount(any(), captor.capture());
         assertEquals("EMP-T", captor.getValue().getEmployeeNumber());
         assertEquals(1L, captor.getValue().getBankLocationId());
+    }
+
+    private void loginIs(LoginStatus status) {
+        when(employeeCredentials.findByEmployeeId(any())).thenReturn(Optional.of(
+                EmployeeCredential.builder().username("u").status(status).build()));
+    }
+
+    @Test
+    void suspendedInactiveOrLockedEmployeeLoginCannotTransact() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
+        for (LoginStatus status : new LoginStatus[]{LoginStatus.SUSPENDED, LoginStatus.INACTIVE, LoginStatus.LOCKED}) {
+            loginIs(status);
+            mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-T")
+                            .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
+                    .andExpect(status().isForbidden())
+                    .andExpect(content().string("Employee EMP-T login is " + status + "; only an ACTIVE login can perform transactions"));
+        }
+        verifyNoInteractions(suspensionService);
+        verify(clientAccountService, never()).depositAndSaveToAccount(any(), any());
+    }
+
+    @Test
+    void areaManagerCanChangeAnEmployeeLoginStatus() throws Exception {
+        employee("EMP-A", EmployeeRole.AREA_MANAGER, EmployeeStatus.ACTIVE);
+        when(employeeCredentialService.changeStatus("EMP-000010", LoginStatus.SUSPENDED, "Audit")).thenReturn(
+                LoginStatusView.builder().username("lucas.meyer").status(LoginStatus.SUSPENDED).statusReason("Audit").build());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/employees/EMP-000010/login-status")
+                        .header("X-Employee-Number", "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"SUSPENDED\",\"reason\":\"Audit\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SUSPENDED"))
+                .andExpect(jsonPath("$.statusReason").value("Audit"));
+    }
+
+    @Test
+    void managerCannotChangeAnEmployeeLoginStatusButCanChangeACustomers() throws Exception {
+        employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/employees/EMP-000010/login-status")
+                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(employeeCredentialService);
+
+        when(customerCredentialService.changeStatus(5L, LoginStatus.INACTIVE, null)).thenReturn(
+                LoginStatusView.builder().username("customer0005").status(LoginStatus.INACTIVE).build());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/5/login-status")
+                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("INACTIVE"));
+    }
+
+    @Test
+    void tellerCannotChangeACustomerLoginStatusAndAMissingStatusIsRejected() throws Exception {
+        employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/5/login-status")
+                        .header("X-Employee-Number", "EMP-T").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(customerCredentialService);
+
+        employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/5/login-status")
+                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void unknownCustomerLoginIs404() throws Exception {
+        employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
+        when(customerCredentialService.changeStatus(99L, LoginStatus.ACTIVE, null))
+                .thenThrow(new CustomerNotFoundException("Customer not found: 99"));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/99/login-status")
+                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isNotFound());
     }
 }

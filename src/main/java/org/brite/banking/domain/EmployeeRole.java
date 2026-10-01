@@ -14,9 +14,9 @@ import static org.brite.banking.domain.EmployeePrivilege.*;
 public enum EmployeeRole {
     /** Front-line staff: look up accounts and handle deposits and withdrawals. */
     TELLER(EnumSet.of(VIEW_ACCOUNT, DEPOSIT, WITHDRAW)),
-    /** Runs one branch: everything a teller can do plus the account lifecycle (suspend, reactivate, close). */
+    /** Runs one branch: everything a teller can do plus the account lifecycle (suspend, reactivate, close) and customer login status. */
     MANAGER(EnumSet.of(VIEW_ACCOUNT, DEPOSIT, WITHDRAW, SUSPEND_ACCOUNT, UPDATE_SUSPENSION,
-            REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS)),
+            REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_CUSTOMER_LOGINS)),
     /** Oversees several branches: everything a manager can do plus managing employees. */
     AREA_MANAGER(EnumSet.allOf(EmployeePrivilege.class));
 

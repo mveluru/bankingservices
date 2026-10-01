@@ -22,6 +22,10 @@ public class EmployeeRepository {
         return employeeJpaRepository.findByEmployeeNumber(employeeNumber).map(EmployeeRepository::toDomain);
     }
 
+    public Optional<Employee> findById(Long id) {
+        return employeeJpaRepository.findById(id).map(EmployeeRepository::toDomain);
+    }
+
     public List<Employee> findByRole(EmployeeRole role) {
         return employeeJpaRepository.findByRoleOrderByLastNameAscFirstNameAsc(role).stream()
                 .map(EmployeeRepository::toDomain).toList();

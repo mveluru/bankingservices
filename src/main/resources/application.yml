@@ -70,6 +70,12 @@ banking:
     enabled: true
     requests-per-day: 1000
     customer-header-name: X-Customer-Id
+  employee-login:
+    max-failed-attempts: 5
+    lockout-minutes: 15
+  customer-login:
+    max-failed-attempts: 5
+    lockout-minutes: 15
   request-logging:
     enabled: true
     max-payload-length: 2000

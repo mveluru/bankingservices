@@ -50,6 +50,14 @@ public class AccountRepository {
         return accountJpaRepository.findByAccountNumber(accountNumber).map(this::toDomain);
     }
 
+    /** Id of the customer who owns the account, or empty if there is no such account. */
+    @Transactional(readOnly = true)
+    public Optional<Long> findCustomerIdByAccountNumber(String accountNumber) {
+        if (accountNumber == null) return Optional.empty();
+        return accountJpaRepository.findByAccountNumber(accountNumber)
+                .map(AccountEntity::getCustomer).map(CustomerEntity::getId);
+    }
+
     /**
      * Filters accounts by an exact account number, status, and/or a createdDate/closedDate
      * range via a dynamic {@link Specification}, letting the database do the filtering,

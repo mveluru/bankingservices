@@ -27,6 +27,20 @@ public final class BankingMessages {
     public static final String EMPLOYEE_NOT_ACTIVE = "Employee %s is %s and cannot perform this action";
     public static final String EMPLOYEE_NOT_AUTHORIZED = "Employee %s (%s) is not authorized: requires %s";
     public static final String UNSUPPORTED_EMPLOYEE_SORT_PROPERTY = "Unsupported sort property: %s (supported: lastName, firstName, employeeNumber, role, hireDate)";
+    public static final String INVALID_CREDENTIALS = "Invalid username or password";
+    public static final String EMPLOYEE_LOGIN_NOT_ACTIVE = "Employee %s login is %s; only an ACTIVE login can perform transactions";
+    public static final String EMPLOYEE_HAS_NO_LOGIN = "Employee %s has no login; only an ACTIVE login can perform transactions";
+    public static final String CUSTOMER_LOGIN_NOT_ACTIVE = "Customer login is %s; only an ACTIVE login can perform transactions";
+    public static final String LOGIN_STATUS_REQUIRED = "status is required (ACTIVE, INACTIVE, LOCKED or SUSPENDED)";
+    public static final String LOGIN_NOT_FOUND = "No login found for %s %s";
+    public static final String LOGIN_STATUS_REASON_TOO_LONG = "Reason must be at most 200 characters";
+    public static final String CUSTOMER_NOT_FOUND = "Customer not found: %s";
+    public static final String CUSTOMER_HAS_LOGIN = "Customer %s already has a login";
+    public static final String EMPLOYEE_LOCKED = "Too many failed login attempts; locked until %s";
+    public static final String EMPLOYEE_USERNAME_INVALID = "Username must be 3-50 characters: lowercase letters, digits, '.', '_' or '-'";
+    public static final String EMPLOYEE_PASSWORD_INVALID = "Password must be exactly 8 digits";
+    public static final String EMPLOYEE_USERNAME_TAKEN = "Username %s is already taken";
+    public static final String EMPLOYEE_HAS_LOGIN = "Employee %s already has a login";
     public static final String PORTAL_ACTIVITY_DAYS_INVALID = "days must be between 1 and %d";
     public static final String LOCATION_NOT_FOUND = "Bank location not found: %s";
     public static final String ACCOUNT_CLOSED = "Account %s is closed and cannot be used for transactions";
@@ -108,6 +122,17 @@ public final class BankingMessages {
     public static final String LOG_STATEMENT_REJECTED_DATE_ORDER = "Statement rejected for account {}: end date {} is before begin date {}";
     public static final String LOG_STATEMENT_GENERATED = "Generated statement for account {}: {} transactions between {} and {}";
 
+    // EmployeeCredentialService log messages
+    public static final String LOG_LOGIN_CREATED = "Created {} login for {}";
+    public static final String LOG_LOGIN_VERIFIED = "{} {} login verified";
+    public static final String LOG_LOGIN_UNKNOWN_USER = "{} login attempt for an unknown username";
+    public static final String LOG_LOGIN_FAILED = "Failed {} login for id {} (failed attempts: {})";
+    public static final String LOG_LOGIN_LOCKED = "{} id {} locked until {} after {} failed attempts";
+    public static final String LOG_LOGIN_REFUSED_LOCKED = "{} login refused for id {}: locked until {}";
+
+    public static final String LOG_LOGIN_STATUS_CHANGED = "{} id {} login status set to {} (reason: {})";
+    public static final String LOG_LOGIN_UNLOCKED = "{} id {} lock expired; login is ACTIVE again";
+
     // StaffAccountService log messages
     public static final String LOG_STAFF_ACTION = "Employee {} ({}) performed {} on account {}";
 
@@ -116,6 +141,10 @@ public final class BankingMessages {
     public static final String LOG_HANDLER_LOCATION_NOT_FOUND = "Bank location not found: {}";
     public static final String LOG_HANDLER_EMPLOYEE_NOT_FOUND = "Employee not found: {}";
     public static final String LOG_HANDLER_EMPLOYEE_NOT_AUTHORIZED = "Employee not authorized: {}";
+    public static final String LOG_HANDLER_INVALID_CREDENTIALS = "Invalid credentials: {}";
+    public static final String LOG_HANDLER_EMPLOYEE_LOCKED = "Employee login locked: {}";
+    public static final String LOG_HANDLER_CUSTOMER_NOT_FOUND = "Customer not found: {}";
+    public static final String LOG_HANDLER_LOGIN_NOT_ACTIVE = "Login not active: {}";
     public static final String LOG_HANDLER_ACCOUNT_CLOSED = "Account closed: {}";
     public static final String LOG_HANDLER_INSUFFICIENT_FUNDS = "Insufficient funds: {}";
     public static final String LOG_HANDLER_INVALID_REQUEST = "Invalid banking request: {}";

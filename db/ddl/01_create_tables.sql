@@ -125,6 +125,36 @@ CREATE TABLE IF NOT EXISTS bank_employees (
     primary key (id)
 ) engine=InnoDB;
 
+CREATE TABLE IF NOT EXISTS bank_employee_credentials (
+    failed_attempts integer not null,
+    last_login_at datetime(6),
+    locked_until datetime(6),
+    password_changed_at datetime(6) not null,
+    employee_id bigint not null,
+    id bigint not null auto_increment,
+    username varchar(50) not null,
+    password_hash varchar(100) not null,
+    status_changed_at datetime(6),
+    status_reason varchar(200),
+    status enum ('ACTIVE','INACTIVE','LOCKED','SUSPENDED') not null default 'ACTIVE',
+    primary key (id)
+) engine=InnoDB;
+
+CREATE TABLE IF NOT EXISTS customer_credentials (
+    failed_attempts integer not null,
+    last_login_at datetime(6),
+    locked_until datetime(6),
+    password_changed_at datetime(6) not null,
+    customer_id bigint not null,
+    id bigint not null auto_increment,
+    username varchar(50) not null,
+    password_hash varchar(100) not null,
+    status_changed_at datetime(6),
+    status_reason varchar(200),
+    status enum ('ACTIVE','INACTIVE','LOCKED','SUSPENDED') not null default 'ACTIVE',
+    primary key (id)
+) engine=InnoDB;
+
 -- Constraints (kept out of CREATE TABLE so table order doesn't matter).
 alter table accounts
    add constraint idx_accounts_account_number unique (account_number);
@@ -154,3 +184,15 @@ alter table bank_employees
 
 alter table bank_employees
    add constraint idx_bank_employees_email unique (email);
+
+alter table bank_employee_credentials
+   add constraint idx_bank_employee_credentials_employee_id unique (employee_id);
+
+alter table bank_employee_credentials
+   add constraint idx_bank_employee_credentials_username unique (username);
+
+alter table customer_credentials
+   add constraint idx_customer_credentials_customer_id unique (customer_id);
+
+alter table customer_credentials
+   add constraint idx_customer_credentials_username unique (username);

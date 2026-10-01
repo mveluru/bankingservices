@@ -1,6 +1,11 @@
 package org.brite.banking.service;
 
 import org.brite.banking.domain.Employee;
+import org.brite.banking.domain.EmployeeCredential;
+import org.brite.banking.domain.LoginStatus;
+import org.brite.banking.exception.LoginNotActiveException;
+import org.brite.banking.repository.EmployeeCredentialRepository;
+import java.time.LocalDateTime;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.EmployeeStatus;
@@ -25,18 +30,52 @@ import static org.mockito.Mockito.when;
 
 class EmployeeServiceTest {
     private EmployeeRepository repository;
+    private EmployeeCredentialRepository credentials;
     private EmployeeService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(EmployeeRepository.class);
-        service = new EmployeeService(repository);
+        credentials = mock(EmployeeCredentialRepository.class);
+        service = new EmployeeService(repository, credentials);
     }
 
     private Employee employee(String number, EmployeeRole role, EmployeeStatus status) {
-        Employee e = Employee.builder().employeeNumber(number).role(role).status(status).build();
+        long id = Math.abs(number.hashCode());
+        Employee e = Employee.builder().id(id).employeeNumber(number).role(role).status(status).build();
         when(repository.findByEmployeeNumber(number)).thenReturn(Optional.of(e));
+        loginStatus(id, LoginStatus.ACTIVE, null);
         return e;
+    }
+
+    private void loginStatus(long employeeId, LoginStatus status, LocalDateTime lockedUntil) {
+        when(credentials.findByEmployeeId(employeeId)).thenReturn(Optional.of(EmployeeCredential.builder()
+                .employeeId(employeeId).username("u").status(status).lockedUntil(lockedUntil).build()));
+    }
+
+    @Test
+    void onlyAnActiveLoginMayPerformTransactions() {
+        for (LoginStatus status : new LoginStatus[]{LoginStatus.INACTIVE, LoginStatus.SUSPENDED, LoginStatus.LOCKED}) {
+            Employee e = employee("EMP-" + status, EmployeeRole.AREA_MANAGER, EmployeeStatus.ACTIVE);
+            loginStatus(e.getId(), status, status == LoginStatus.LOCKED ? LocalDateTime.now().plusMinutes(5) : null);
+            LoginNotActiveException ex = assertThrows(LoginNotActiveException.class,
+                    () -> service.requirePrivilege(e.getEmployeeNumber(), EmployeePrivilege.DEPOSIT), status.name());
+            assertTrue(ex.getMessage().contains(status.name()));
+        }
+    }
+
+    @Test
+    void anEmployeeWithoutALoginMayNotTransact() {
+        Employee e = employee("EMP-NOLOGIN", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
+        when(credentials.findByEmployeeId(e.getId())).thenReturn(Optional.empty());
+        assertThrows(LoginNotActiveException.class, () -> service.requirePrivilege("EMP-NOLOGIN", EmployeePrivilege.DEPOSIT));
+    }
+
+    @Test
+    void aLockThatHasExpiredNoLongerBlocks() {
+        Employee e = employee("EMP-EXPIRED", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
+        loginStatus(e.getId(), LoginStatus.LOCKED, LocalDateTime.now().minusMinutes(1));
+        assertEquals("EMP-EXPIRED", service.requirePrivilege("EMP-EXPIRED", EmployeePrivilege.DEPOSIT).getEmployeeNumber());
     }
 
     @Test

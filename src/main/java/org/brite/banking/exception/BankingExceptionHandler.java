@@ -28,6 +28,15 @@ public class BankingExceptionHandler {
                 .body(ex.getMessage());
     }
 
+    @ExceptionHandler(CustomerNotFoundException.class)
+    public ResponseEntity<String> handleCustomerNotFound(
+            CustomerNotFoundException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_CUSTOMER_NOT_FOUND, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(EmployeeNotFoundException.class)
     public ResponseEntity<String> handleEmployeeNotFound(
             EmployeeNotFoundException ex) {
@@ -43,6 +52,33 @@ public class BankingExceptionHandler {
         log.warn(BankingMessages.LOG_HANDLER_EMPLOYEE_NOT_AUTHORIZED, ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<String> handleInvalidCredentials(
+            InvalidCredentialsException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_INVALID_CREDENTIALS, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(LoginNotActiveException.class)
+    public ResponseEntity<String> handleLoginNotActive(
+            LoginNotActiveException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_LOGIN_NOT_ACTIVE, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(EmployeeLockedException.class)
+    public ResponseEntity<String> handleEmployeeLocked(
+            EmployeeLockedException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_EMPLOYEE_LOCKED, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.LOCKED)
                 .body(ex.getMessage());
     }
 

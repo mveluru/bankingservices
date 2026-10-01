@@ -8,6 +8,7 @@ import org.brite.banking.domain.BulkCloseAccountsResult;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.LocationType;
+import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.domain.TransactionHandler;
 import org.brite.banking.domain.TransactionType;
 import org.brite.banking.exception.AccountClosedException;
@@ -27,6 +28,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -57,6 +59,8 @@ class ClientAccountServiceTest {
     private TransactionRepository transactionRepository;
     @Mock
     private WithdrawalRepository withdrawalRepository;
+    @Mock
+    private CustomerCredentialService customerCredentialService;
 
     private ClientAccountService clientAccountService;
     private AccountConstraints accountConstraints;
@@ -77,7 +81,8 @@ class ClientAccountServiceTest {
                 withdrawalRepository,
                 transactionRepository,
                 accountConstraints,
-                notificationService);
+                notificationService,
+                customerCredentialService);
     }
 
     private AccountRegistrationRequest.AccountRegistrationRequestBuilder validRegistrationRequestBuilder() {
@@ -271,5 +276,47 @@ class ClientAccountServiceTest {
 
         verify(transactionRepository).recordTransaction(argThat(transaction ->
                 transaction.getEmployeeNumber() == null && transaction.getBankLocationId() == null));
+    }
+
+    private DepositForm depositForm() {
+        return new DepositForm("CH-100", new BigDecimal("50.00"), AccountType.CHECKING, "check",
+                null, null, null, null, null, null, null, null);
+    }
+
+    @Test
+    void customerInitiatedDeposit_isRejectedWhenTheOwnersLoginIsNotActive() {
+        when(accountRepository.findCustomerIdByAccountNumber("CH-100")).thenReturn(Optional.of(5L));
+        org.mockito.Mockito.doThrow(new LoginNotActiveException("Customer login is SUSPENDED"))
+                .when(customerCredentialService).requireActiveLoginIfPresent(5L);
+
+        assertThatThrownBy(() -> clientAccountService.depositAndSaveToAccount(depositForm()))
+                .isInstanceOf(LoginNotActiveException.class);
+
+        verify(accountRepository, never()).deposit(any(), any(), any());
+        verify(transactionRepository, never()).recordTransaction(any());
+    }
+
+    @Test
+    void customerInitiatedWithdrawal_isRejectedWhenTheOwnersLoginIsNotActive() {
+        when(accountRepository.findCustomerIdByAccountNumber("CH-100")).thenReturn(Optional.of(5L));
+        org.mockito.Mockito.doThrow(new LoginNotActiveException("Customer login is LOCKED"))
+                .when(customerCredentialService).requireActiveLoginIfPresent(5L);
+        WithdrawalRequest request = WithdrawalRequest.builder().AccountNumber("CH-100")
+                .accountType(AccountType.CHECKING).withdrawAmount(new BigDecimal("10.00")).build();
+
+        assertThatThrownBy(() -> clientAccountService.withdrawAndSaveToAccount(request))
+                .isInstanceOf(LoginNotActiveException.class);
+
+        verify(accountRepository, never()).withdraw(any(), any(), any());
+    }
+
+    @Test
+    void staffHandledDeposit_isNotGatedOnTheCustomersLogin() {
+        Account updated = Account.builder().checkingAccountNumber("CH-100").checkingBalance(new BigDecimal("150.00")).build();
+        when(accountRepository.deposit("CH-100", AccountType.CHECKING, new BigDecimal("50.00"))).thenReturn(updated);
+
+        clientAccountService.depositAndSaveToAccount(depositForm(), TransactionHandler.builder().employeeNumber("EMP-000010").build());
+
+        verify(customerCredentialService, never()).requireActiveLoginIfPresent(any());
     }
 }
