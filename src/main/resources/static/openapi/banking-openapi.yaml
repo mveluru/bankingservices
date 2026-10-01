@@ -56,9 +56,9 @@ tags:
   - name: Locations
     description: Bank offices and ATMs.
   - name: Staff
-    description: Employee-facing endpoints. The acting employee (`X-Employee-Number`) must hold the privilege for the action; privileges come from the role (`TELLER` < `MANAGER` < `AREA_MANAGER`).
+    description: Employee-facing endpoints. Every call except the login needs a bearer token in the `Authorization` header (the employee JWT from `POST /v1/api/staff/login`); the token's employee must be ACTIVE with an ACTIVE login and hold the privilege for the action, which is re-checked on every call. Privileges come from the role (`TELLER` < `MANAGER` < `AREA_MANAGER`).
   - name: Login
-    description: Verify an employee or customer username and 8-digit password. Returns a signed JWT access token and who the caller is. No endpoint requires the token yet.
+    description: Verify an employee or customer username and 8-digit password. Returns a signed JWT access token and who the caller is. The employee token is required by every other staff endpoint.
   - name: Portal (BFF)
     description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call.
   - name: Clients
@@ -794,14 +794,13 @@ paths:
         Requires the `WITHDRAW` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
         - name: locationId
           in: query
           required: false
           description: Branch office or ATM where this is handled; defaults to the employee's own branch (none for an area manager). `404` if unknown. The employee and this location are recorded on the transaction.
           schema: {type: integer, format: int64}
-        - $ref: '#/components/parameters/EmployeeHeader'
       requestBody:
         required: true
         content:
@@ -814,14 +813,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Account'}
         '400':
-          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          description: A failed validation (JSON) or a business rule (plain text).
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown employee or account. Plain-text body.
+          description: The token's employee no longer exists, or unknown account. Plain-text body.
           content:
             text/plain:
               schema: {type: string}
@@ -837,14 +838,13 @@ paths:
         Requires the `DEPOSIT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
         - name: locationId
           in: query
           required: false
           description: Branch office or ATM where this is handled; defaults to the employee's own branch (none for an area manager). `404` if unknown. The employee and this location are recorded on the transaction.
           schema: {type: integer, format: int64}
-        - $ref: '#/components/parameters/EmployeeHeader'
       requestBody:
         required: true
         content:
@@ -857,14 +857,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Account'}
         '400':
-          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          description: A failed validation (JSON) or a business rule (plain text).
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown employee or account. Plain-text body.
+          description: The token's employee no longer exists, or unknown account. Plain-text body.
           content:
             text/plain:
               schema: {type: string}
@@ -880,10 +882,9 @@ paths:
         Requires the `SUSPEND_ACCOUNT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
-        - $ref: '#/components/parameters/EmployeeHeader'
       requestBody:
         required: true
         content:
@@ -896,14 +897,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Account'}
         '400':
-          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          description: A failed validation (JSON) or a business rule (plain text).
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown employee or account. Plain-text body.
+          description: The token's employee no longer exists, or unknown account. Plain-text body.
           content:
             text/plain:
               schema: {type: string}
@@ -919,10 +922,9 @@ paths:
         Requires the `UPDATE_SUSPENSION` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
-        - $ref: '#/components/parameters/EmployeeHeader'
       requestBody:
         required: true
         content:
@@ -935,14 +937,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Account'}
         '400':
-          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          description: A failed validation (JSON) or a business rule (plain text).
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown employee or account. Plain-text body.
+          description: The token's employee no longer exists, or unknown account. Plain-text body.
           content:
             text/plain:
               schema: {type: string}
@@ -958,10 +962,9 @@ paths:
         Requires the `REACTIVATE_ACCOUNT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
-        - $ref: '#/components/parameters/EmployeeHeader'
       responses:
         '200':
           description: The updated account.
@@ -969,14 +972,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Account'}
         '400':
-          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          description: A failed validation (JSON) or a business rule (plain text).
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown employee or account. Plain-text body.
+          description: The token's employee no longer exists, or unknown account. Plain-text body.
           content:
             text/plain:
               schema: {type: string}
@@ -992,10 +997,9 @@ paths:
         Requires the `CLOSE_ACCOUNT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
         - $ref: '#/components/parameters/AccountNumberPath'
-        - $ref: '#/components/parameters/EmployeeHeader'
       responses:
         '200':
           description: The updated account.
@@ -1003,14 +1007,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Account'}
         '400':
-          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          description: A failed validation (JSON) or a business rule (plain text).
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown employee or account. Plain-text body.
+          description: The token's employee no longer exists, or unknown account. Plain-text body.
           content:
             text/plain:
               schema: {type: string}
@@ -1026,9 +1032,8 @@ paths:
         Requires `MANAGE_EMPLOYEES` (area managers). Optional `role` filter; sortable by `lastName` (default), `firstName`, `employeeNumber`, `role`, `hireDate`; default `size=20`.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/EmployeeHeader'
         - name: role
           in: query
           required: false
@@ -1043,14 +1048,16 @@ paths:
             application/json:
               schema: {type: object}
         '400':
-          description: Missing `X-Employee-Number` or an unsupported `sort` property. Plain text.
+          description: An unsupported `sort` property. Plain text.
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown acting employee. Plain text.
+          description: The token's employee no longer exists. Plain text.
           content:
             text/plain:
               schema: {type: string}
@@ -1066,9 +1073,8 @@ paths:
         An employee can read their own profile; reading anyone else's requires `MANAGE_EMPLOYEES`.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/EmployeeHeader'
         - name: employeeNumber
           in: path
           required: true
@@ -1080,15 +1086,12 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Employee'}
-        '400':
-          description: Missing `X-Employee-Number`. Plain text.
-          content:
-            text/plain:
-              schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown acting employee or employee. Plain text.
+          description: The token's employee or the requested employee not found. Plain text.
           content:
             text/plain:
               schema: {type: string}
@@ -1105,9 +1108,8 @@ paths:
         only an `ACTIVE` login may perform transactions. `ACTIVE` also clears the failure count and any lock.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/EmployeeHeader'
         - name: employeeNumber
           in: path
           required: true
@@ -1128,14 +1130,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/LoginStatusView'}
         '400':
-          description: Missing header or `status` (JSON validation), or a reason over 200 characters.
+          description: Missing `status` (JSON validation), or a reason over 200 characters.
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown acting employee, or no such employee/customer or login. Plain text.
+          description: The token's employee no longer exists, or no such employee/customer or login. Plain text.
           content:
             text/plain:
               schema: {type: string}
@@ -1152,9 +1156,8 @@ paths:
         only an `ACTIVE` login may perform transactions. `ACTIVE` also clears the failure count and any lock.
       security:
         - CustomerId: []
-          EmployeeNumber: []
+          BearerAuth: []
       parameters:
-        - $ref: '#/components/parameters/EmployeeHeader'
         - name: customerId
           in: path
           required: true
@@ -1175,14 +1178,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/LoginStatusView'}
         '400':
-          description: Missing header or `status` (JSON validation), or a reason over 200 characters.
+          description: Missing `status` (JSON validation), or a reason over 200 characters.
           content:
             text/plain:
               schema: {type: string}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/EmployeeForbidden'
         '404':
-          description: Unknown acting employee, or no such employee/customer or login. Plain text.
+          description: The token's employee no longer exists, or no such employee/customer or login. Plain text.
           content:
             text/plain:
               schema: {type: string}
@@ -1196,9 +1201,9 @@ paths:
       summary: Employee login
       description: |
         Verifies the username (case-insensitive) and 8-digit password and returns a signed **JWT access token**
-        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **No endpoint requires the token yet** -
-        other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id` - so it is groundwork for
-        replacing those headers. Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
+        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **Every other staff endpoint requires
+        this token** as `Authorization: Bearer <token>`; the endpoint verifies the signature and expiry and takes the
+        acting employee from the token's `sub`. Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
         (employee number / customer id), `type` (`employee`/`customer`), `role` (employees), `jti`, `iat`, `exp`;
         no personal data.
         Unknown username and wrong password give the same `401`. After 5 wrong passwords the login is `LOCKED` for
@@ -1253,9 +1258,9 @@ paths:
       summary: Customer login
       description: |
         Verifies the username (case-insensitive) and 8-digit password and returns a signed **JWT access token**
-        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **No endpoint requires the token yet** -
-        other endpoints still identify the caller by `X-Employee-Number` / `X-Customer-Id` - so it is groundwork for
-        replacing those headers. Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
+        (HS256, 30 minutes by default, no refresh token) plus who the caller is. **No endpoint requires the customer
+        token yet** (customer endpoints still only need `X-Customer-Id`, a rate-limit key, not authentication); a customer
+        token is refused on staff endpoints (`403`). Responses are `Cache-Control: no-store`. The token carries `iss`, `sub`
         (employee number / customer id), `type` (`employee`/`customer`), `role` (employees), `jti`, `iat`, `exp`;
         no personal data.
         Unknown username and wrong password give the same `401`. After 5 wrong passwords the login is `LOCKED` for
@@ -1720,23 +1725,16 @@ components:
         (`banking.rate-limit.customer-header-name`) and the check can be turned off with
         `banking.rate-limit.enabled: false`.
 
-    EmployeeNumber:
-      type: apiKey
-      in: header
-      name: X-Employee-Number
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
       description: |
-        Employee number of the acting employee (e.g. `EMP-000010`). Like `X-Customer-Id` it is a
-        claimed identity, **not** authentication: it selects whose role privileges are enforced,
-        but nothing proves the caller is that employee.
+        The employee access token returned by `POST /v1/api/staff/login` (HS256, 30 minutes, no refresh), sent as
+        `Authorization: Bearer <token>`. It proves who logged in; permissions and status are re-checked from the
+        database on every request, so a suspended login stops working immediately.
 
   parameters:
-    EmployeeHeader:
-      name: X-Employee-Number
-      in: header
-      required: true
-      description: Employee number of the acting employee; their role decides what is allowed.
-      schema: {type: string}
-      example: EMP-000010
     AccountNumberPath:
       name: accountNumber
       in: path
@@ -1793,6 +1791,21 @@ components:
         text/plain:
           schema: {type: string}
           example: 'Bank location not found: 999'
+    Unauthorized:
+      description: >-
+        No bearer token, or the token is invalid, expired or forged. Plain-text body; the response carries
+        `WWW-Authenticate: Bearer`. Written by the staff authentication filter, so there is no JSON body.
+      headers:
+        WWW-Authenticate:
+          schema: {type: string, example: Bearer}
+      content:
+        text/plain:
+          schema: {type: string}
+          examples:
+            missing:
+              value: "Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/staff/login"
+            invalid:
+              value: Invalid or expired token
     LoginNotActive:
       description: >-
         The login is `INACTIVE`, `SUSPENDED` or `LOCKED`: only an `ACTIVE` login may perform transactions.
@@ -1815,6 +1828,8 @@ components:
               value: 'Employee EMP-000010 (TELLER) is not authorized: requires SUSPEND_ACCOUNT'
             onLeave:
               value: Employee EMP-000016 is ON_LEAVE and cannot perform this action
+            customerToken:
+              value: This endpoint needs an employee token
             loginSuspended:
               value: 'Employee EMP-000010 login is SUSPENDED; only an ACTIVE login can perform transactions'
     TooManyRequests:

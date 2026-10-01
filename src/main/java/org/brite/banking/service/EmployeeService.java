@@ -9,6 +9,7 @@ import org.brite.banking.domain.EmployeeStatus;
 import org.brite.banking.domain.LoginStatus;
 import org.brite.banking.exception.EmployeeNotAuthorizedException;
 import org.brite.banking.exception.EmployeeNotFoundException;
+import org.brite.banking.exception.InvalidTokenException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.repository.EmployeeCredentialRepository;
@@ -21,14 +22,13 @@ import java.time.LocalDateTime;
 import java.util.Set;
 
 /**
- * Decides what an employee may do. The acting employee is identified by the
- * {@value #EMPLOYEE_HEADER} header; like {@code X-Customer-Id} that is a claimed identity, not
- * authentication, so this enforces the role model but can't prove who is calling.
+ * Decides what an employee may do. The acting employee is the subject of the verified JWT
+ * ({@link org.brite.banking.gateway.StaffAuthenticationFilter}); this reloads their employment status, login status
+ * and role on every call, so the token proves who is calling but never grants anything by itself.
  */
 @Service
 @RequiredArgsConstructor
 public class EmployeeService {
-    public static final String EMPLOYEE_HEADER = "X-Employee-Number";
     private static final Set<String> SORTABLE = Set.of("lastName", "firstName", "employeeNumber", "role", "hireDate");
 
     private final EmployeeRepository employeeRepository;
@@ -37,7 +37,7 @@ public class EmployeeService {
     /**
      * Returns the acting employee if they are ACTIVE, have an ACTIVE login, and their role grants {@code privilege}.
      *
-     * @throws IllegalArgumentException if the header is missing or blank (mapped to 400)
+     * @throws org.brite.banking.exception.InvalidTokenException if there is no authenticated employee (mapped to 401)
      * @throws EmployeeNotFoundException if no such employee exists (mapped to 404)
      * @throws EmployeeNotAuthorizedException if not an ACTIVE employee or lacking the privilege (mapped to 403)
      * @throws LoginNotActiveException if the employee has no login or it isn't ACTIVE (mapped to 403)
@@ -76,7 +76,7 @@ public class EmployeeService {
 
     private Employee requireActive(String employeeNumber) {
         if (employeeNumber == null || employeeNumber.isBlank()) {
-            throw new IllegalArgumentException(String.format(BankingMessages.EMPLOYEE_HEADER_REQUIRED, EMPLOYEE_HEADER));
+            throw new InvalidTokenException(BankingMessages.AUTHENTICATION_REQUIRED);
         }
         Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber.trim())
                 .orElseThrow(() -> new EmployeeNotFoundException(String.format(BankingMessages.EMPLOYEE_NOT_FOUND, employeeNumber.trim())));

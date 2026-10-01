@@ -62,8 +62,8 @@ if has("banking/service/Employee", "banking/service/Staff", "banking/service/Log
         "Employee/login rules: privileges derive from EmployeeRole (not a column); only an ACTIVE employee with an ACTIVE login may act "
         "(EmployeeService.requirePrivilege), and customer-initiated deposit/withdraw is gated by CustomerCredentialService.requireActiveLoginIfPresent. "
         "Keep .claude/rules/banking/employees-and-logins.md, the OpenAPI Staff/Login tags + enums (EmployeeRole, EmployeePrivilege, LoginStatus), "
-        "the README staff rows and EmployeeServiceTest/StaffControllerTest/*Credential*Test in step. X-Employee-Number and X-Customer-Id are "
-        "claimed identities, not authentication; login issues a JWT but nothing requires it yet.")
+        "the README staff rows and EmployeeServiceTest/StaffControllerTest/*Credential*Test in step. Staff endpoints require the employee JWT "
+        "(StaffAuthenticationFilter, token subject = acting employee, permissions reloaded each call); X-Customer-Id is only a rate-limit key.")
 
 if has("service/JwtService", "service/LoginService", "rules/JwtProperties", "domain/IssuedToken", "domain/TokenClaims", "LoginResponse"):
     notes.append(

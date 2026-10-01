@@ -3,6 +3,7 @@ package org.brite.banking.contoller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.domain.Account;
+import org.brite.banking.gateway.StaffAuthenticationFilter;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
@@ -24,13 +25,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Employee-facing endpoints. Every call names the acting employee in {@code X-Employee-Number};
+ * Employee-facing endpoints. Every call except the login needs {@code Authorization: Bearer <token>}; the
+ * {@link StaffAuthenticationFilter} verifies it and passes the employee number in a request attribute, and
  * {@link EmployeeService} then enforces the role's privileges (403 if not allowed).
  */
 @RestController
@@ -47,7 +49,7 @@ public class StaffController {
      * POST /v1/api/staff/accounts/withdraw?locationId=
      */
     @PostMapping("/accounts/withdraw")
-    public ResponseEntity<Account> withdraw(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Account> withdraw(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                             @RequestParam(required = false) Long locationId,
                                             @Valid @RequestBody WithdrawalRequest request) {
         return ResponseEntity.ok(staffAccountService.withdraw(employee, locationId, request));
@@ -55,7 +57,7 @@ public class StaffController {
 
     /** Needs DEPOSIT (teller and up); records employee and branch/ATM like withdraw. POST /v1/api/staff/accounts/deposit?locationId= */
     @PostMapping("/accounts/deposit")
-    public ResponseEntity<Account> deposit(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Account> deposit(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                            @RequestParam(required = false) Long locationId,
                                            @Valid @RequestBody DepositForm request) {
         return ResponseEntity.ok(staffAccountService.deposit(employee, locationId, request));
@@ -63,7 +65,7 @@ public class StaffController {
 
     /** Needs SUSPEND_ACCOUNT (manager and up). POST /v1/api/staff/accounts/{accountNumber}/suspend */
     @PostMapping("/accounts/{accountNumber}/suspend")
-    public ResponseEntity<Account> suspend(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Account> suspend(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                            @PathVariable String accountNumber,
                                            @Valid @RequestBody SuspendAccountRequest request) {
         return ResponseEntity.ok(staffAccountService.suspend(employee, accountNumber, request));
@@ -71,7 +73,7 @@ public class StaffController {
 
     /** Needs UPDATE_SUSPENSION (manager and up). PATCH /v1/api/staff/accounts/{accountNumber}/suspension */
     @PatchMapping("/accounts/{accountNumber}/suspension")
-    public ResponseEntity<Account> updateSuspension(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Account> updateSuspension(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                                     @PathVariable String accountNumber,
                                                     @Valid @RequestBody UpdateSuspensionRequest request) {
         return ResponseEntity.ok(staffAccountService.updateSuspension(employee, accountNumber, request));
@@ -79,21 +81,21 @@ public class StaffController {
 
     /** Needs REACTIVATE_ACCOUNT (manager and up). POST /v1/api/staff/accounts/{accountNumber}/reactivate */
     @PostMapping("/accounts/{accountNumber}/reactivate")
-    public ResponseEntity<Account> reactivate(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Account> reactivate(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                               @PathVariable String accountNumber) {
         return ResponseEntity.ok(staffAccountService.reactivate(employee, accountNumber));
     }
 
     /** Needs CLOSE_ACCOUNT (manager and up). POST /v1/api/staff/accounts/{accountNumber}/close */
     @PostMapping("/accounts/{accountNumber}/close")
-    public ResponseEntity<Account> close(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Account> close(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                          @PathVariable String accountNumber) {
         return ResponseEntity.ok(staffAccountService.close(employee, accountNumber));
     }
 
     /** Needs MANAGE_EMPLOYEES (area manager). GET /v1/api/staff/employees?role=&page=&size=&sort= */
     @GetMapping("/employees")
-    public ResponseEntity<Page<Employee>> listEmployees(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Page<Employee>> listEmployees(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                                         @RequestParam(required = false) EmployeeRole role,
                                                         @PageableDefault(size = 20, sort = "lastName") Pageable pageable) {
         return ResponseEntity.ok(employeeService.listEmployees(employee, role, pageable));
@@ -101,7 +103,7 @@ public class StaffController {
 
     /** Own profile, or any profile with MANAGE_EMPLOYEES. GET /v1/api/staff/employees/{employeeNumber} */
     @GetMapping("/employees/{employeeNumber}")
-    public ResponseEntity<Employee> getEmployee(@RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+    public ResponseEntity<Employee> getEmployee(@RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
                                                 @PathVariable String employeeNumber) {
         return ResponseEntity.ok(employeeService.getEmployee(employee, employeeNumber));
     }
@@ -112,7 +114,7 @@ public class StaffController {
      */
     @PutMapping("/employees/{employeeNumber}/login-status")
     public ResponseEntity<LoginStatusView> changeEmployeeLoginStatus(
-            @RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
             @PathVariable String employeeNumber,
             @Valid @RequestBody ChangeLoginStatusRequest request) {
         return ResponseEntity.ok(staffLoginService.changeEmployeeLoginStatus(employee, employeeNumber, request));
@@ -124,7 +126,7 @@ public class StaffController {
      */
     @PutMapping("/customers/{customerId}/login-status")
     public ResponseEntity<LoginStatusView> changeCustomerLoginStatus(
-            @RequestHeader(value = EmployeeService.EMPLOYEE_HEADER, required = false) String employee,
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
             @PathVariable Long customerId,
             @Valid @RequestBody ChangeLoginStatusRequest request) {
         return ResponseEntity.ok(staffLoginService.changeCustomerLoginStatus(employee, customerId, request));

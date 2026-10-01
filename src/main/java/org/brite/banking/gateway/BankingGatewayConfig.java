@@ -1,6 +1,7 @@
 package org.brite.banking.gateway;
 
 import lombok.RequiredArgsConstructor;
+import org.brite.banking.service.JwtService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -15,8 +16,9 @@ import org.springframework.core.Ordered;
  * so Spring Boot doesn't also auto-register them for "/*". {@link BusinessTransactionIdFilter}
  * runs first (lower order value = higher precedence) so every request - including ones
  * {@link BankingRateLimitFilter} goes on to reject - gets a correlatable btid.
- * {@link BankingRequestLoggingFilter} runs last of the three, so it only sees requests that
- * passed rate limiting, and can be switched off with {@code banking.request-logging.enabled}.
+ * {@link StaffAuthenticationFilter} (staff paths only) runs next and demands a valid employee JWT, and
+ * {@link BankingRequestLoggingFilter} runs last, so it only sees requests that passed rate limiting and
+ * authentication, and can be switched off with {@code banking.request-logging.enabled}.
  */
 @Configuration
 @RequiredArgsConstructor
@@ -37,6 +39,7 @@ public class BankingGatewayConfig {
 
     private final RateLimitProperties rateLimitProperties;
     private final CustomerRateLimiter customerRateLimiter;
+    private final JwtService jwtService;
 
     @Bean
     public FilterRegistrationBean<BusinessTransactionIdFilter> businessTransactionIdFilter() {
@@ -58,6 +61,17 @@ public class BankingGatewayConfig {
         return registration;
     }
 
+    /** Staff endpoints (except the login) need a valid employee JWT; runs after the rate limiter. */
+    @Bean
+    public FilterRegistrationBean<StaffAuthenticationFilter> staffAuthenticationFilter() {
+        FilterRegistrationBean<StaffAuthenticationFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new StaffAuthenticationFilter(jwtService));
+        registration.setName("staffAuthenticationFilter");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+        registration.addUrlPatterns("/v1/api/staff/*");
+        return registration;
+    }
+
     @Bean
     @ConditionalOnProperty(name = "banking.request-logging.enabled", havingValue = "true", matchIfMissing = true)
     public FilterRegistrationBean<BankingRequestLoggingFilter> bankingRequestLoggingFilter(
@@ -65,7 +79,7 @@ public class BankingGatewayConfig {
         FilterRegistrationBean<BankingRequestLoggingFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new BankingRequestLoggingFilter(maxPayloadLength));
         registration.setName("bankingRequestLoggingFilter");
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
         registration.addUrlPatterns(BANKING_URL_PATTERNS);
         return registration;
     }

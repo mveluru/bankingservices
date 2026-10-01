@@ -3,6 +3,7 @@ package org.brite.banking.service;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeCredential;
 import org.brite.banking.domain.LoginStatus;
+import org.brite.banking.exception.InvalidTokenException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.repository.EmployeeCredentialRepository;
 import java.time.LocalDateTime;
@@ -112,9 +113,9 @@ class EmployeeServiceTest {
     }
 
     @Test
-    void missingHeaderIsBadRequestAndUnknownEmployeeIsNotFound() {
-        assertThrows(IllegalArgumentException.class, () -> service.requirePrivilege(null, EmployeePrivilege.DEPOSIT));
-        assertThrows(IllegalArgumentException.class, () -> service.requirePrivilege("  ", EmployeePrivilege.DEPOSIT));
+    void noAuthenticatedEmployeeIsUnauthorizedAndUnknownEmployeeIsNotFound() {
+        assertThrows(InvalidTokenException.class, () -> service.requirePrivilege(null, EmployeePrivilege.DEPOSIT));
+        assertThrows(InvalidTokenException.class, () -> service.requirePrivilege("  ", EmployeePrivilege.DEPOSIT));
         when(repository.findByEmployeeNumber("EMP-NONE")).thenReturn(Optional.empty());
         assertThrows(EmployeeNotFoundException.class, () -> service.requirePrivilege("EMP-NONE", EmployeePrivilege.DEPOSIT));
     }

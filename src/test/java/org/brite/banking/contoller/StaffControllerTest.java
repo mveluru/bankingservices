@@ -13,6 +13,7 @@ import org.brite.banking.domain.LocationType;
 import org.brite.banking.domain.TransactionHandler;
 import org.brite.banking.exception.LocationNotFoundException;
 import org.brite.banking.exception.BankingExceptionHandler;
+import org.brite.banking.gateway.StaffAuthenticationFilter;
 import org.brite.banking.domain.CustomerCredential;
 import org.brite.banking.domain.EmployeeCredential;
 import org.brite.banking.domain.LoginStatus;
@@ -137,7 +138,7 @@ class StaffControllerTest {
     @Test
     void tellerCanDeposit() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
-        mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-T")
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
                 .andExpect(status().isOk());
         verify(clientAccountService).depositAndSaveToAccount(any(), any());
@@ -146,13 +147,13 @@ class StaffControllerTest {
     @Test
     void tellerCannotSuspendReactivateOrCloseAndNoAccountIsTouched() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/suspend").header("X-Employee-Number", "EMP-T")
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/suspend").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content(SUSPEND_BODY))
                 .andExpect(status().isForbidden())
                 .andExpect(content().string("Employee EMP-T (TELLER) is not authorized: requires SUSPEND_ACCOUNT"));
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/reactivate").header("X-Employee-Number", "EMP-T"))
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/reactivate").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T"))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").header("X-Employee-Number", "EMP-T"))
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(suspensionService);
         verify(clientAccountService, never()).closeAccount(any());
@@ -161,19 +162,19 @@ class StaffControllerTest {
     @Test
     void managerCanSuspendReactivateAndClose() throws Exception {
         employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/suspend").header("X-Employee-Number", "EMP-M")
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/suspend").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
                         .contentType(MediaType.APPLICATION_JSON).content(SUSPEND_BODY))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/reactivate").header("X-Employee-Number", "EMP-M"))
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/reactivate").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M"))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").header("X-Employee-Number", "EMP-M"))
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M"))
                 .andExpect(status().isOk());
     }
 
     @Test
     void updateSuspensionNeedsItsOwnPrivilege() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
-        mockMvc.perform(patch("/v1/api/staff/accounts/" + ACCOUNT + "/suspension").header("X-Employee-Number", "EMP-T")
+        mockMvc.perform(patch("/v1/api/staff/accounts/" + ACCOUNT + "/suspension").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"notes\":\"x\"}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(suspensionService);
@@ -182,18 +183,18 @@ class StaffControllerTest {
     @Test
     void onLeaveManagerIsForbidden() throws Exception {
         employee("EMP-L", EmployeeRole.MANAGER, EmployeeStatus.ON_LEAVE);
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").header("X-Employee-Number", "EMP-L"))
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-L"))
                 .andExpect(status().isForbidden())
                 .andExpect(content().string("Employee EMP-L is ON_LEAVE and cannot perform this action"));
     }
 
     @Test
-    void missingHeaderIs400AndUnknownEmployeeIs404() throws Exception {
+    void noAuthenticatedEmployeeIs401AndUnknownEmployeeIs404() throws Exception {
         mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close"))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string("Header X-Employee-Number with the acting employee number is required"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string("Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/staff/login"));
         when(employeeRepository.findByEmployeeNumber("EMP-NONE")).thenReturn(Optional.empty());
-        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").header("X-Employee-Number", "EMP-NONE"))
+        mockMvc.perform(post("/v1/api/staff/accounts/" + ACCOUNT + "/close").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-NONE"))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("Employee not found: EMP-NONE"));
     }
@@ -201,7 +202,7 @@ class StaffControllerTest {
     @Test
     void ownProfileIncludesDerivedPrivileges() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
-        mockMvc.perform(get("/v1/api/staff/employees/EMP-T").header("X-Employee-Number", "EMP-T"))
+        mockMvc.perform(get("/v1/api/staff/employees/EMP-T").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.employeeNumber").value("EMP-T"))
                 .andExpect(jsonPath("$.privileges.length()").value(3));
@@ -210,14 +211,14 @@ class StaffControllerTest {
     @Test
     void listingEmployeesIsAreaManagerOnly() throws Exception {
         employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
-        mockMvc.perform(get("/v1/api/staff/employees").header("X-Employee-Number", "EMP-M"))
+        mockMvc.perform(get("/v1/api/staff/employees").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M"))
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void depositRecordsTheTellerAndTheirOwnBranch() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
-        mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-T")
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
                 .andExpect(status().isOk());
         TransactionHandler handler = capturedDepositHandler();
@@ -234,7 +235,7 @@ class StaffControllerTest {
     @Test
     void locationIdParamRecordsAnAtmInsteadOfTheEmployeesBranch() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
-        mockMvc.perform(post("/v1/api/staff/accounts/deposit?locationId=4").header("X-Employee-Number", "EMP-T")
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit?locationId=4").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
                 .andExpect(status().isOk());
         TransactionHandler handler = capturedDepositHandler();
@@ -245,7 +246,7 @@ class StaffControllerTest {
     @Test
     void areaManagerWithoutLocationRecordsNoLocation() throws Exception {
         employee("EMP-A", EmployeeRole.AREA_MANAGER, EmployeeStatus.ACTIVE);
-        mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-A")
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-A")
                         .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
                 .andExpect(status().isOk());
         TransactionHandler handler = capturedDepositHandler();
@@ -256,7 +257,7 @@ class StaffControllerTest {
     @Test
     void unknownLocationIs404AndNothingIsDeposited() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
-        mockMvc.perform(post("/v1/api/staff/accounts/deposit?locationId=999").header("X-Employee-Number", "EMP-T")
+        mockMvc.perform(post("/v1/api/staff/accounts/deposit?locationId=999").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
                 .andExpect(status().isNotFound())
                 .andExpect(content().string("Bank location not found: 999"));
@@ -266,7 +267,7 @@ class StaffControllerTest {
     @Test
     void withdrawRecordsTheEmployeeAndBranchToo() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
-        mockMvc.perform(post("/v1/api/staff/accounts/withdraw").header("X-Employee-Number", "EMP-T")
+        mockMvc.perform(post("/v1/api/staff/accounts/withdraw").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"accountNumber\":\"CH-0000010001\",\"accountType\":\"CHECKING\",\"withdrawAmount\":10,"
                                 + "\"street\":\"1 Main St\",\"city\":\"Austin\",\"state\":\"TX\",\"zip\":\"78701\"}"))
@@ -287,7 +288,7 @@ class StaffControllerTest {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE, 1L);
         for (LoginStatus status : new LoginStatus[]{LoginStatus.SUSPENDED, LoginStatus.INACTIVE, LoginStatus.LOCKED}) {
             loginIs(status);
-            mockMvc.perform(post("/v1/api/staff/accounts/deposit").header("X-Employee-Number", "EMP-T")
+            mockMvc.perform(post("/v1/api/staff/accounts/deposit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                             .contentType(MediaType.APPLICATION_JSON).content(DEPOSIT_BODY))
                     .andExpect(status().isForbidden())
                     .andExpect(content().string("Employee EMP-T login is " + status + "; only an ACTIVE login can perform transactions"));
@@ -303,7 +304,7 @@ class StaffControllerTest {
                 LoginStatusView.builder().username("lucas.meyer").status(LoginStatus.SUSPENDED).statusReason("Audit").build());
 
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/employees/EMP-000010/login-status")
-                        .header("X-Employee-Number", "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-A").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":\"SUSPENDED\",\"reason\":\"Audit\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUSPENDED"))
@@ -314,14 +315,14 @@ class StaffControllerTest {
     void managerCannotChangeAnEmployeeLoginStatusButCanChangeACustomers() throws Exception {
         employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/employees/EMP-000010/login-status")
-                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(employeeCredentialService);
 
         when(customerCredentialService.changeStatus(5L, LoginStatus.INACTIVE, null)).thenReturn(
                 LoginStatusView.builder().username("customer0005").status(LoginStatus.INACTIVE).build());
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/5/login-status")
-                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("INACTIVE"));
     }
@@ -330,13 +331,13 @@ class StaffControllerTest {
     void tellerCannotChangeACustomerLoginStatusAndAMissingStatusIsRejected() throws Exception {
         employee("EMP-T", EmployeeRole.TELLER, EmployeeStatus.ACTIVE);
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/5/login-status")
-                        .header("X-Employee-Number", "EMP-T").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"INACTIVE\"}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(customerCredentialService);
 
         employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/5/login-status")
-                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -346,7 +347,7 @@ class StaffControllerTest {
         when(customerCredentialService.changeStatus(99L, LoginStatus.ACTIVE, null))
                 .thenThrow(new CustomerNotFoundException("Customer not found: 99"));
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/customers/99/login-status")
-                        .header("X-Employee-Number", "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"ACTIVE\"}"))
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M").contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"ACTIVE\"}"))
                 .andExpect(status().isNotFound());
     }
 }

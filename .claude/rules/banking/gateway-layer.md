@@ -7,7 +7,7 @@ paths:
 Servlet `Filter`s in front of every banking path, registered only through `BankingGatewayConfig` `FilterRegistrationBean`s.
 
 - **Never annotate a filter with `@Component`/`@Service`**: Spring Boot would also auto-register it for `/*`.
-- Order (lower runs first): `BusinessTransactionIdFilter` = `HIGHEST_PRECEDENCE`, `BankingRateLimitFilter` = `+1`, `BankingRequestLoggingFilter` = `+2`. Keep btid first so rejection logs carry it.
+- Order (lower runs first): `BusinessTransactionIdFilter` = `HIGHEST_PRECEDENCE`, `BankingRateLimitFilter` = `+1`, `StaffAuthenticationFilter` = `+2` (staff paths only: requires the employee bearer JWT, plain-text `401`/`403`, sets the acting-employee request attribute; the login path is exempt), `BankingRequestLoggingFilter` = `+3`. Keep btid first so rejection logs carry it; authentication sits after the rate limiter so token guessing is rate limited, and before logging so rejected requests aren't body-logged.
 - All three use `BankingGatewayConfig.BANKING_URL_PATTERNS` (includes `/v1/api/staff/*` and `/v1/api/customers/*`). Login endpoints sit behind the same per-customer rate limit, which is weak against guessing; the credential lockout is what protects logins. Adding a controller path = adding it there.
 - Filters run before `DispatcherServlet`: `@RestControllerAdvice` never sees their errors, so they write status + plain-text body themselves.
 - Set MDC `btid` in `try`, `MDC.remove` in `finally` (Tomcat reuses threads).

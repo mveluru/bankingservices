@@ -22,7 +22,8 @@ public final class BankingMessages {
     public static final String SUSPENSION_END_NOT_AFTER_START = "Suspension end (%s) must be after suspension start (%s)";
     public static final String SUSPENSION_END_IN_PAST = "Suspension end (%s) must be in the future";
     public static final String SUSPENSION_UPDATE_EMPTY = "Provide notes and/or endDateTime to update the suspension";
-    public static final String EMPLOYEE_HEADER_REQUIRED = "Header %s with the acting employee number is required";
+    public static final String AUTHENTICATION_REQUIRED = "Authentication required: send 'Authorization: Bearer <token>' from POST /v1/api/staff/login";
+    public static final String EMPLOYEE_TOKEN_REQUIRED = "This endpoint needs an employee token";
     public static final String EMPLOYEE_NOT_FOUND = "Employee not found: %s";
     public static final String EMPLOYEE_NOT_ACTIVE = "Employee %s is %s and cannot perform this action";
     public static final String EMPLOYEE_NOT_AUTHORIZED = "Employee %s (%s) is not authorized: requires %s";
@@ -140,6 +141,11 @@ public final class BankingMessages {
     public static final String LOG_JWT_EPHEMERAL_KEY = "banking.jwt.secret is not set (BANKING_JWT_SECRET): using a random signing key, so tokens stop working when the app restarts";
     public static final String LOG_TOKEN_ISSUED = "Issued {} token for {} (expires {})";
     public static final String LOG_TOKEN_REJECTED = "Rejected a {} token";
+
+    // StaffAuthenticationFilter log messages
+    public static final String LOG_STAFF_AUTH_MISSING = "Staff request to {} rejected: no bearer token";
+    public static final String LOG_STAFF_AUTH_REJECTED = "Staff request to {} rejected: invalid or expired token";
+    public static final String LOG_STAFF_AUTH_WRONG_TYPE = "Staff request to {} rejected: {} token";
 
     // StaffAccountService log messages
     public static final String LOG_STAFF_ACTION = "Employee {} ({}) performed {} on account {}";

@@ -32,7 +32,7 @@ HTTP → gateway filters (btid → rate limit → request log)
 | `bff` | Portal orchestration: controller + service + record DTOs + CORS/config; composes services in process | `service`, `repository` (read-only facades), `domain`, `request`, `messages` |
 | `gateway` | Servlet filters + config (not controllers) | `messages` |
 
-`contoller` also hosts `StaffController` (employee-facing, `X-Employee-Number`) and `LoginController`; see `employees-and-logins.md`.
+`contoller` also hosts `StaffController` (employee-facing, bearer JWT via `StaffAuthenticationFilter`) and `LoginController`; see `employees-and-logins.md`.
 
 ## Dependency rules
 - Dependencies point downward only. Controllers never touch repositories; services never touch `repository.jpa` or entities.
@@ -52,7 +52,7 @@ HTTP → gateway filters (btid → rate limit → request log)
 
 ## Staff and logins (see `employees-and-logins.md`)
 ```
-staff request → StaffController → StaffAccountService / StaffLoginService / EmployeeService.requirePrivilege
+staff request → StaffAuthenticationFilter (JWT) → StaffController → StaffAccountService / StaffLoginService / EmployeeService.requirePrivilege
               → (privilege + ACTIVE employee + ACTIVE login) → ClientAccountService / AccountSuspensionService (unchanged rules)
 customer request (no handler) → ClientAccountService → CustomerCredentialService.requireActiveLoginIfPresent(owner)
 ```
