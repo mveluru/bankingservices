@@ -5,9 +5,7 @@ import java.util.List;
 import org.brite.banking.bff.controller.CustomerPortalAuthController;
 import org.brite.banking.bff.dto.PortalHomeResponse;
 import org.brite.banking.bff.dto.PortalLoginResponse;
-import org.brite.banking.bff.service.CustomerLoginPortalService;
-import org.brite.banking.bff.service.CustomerLoginStatusPortalService;
-import org.brite.banking.bff.service.CustomerPasswordPortalService;
+import org.brite.banking.bff.service.CustomerPortalAuthService;
 import org.brite.banking.domain.AuthenticatedCustomer;
 import org.brite.banking.domain.LoginStatus;
 import org.brite.banking.domain.LoginStatusView;
@@ -58,17 +56,13 @@ class CustomerPortalAuthControllerTest {
     private static final String ANSWERS = "[{\"question\":\"FIRST_CAR\",\"answer\":\"Honda Civic\"},{\"question\":\"FIRST_SCHOOL\",\"answer\":\"Oak Street\"},"
             + "{\"question\":\"FIRST_TEACHER\",\"answer\":\"Mrs Patel\"}]";
 
-    private CustomerLoginPortalService loginService;
-    private CustomerLoginStatusPortalService statusService;
-    private CustomerPasswordPortalService passwordService;
+    private CustomerPortalAuthService authService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        loginService = mock(CustomerLoginPortalService.class);
-        statusService = mock(CustomerLoginStatusPortalService.class);
-        passwordService = mock(CustomerPasswordPortalService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new CustomerPortalAuthController(loginService, statusService, passwordService,
+        authService = mock(CustomerPortalAuthService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new CustomerPortalAuthController(authService,
                         new CustomerAccessService(mock(AccountRepository.class))))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
@@ -78,7 +72,7 @@ class CustomerPortalAuthControllerTest {
 
     @Test
     void loginReturnsTheTokenCustomerAndHomeWithNoStore() throws Exception {
-        when(loginService.login("customer0005", "20260005", "TX")).thenReturn(new PortalLoginResponse("signed.jwt", "Bearer", 1800,
+        when(authService.login("customer0005", "20260005", "TX")).thenReturn(new PortalLoginResponse("signed.jwt", "Bearer", 1800,
                 AuthenticatedCustomer.builder().customerId(5L).firstName("Alice").lastName("Smith").build(), new PortalHomeResponse(2, 1, List.of(), List.of())));
 
         mockMvc.perform(post("/bff/v1/portal/login").param("state", "TX").contentType(MediaType.APPLICATION_JSON)
@@ -93,9 +87,9 @@ class CustomerPortalAuthControllerTest {
 
     @Test
     void loginFailuresMapTo401423And403AndAMissingFieldIs400() throws Exception {
-        when(loginService.login(eq("bad"), any(), any())).thenThrow(new InvalidCredentialsException("Invalid username or password"));
-        when(loginService.login(eq("locked"), any(), any())).thenThrow(new EmployeeLockedException("Too many failed login attempts; locked until x"));
-        when(loginService.login(eq("sus"), any(), any())).thenThrow(new LoginNotActiveException("Customer login is SUSPENDED; only an ACTIVE login can perform transactions"));
+        when(authService.login(eq("bad"), any(), any())).thenThrow(new InvalidCredentialsException("Invalid username or password"));
+        when(authService.login(eq("locked"), any(), any())).thenThrow(new EmployeeLockedException("Too many failed login attempts; locked until x"));
+        when(authService.login(eq("sus"), any(), any())).thenThrow(new LoginNotActiveException("Customer login is SUSPENDED; only an ACTIVE login can perform transactions"));
 
         for (String[] c : new String[][]{{"bad", "401"}, {"locked", "423"}, {"sus", "403"}}) {
             mockMvc.perform(post("/bff/v1/portal/login").contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"" + c[0] + "\",\"password\":\"20260005\"}"))
@@ -106,9 +100,9 @@ class CustomerPortalAuthControllerTest {
 
     @Test
     void creatingACustomerLoginIs201UsesTheEmployeeFromTheAttributeAndNeverEchoesThePassword() throws Exception {
-        when(loginService.createLogin(eq("EMP-M"), eq(11L), any())).thenReturn(LoginStatusView.builder().username("alice.smith").status(LoginStatus.ACTIVE).build());
-        when(loginService.createLogin(eq("EMP-T"), eq(11L), any())).thenThrow(new EmployeeNotAuthorizedException("Employee EMP-T (TELLER) is not authorized: requires MANAGE_CUSTOMER_LOGINS"));
-        when(loginService.createLogin(eq("EMP-M"), eq(99L), any())).thenThrow(new IllegalArgumentException("Customer 99 already has a login"));
+        when(authService.createLogin(eq("EMP-M"), eq(11L), any())).thenReturn(LoginStatusView.builder().username("alice.smith").status(LoginStatus.ACTIVE).build());
+        when(authService.createLogin(eq("EMP-T"), eq(11L), any())).thenThrow(new EmployeeNotAuthorizedException("Employee EMP-T (TELLER) is not authorized: requires MANAGE_CUSTOMER_LOGINS"));
+        when(authService.createLogin(eq("EMP-M"), eq(99L), any())).thenThrow(new IllegalArgumentException("Customer 99 already has a login"));
 
         mockMvc.perform(post("/bff/v1/staff/customers/11/login").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"alice.smith\",\"password\":\"13572468\"}"))
@@ -129,7 +123,7 @@ class CustomerPortalAuthControllerTest {
 
     @Test
     void anAuthorisedEmployeeSetsAStatusAndGetsTheNewStatusBack() throws Exception {
-        when(statusService.changeStatus(eq("EMP-M"), eq(11L), any())).thenReturn(
+        when(authService.changeStatus(eq("EMP-M"), eq(11L), any())).thenReturn(
                 LoginStatusView.builder().username("alice.smith").status(LoginStatus.SUSPENDED).statusReason("Under review").build());
 
         mockMvc.perform(put("/bff/v1/staff/customers/11/login-status").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
@@ -141,8 +135,8 @@ class CustomerPortalAuthControllerTest {
 
     @Test
     void privilegeAndLookupFailuresMapTo403And404() throws Exception {
-        when(statusService.changeStatus(eq("EMP-T"), any(), any())).thenThrow(new EmployeeNotAuthorizedException("Employee EMP-T (TELLER) is not authorized: requires MANAGE_CUSTOMER_LOGINS"));
-        when(statusService.changeStatus(eq("EMP-M"), eq(99L), any())).thenThrow(new CustomerNotFoundException("Customer not found: 99"));
+        when(authService.changeStatus(eq("EMP-T"), any(), any())).thenThrow(new EmployeeNotAuthorizedException("Employee EMP-T (TELLER) is not authorized: requires MANAGE_CUSTOMER_LOGINS"));
+        when(authService.changeStatus(eq("EMP-M"), eq(99L), any())).thenThrow(new CustomerNotFoundException("Customer not found: 99"));
 
         mockMvc.perform(put("/bff/v1/staff/customers/11/login-status").requestAttr(ATTR, "EMP-T").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"INACTIVE\"}")).andExpect(status().isForbidden());
@@ -156,17 +150,17 @@ class CustomerPortalAuthControllerTest {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(put("/bff/v1/staff/customers/11/login-status").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\":\"INACTIVE\",\"reason\":\"" + "x".repeat(201) + "\"}")).andExpect(status().isBadRequest());
-        verifyNoInteractions(statusService);
+        verifyNoInteractions(authService);
     }
 
     @Test
     void changePasswordAndSetQuestionsUseTheCustomerFromTheToken() throws Exception {
-        when(passwordService.setSecurityQuestions(eq(5L), any())).thenReturn(List.of(SecurityQuestionView.of(SecurityQuestion.FIRST_CAR)));
+        when(authService.setSecurityQuestions(eq(5L), any())).thenReturn(List.of(SecurityQuestionView.of(SecurityQuestion.FIRST_CAR)));
 
         mockMvc.perform(put("/bff/v1/portal/password").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260005\",\"newPassword\":\"13572468\"}"))
                 .andExpect(status().isNoContent());
-        verify(passwordService).changePassword(eq(5L), any());
+        verify(authService).changePassword(eq(5L), any());
 
         mockMvc.perform(put("/bff/v1/portal/security-questions").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L)
                         .contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"20260005\",\"answers\":" + ANSWERS + "}"))
@@ -181,13 +175,13 @@ class CustomerPortalAuthControllerTest {
                         .content("{\"currentPassword\":\"20260005\",\"newPassword\":\"13572468\"}")).andExpect(status().isUnauthorized());
         mockMvc.perform(put("/bff/v1/portal/security-questions").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"currentPassword\":\"20260005\",\"answers\":" + ANSWERS + "}")).andExpect(status().isUnauthorized());
-        verifyNoInteractions(passwordService);
+        verifyNoInteractions(authService);
     }
 
     @Test
     void theCatalogAndTheTwoResetCallsAreRoutedAndValidated() throws Exception {
-        when(passwordService.questionCatalog()).thenReturn(List.of(SecurityQuestionView.of(SecurityQuestion.FIRST_CAR), SecurityQuestionView.of(SecurityQuestion.BIRTH_CITY)));
-        when(passwordService.resetQuestions("alice.smith")).thenReturn(List.of(SecurityQuestionView.of(SecurityQuestion.FIRST_SCHOOL)));
+        when(authService.questionCatalog()).thenReturn(List.of(SecurityQuestionView.of(SecurityQuestion.FIRST_CAR), SecurityQuestionView.of(SecurityQuestion.BIRTH_CITY)));
+        when(authService.resetQuestions("alice.smith")).thenReturn(List.of(SecurityQuestionView.of(SecurityQuestion.FIRST_SCHOOL)));
 
         mockMvc.perform(get("/bff/v1/portal/security-questions/catalog")).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
         mockMvc.perform(post("/bff/v1/portal/password-reset/questions").contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"alice.smith\"}"))
@@ -195,7 +189,7 @@ class CustomerPortalAuthControllerTest {
         mockMvc.perform(post("/bff/v1/portal/password-reset").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"alice.smith\",\"newPassword\":\"13572468\",\"answers\":" + ANSWERS + "}"))
                 .andExpect(status().isNoContent());
-        verify(passwordService).resetPassword(any());
+        verify(authService).resetPassword(any());
 
         mockMvc.perform(post("/bff/v1/portal/password-reset").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"alice.smith\",\"newPassword\":\"13572468\",\"answers\":[]}"))
@@ -205,12 +199,12 @@ class CustomerPortalAuthControllerTest {
     @Test
     void aManagerSetsACustomerPasswordInTheStaffPortalWith204AndATellerGets403() throws Exception {
         doThrow(new EmployeeNotAuthorizedException("Employee EMP-T (TELLER) is not authorized: requires MANAGE_CUSTOMER_LOGINS"))
-                .when(passwordService).setPassword(eq("EMP-T"), eq(11L), any());
+                .when(authService).setPassword(eq("EMP-T"), eq(11L), any());
 
         mockMvc.perform(put("/bff/v1/staff/customers/11/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"24681357\"}"))
                 .andExpect(status().isNoContent()).andExpect(content().string(""));
-        verify(passwordService).setPassword(eq("EMP-M"), eq(11L), any());
+        verify(authService).setPassword(eq("EMP-M"), eq(11L), any());
         mockMvc.perform(put("/bff/v1/staff/customers/11/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-T")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"newPassword\":\"24681357\"}"))
                 .andExpect(status().isForbidden());

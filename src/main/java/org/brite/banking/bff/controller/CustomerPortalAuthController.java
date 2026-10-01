@@ -3,9 +3,7 @@ package org.brite.banking.bff.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.PortalLoginResponse;
-import org.brite.banking.bff.service.CustomerLoginPortalService;
-import org.brite.banking.bff.service.CustomerLoginStatusPortalService;
-import org.brite.banking.bff.service.CustomerPasswordPortalService;
+import org.brite.banking.bff.service.CustomerPortalAuthService;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.domain.SecurityQuestionView;
 import org.brite.banking.gateway.CustomerAuthenticationFilter;
@@ -41,15 +39,13 @@ import java.util.List;
  *   <li>Staff portal ({@code /bff/v1/staff}): create a customer's login, set its status and set its password (employee token, MANAGE_CUSTOMER_LOGINS
  *       enforced by the banking service before anything changes).</li>
  * </ul>
- * Each call still goes through its own {@code *PortalService}; this class only routes, binds and wraps the response.
+ * Every call goes through {@link CustomerPortalAuthService}; this class only routes, binds and wraps the response.
  */
 @RestController
 @RequestMapping("/bff/v1")
 @RequiredArgsConstructor
 public class CustomerPortalAuthController {
-    private final CustomerLoginPortalService loginService;
-    private final CustomerLoginStatusPortalService statusService;
-    private final CustomerPasswordPortalService passwordService;
+    private final CustomerPortalAuthService authService;
     private final CustomerAccessService customerAccess;
 
     /**
@@ -60,7 +56,7 @@ public class CustomerPortalAuthController {
     public ResponseEntity<PortalLoginResponse> login(@Valid @RequestBody LoginRequest request,
                                                      @RequestParam(required = false) String state) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(loginService.login(request.getUsername(), request.getPassword(), state));
+                .body(authService.login(request.getUsername(), request.getPassword(), state));
     }
 
     /** Create a customer's login (MANAGE_CUSTOMER_LOGINS): 201, 400 bad format/taken/already has one, 404 unknown customer. POST /bff/v1/staff/customers/11/login */
@@ -69,7 +65,7 @@ public class CustomerPortalAuthController {
             @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
             @PathVariable Long customerId,
             @Valid @RequestBody LoginRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(loginService.createLogin(employee, customerId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.createLogin(employee, customerId, request));
     }
 
     /**
@@ -81,7 +77,7 @@ public class CustomerPortalAuthController {
             @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
             @PathVariable Long customerId,
             @Valid @RequestBody ChangeLoginStatusRequest request) {
-        return ResponseEntity.ok(statusService.changeStatus(employee, customerId, request));
+        return ResponseEntity.ok(authService.changeStatus(employee, customerId, request));
     }
 
     /** Change the logged-in customer's password; all earlier tokens (including this one) stop working. PUT /bff/v1/portal/password */
@@ -89,7 +85,7 @@ public class CustomerPortalAuthController {
     public ResponseEntity<Void> changePassword(
             @RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
             @Valid @RequestBody ChangePasswordRequest request) {
-        passwordService.changePassword(customerAccess.requireAuthenticated(customerId), request);
+        authService.changePassword(customerAccess.requireAuthenticated(customerId), request);
         return ResponseEntity.noContent().build();
     }
 
@@ -98,25 +94,25 @@ public class CustomerPortalAuthController {
     public ResponseEntity<List<SecurityQuestionView>> setSecurityQuestions(
             @RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
             @Valid @RequestBody SetSecurityQuestionsRequest request) {
-        return ResponseEntity.ok(passwordService.setSecurityQuestions(customerAccess.requireAuthenticated(customerId), request));
+        return ResponseEntity.ok(authService.setSecurityQuestions(customerAccess.requireAuthenticated(customerId), request));
     }
 
     /** All questions a customer can pick from. GET /bff/v1/portal/security-questions/catalog */
     @GetMapping("/portal/security-questions/catalog")
     public ResponseEntity<List<SecurityQuestionView>> questionCatalog() {
-        return ResponseEntity.ok(passwordService.questionCatalog());
+        return ResponseEntity.ok(authService.questionCatalog());
     }
 
     /** The three questions to answer for a forgotten password. POST /bff/v1/portal/password-reset/questions */
     @PostMapping("/portal/password-reset/questions")
     public ResponseEntity<List<SecurityQuestionView>> resetQuestions(@Valid @RequestBody PasswordResetQuestionsRequest request) {
-        return ResponseEntity.ok(passwordService.resetQuestions(request.getUsername()));
+        return ResponseEntity.ok(authService.resetQuestions(request.getUsername()));
     }
 
     /** Reset a forgotten password: 204, 401 wrong answers, 423 locked, 403 login not active. POST /bff/v1/portal/password-reset */
     @PostMapping("/portal/password-reset")
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetRequest request) {
-        passwordService.resetPassword(request);
+        authService.resetPassword(request);
         return ResponseEntity.noContent().build();
     }
 
@@ -126,7 +122,7 @@ public class CustomerPortalAuthController {
             @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
             @PathVariable Long customerId,
             @Valid @RequestBody AdminSetPasswordRequest request) {
-        passwordService.setPassword(employee, customerId, request);
+        authService.setPassword(employee, customerId, request);
         return ResponseEntity.noContent().build();
     }
 }
