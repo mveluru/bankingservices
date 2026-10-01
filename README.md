@@ -7,7 +7,7 @@ A Spring Boot 3 REST application demonstrating configuration properties binding 
 ## 🚀 Features
 
 - **Configuration Management**: Strongly-typed properties bound via `@ConfigurationProperties` for notification options (App, Email, SMS, Retry).
-- **Configs API**: Exposes endpoints under `/v1/configs` to query live application, email, and SMS configurations.
+- **Configs API**: moved to the separate `configservice` project (`/v1/configs`, port 8083).
 - **Banking APIs**: Client/account lookup, registration, withdrawal, and deposit (`/v1/client`, `/v1/api/accounts`) — accounts, customers, transactions, and withdrawal history are persisted via Spring Data JPA to the same MySQL database as the events module (see below), so data survives app restarts — plus async notification demos (`/notify`, `/report`) backed by `@Async`. Account numbers are always `CH-`/`SV-` (checking/savings) followed by a zero-padded 10-digit number (e.g. `CH-0000088291`), whether seeded or generated on registration. 52 demo accounts (26 checking, 26 savings) are seeded on first startup against an empty database (see [Data Model](#-banking-data-model-jpa) below).
 - **Banking API Gateway & Rate Limiter**: Every banking endpoint (`/v1/api/accounts/**`, `/v1/api/locations/**`, `/v1/client/**`, `/v1/payment/**`, `/notify`, `/notify-sms`, `/report`, `/bff/v1/portal/**`) sits behind a `Filter`-based gateway ingress layer that requires an `X-Customer-Id` header and caps each customer to a configurable number of requests per day (`banking.rate-limit`, default 1000/day) — see [Banking API gateway](#-banking-api-gateway--rate-limiter) below. Events/configs endpoints are unaffected.
 - **Business Transaction ID (btid) Tracing**: The same gateway stamps every banking request with a unique `btid` (`X-BTID` response header) before it reaches any controller. The id is stored in SLF4J's MDC, so every log line from every layer of that request — controller, service, repository — carries it, letting you grep one request's full log trail with a single id.
@@ -117,14 +117,6 @@ resilience4j:
 ## 🌐 API Endpoints
 
 All REST endpoints are prefixed with `http://localhost:8081/brite`:
-
-### Configs — `/v1/configs`
-
-| Method | Endpoint Path | Description |
-| :--- | :--- | :--- |
-| `GET` | `/v1/configs/app-config/values` | Returns application connection pool size and timeout settings |
-| `GET` | `/v1/configs/email-config/values` | Returns email notification configuration values |
-| `GET` | `/v1/configs/sms-config/values` | Returns SMS notification configuration values |
 
 ### Banking — clients, accounts & notifications
 
@@ -266,15 +258,6 @@ mvn spring-boot:run
 ## 🔍 Sample cURL Requests
 
 ```bash
-# Get Application Config
-curl -s http://localhost:8081/brite/v1/configs/app-config/values
-
-# Get Email Config
-curl -s http://localhost:8081/brite/v1/configs/email-config/values
-
-# Get SMS Config
-curl -s http://localhost:8081/brite/v1/configs/sms-config/values
-
 # Check Actuator Health
 curl -s http://localhost:8081/brite/actuator/health
 
@@ -384,14 +367,6 @@ curl -s http://localhost:8081/brite/apiversion/v1/api
 curl -s "http://localhost:8081/brite/v1/sample/spl?item=Mac"
 ```
 
-Sample JSON Response (`/app-config/values`):
-```json
-{
-  "connectionPoolSize": "10",
-  "timeoutInSeconds": "1"
-}
-```
-
 ---
 
 ## ✅ Test Suite
@@ -403,7 +378,6 @@ mvn test
 
 | Test Class | Covers |
 | :--- | :--- |
-| `BriteConfigValuesControllerTest` | `/v1/configs` config endpoints — app, email, SMS |
 | `BankingServicesApplicationTests` | Application context load + actuator health, liveness, and readiness probes |
 | `AccountRepositoryTest` | `@DataJpaTest` against embedded H2 (no live MySQL needed — see [Data Model](#-banking-data-model-jpa)) — account creation defaults, ACTIVE/SUSPENDED/CLOSED status lifecycle (suspend/update/reactivate/expire, suspended accounts rejecting withdraw/deposit), withdraw/deposit balance rules, account search/pagination/sorting/date-range filters, conditional accountNumber filter, all as real SQL |
 | `AccountSuspensionServiceTest` / `AccountSuspensionExpiryJobTest` | Plain unit tests (no Spring context/MySQL) — the start/end window rules (default start, no future start, end after start and in the future), partial update, reactivation, and the scheduled expiry hook |

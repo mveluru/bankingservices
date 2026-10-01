@@ -59,9 +59,6 @@ notification:
       sender-id: "customerGM"
       daily-limit: 100
 
-    timeout-seconds: 1
-    connection-pool-size: 10
-
 banking:
   constraints:
     maximum-deposit-amount-by-cash: 5000.00
