@@ -59,5 +59,5 @@ customer request → CustomerAuthenticationFilter (JWT, login ACTIVE) → Client
 
 ## Account lifecycle (see `account-lifecycle.md`)
 - `AccountStatus` is `ACTIVE`/`SUSPENDED`/`CLOSED`. A **suspended account can't transact** until it is ACTIVE again; suspension data (`suspended` flag, start/end, notes) is cleared on reactivate/close.
-- `AccountSuspensionService` owns suspend/update/reactivate (+ the scheduled expiry job); `ClientAccountService` keeps registration, withdraw/deposit and close.
+- `AccountSuspensionService` owns suspend/update/reactivate (+ the scheduled expiry job) and is reachable only from the staff endpoints (`StaffAccountService`) and the expiry job; `ClientAccountService` keeps registration, withdraw/deposit and close.
 - Changing an enum column needs a hand-written `db/ddl` migration; `ddl-auto: update` won't alter existing enum columns.

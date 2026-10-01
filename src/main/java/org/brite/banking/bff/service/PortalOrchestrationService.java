@@ -23,11 +23,8 @@ import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.repository.TransactionRepository;
 import org.brite.banking.request.AccountLookupRequest;
 import org.brite.banking.request.AccountRegistrationRequest;
-import org.brite.banking.request.SuspendAccountRequest;
-import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.brite.banking.service.AccountStatusStatementService;
-import org.brite.banking.service.AccountSuspensionService;
 import org.brite.banking.service.BankStatementService;
 import org.brite.banking.service.ClientAccountService;
 import org.brite.banking.service.LocationBasedOperationService;
@@ -52,7 +49,6 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class PortalOrchestrationService {
     private final ClientAccountService clientAccountService;
-    private final AccountSuspensionService accountSuspensionService;
     private final AccountStatusStatementService accountStatusStatementService;
     private final BankStatementService bankStatementService;
     private final LocationBasedOperationService locationService;
@@ -121,24 +117,6 @@ public class PortalOrchestrationService {
         return new OpenAccountResponse(
                 toOverview(account, properties.getDefaultActivityDays(), List.of()),
                 nearbyLocations(request.getState()));
-    }
-
-    /** Suspends the account (rules live in {@link AccountSuspensionService}) and returns the refreshed overview. */
-    public AccountOverviewResponse suspend(String accountNumber, SuspendAccountRequest request) {
-        accountSuspensionService.suspendAccount(accountNumber, request);
-        return overview(accountNumber, null);
-    }
-
-    /** Updates the current suspension's end/notes and returns the refreshed overview. */
-    public AccountOverviewResponse updateSuspension(String accountNumber, UpdateSuspensionRequest request) {
-        accountSuspensionService.updateSuspension(accountNumber, request);
-        return overview(accountNumber, null);
-    }
-
-    /** Lifts the suspension and returns the refreshed overview (the account can transact again). */
-    public AccountOverviewResponse reactivate(String accountNumber) {
-        accountSuspensionService.reactivateAccount(accountNumber);
-        return overview(accountNumber, null);
     }
 
     /**

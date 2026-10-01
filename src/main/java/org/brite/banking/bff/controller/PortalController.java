@@ -11,14 +11,11 @@ import org.brite.banking.service.CustomerAccessService;
 import org.brite.banking.domain.BankStatement;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.request.AccountRegistrationRequest;
-import org.brite.banking.request.SuspendAccountRequest;
-import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -32,7 +29,7 @@ import java.time.LocalDate;
 /**
  * Backend-for-frontend endpoints for the banking UI portal: one call per screen. Every one except {@code POST accounts/open}
  * needs {@code Authorization: Bearer <customer token>} ({@link CustomerAuthenticationFilter}) and only reaches the caller's
- * own accounts ({@link CustomerAccessService}; another customer's account is {@code 403}, the home screen lists only the caller's).
+ * own accounts ({@link CustomerAccessService}; another customer's account is {@code 403}, the home screen lists only the caller's). Suspending and reactivating are staff-only and not offered here.
  */
 @RestController
 @RequestMapping("/bff/v1/portal")
@@ -83,41 +80,6 @@ public class PortalController {
                                                            @Valid @RequestBody DepositForm request) {
         customerAccess.requireOwnAccount(customerId, request.getAccountNumber());
         return ResponseEntity.ok(portalService.deposit(request));
-    }
-
-    /**
-     * Suspend an account; returns the refreshed overview (`suspended: true`, `suspendedUntil`).
-     * POST /bff/v1/portal/accounts/CH-0000010001/suspend
-     */
-    @PostMapping("/accounts/{accountNumber}/suspend")
-    public ResponseEntity<AccountOverviewResponse> suspend(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
-                                                           @PathVariable String accountNumber,
-                                                           @Valid @RequestBody SuspendAccountRequest request) {
-        customerAccess.requireOwnAccount(customerId, accountNumber);
-        return ResponseEntity.ok(portalService.suspend(accountNumber, request));
-    }
-
-    /**
-     * Change a current suspension's end and/or notes; returns the refreshed overview.
-     * PATCH /bff/v1/portal/accounts/CH-0000010001/suspension
-     */
-    @PatchMapping("/accounts/{accountNumber}/suspension")
-    public ResponseEntity<AccountOverviewResponse> updateSuspension(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
-                                                                    @PathVariable String accountNumber,
-                                                                    @Valid @RequestBody UpdateSuspensionRequest request) {
-        customerAccess.requireOwnAccount(customerId, accountNumber);
-        return ResponseEntity.ok(portalService.updateSuspension(accountNumber, request));
-    }
-
-    /**
-     * Lift a suspension; returns the refreshed overview.
-     * POST /bff/v1/portal/accounts/CH-0000010001/reactivate
-     */
-    @PostMapping("/accounts/{accountNumber}/reactivate")
-    public ResponseEntity<AccountOverviewResponse> reactivate(@RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId,
-                                                              @PathVariable String accountNumber) {
-        customerAccess.requireOwnAccount(customerId, accountNumber);
-        return ResponseEntity.ok(portalService.reactivate(accountNumber));
     }
 
     /**

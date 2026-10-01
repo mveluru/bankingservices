@@ -7,7 +7,7 @@ paths:
 ---
 # Banking: REST conventions and OpenAPI sync
 
-- Base: context path `/brite`, port 8081. Versioned paths `/v1/...`. Resource nouns plural: `/accounts`, `/locations`. Actions on a resource are `POST /{id}/<verb>` (`/accounts/{n}/close`, `/suspend`, `/reactivate`); a partial update of a sub-resource is `PATCH` (`/accounts/{n}/suspension`); bulk is `POST /accounts/close`.
+- Base: context path `/brite`, port 8081. Versioned paths `/v1/...`. Resource nouns plural: `/accounts`, `/locations`. Actions on a resource are `POST /{id}/<verb>` (`/accounts/{n}/close` for customers; `/staff/accounts/{n}/suspend`, `/reactivate` for staff only); a partial update of a sub-resource is `PATCH` (`/staff/accounts/{n}/suspension`, staff only); bulk is `POST /accounts/close`. Customers have no suspend/update-suspension/reactivate route on either API.
 - Search = `GET` collection with optional filters + `Pageable` (`page`, `size`, `sort=field,dir`). Response is Spring's `Page` JSON. Default size 20; document valid sort keys.
 - Filter semantics: text case-insensitive equality; all filters AND'd; omitted filter = no restriction (except the documented `months` lookback default on account search).
 - JSON: ISO `yyyy-MM-dd` dates, `MM/dd/yyyy` only for `dateOfBirth`; enums as upper-case strings; money as numbers with decimal scale.
@@ -21,4 +21,4 @@ paths:
 3. Quote YAML flow-sequence items containing `,` and scalars containing `: `.
 4. Validate: `pip install openapi-spec-validator && openapi-spec-validator src/main/resources/static/openapi/banking-openapi.yaml`.
 5. Update the README endpoint table and sample `curl`.
-6. Staff/login paths use tags `Staff` and `Login`, the `EmployeeNumber` apiKey security scheme and the `EmployeeForbidden`/`LoginNotActive` responses; keep the `EmployeeRole`/`EmployeePrivilege`/`LoginStatus` enums equal to the Java enums.
+6. Staff/login paths use tags `Staff` and `Login`, the `BearerAuth` (employee) / `CustomerBearerAuth` (customer) http-bearer security schemes and the `Unauthorized`/`EmployeeForbidden`/`CustomerUnauthorized`/`CustomerForbidden` responses; keep the `EmployeeRole`/`EmployeePrivilege`/`LoginStatus` enums equal to the Java enums.

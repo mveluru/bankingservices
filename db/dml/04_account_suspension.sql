@@ -7,7 +7,7 @@
 USE db_example;
 
 -- -----------------------------------------------------------------------------
--- 1. Suspend (POST /v1/api/accounts/{accountNumber}/suspend)
+-- 1. Suspend (POST /v1/api/staff/accounts/{accountNumber}/suspend, staff only)
 --    ACTIVE -> SUSPENDED. @start defaults to now (must not be in the future); @end NULL = indefinite,
 --    otherwise it must be after @start and in the future. rows_updated = 0 => account missing,
 --    CLOSED, or already SUSPENDED (ROLLBACK / stop).
@@ -23,7 +23,7 @@ UPDATE accounts
 SELECT ROW_COUNT() AS rows_updated;
 
 -- -----------------------------------------------------------------------------
--- 2. Update the suspension (PATCH /v1/api/accounts/{accountNumber}/suspension)
+-- 2. Update the suspension (PATCH /v1/api/staff/accounts/{accountNumber}/suspension, staff only)
 --    Only supplied values change (NULL = keep). The new end must be after the stored start and in the
 --    future. rows_updated = 0 => not suspended, or the new end is invalid.
 -- -----------------------------------------------------------------------------
@@ -38,7 +38,7 @@ UPDATE accounts
 SELECT ROW_COUNT() AS rows_updated;
 
 -- -----------------------------------------------------------------------------
--- 3. Reactivate (POST /v1/api/accounts/{accountNumber}/reactivate)
+-- 3. Reactivate (POST /v1/api/staff/accounts/{accountNumber}/reactivate, staff only)
 --    SUSPENDED -> ACTIVE and the suspension fields are cleared. rows_updated = 0 => not suspended.
 -- -----------------------------------------------------------------------------
 SET @acct = 'CH-0000010001';

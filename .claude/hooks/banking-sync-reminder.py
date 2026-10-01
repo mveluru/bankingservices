@@ -53,6 +53,7 @@ if has("banking/domain/AccountStatusView.java") or has("banking/service/AccountS
 if has("banking/repository/AccountRepository.java", "banking/service/AccountSuspensionService.java", "banking/entity/AccountEntity.java"):
     notes.append(
         "Account lifecycle invariant: a SUSPENDED account must reject every withdraw/deposit (status and suspended flag written together). "
+        "Suspend/update-suspension/reactivate are staff-only (StaffController; no customer or portal route): do not re-add one. "
         "Keep .claude/rules/banking/account-lifecycle.md and the AccountRepositoryTest suspension tests in step.")
 
 if has("banking/service/Employee", "banking/service/Staff", "banking/service/LoginSupport", "banking/service/CustomerCredential",

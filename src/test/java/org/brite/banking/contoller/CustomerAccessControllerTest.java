@@ -10,7 +10,6 @@ import org.brite.banking.exception.BankingExceptionHandler;
 import org.brite.banking.gateway.CustomerAuthenticationFilter;
 import org.brite.banking.repository.AccountRepository;
 import org.brite.banking.service.AccountStatusStatementService;
-import org.brite.banking.service.AccountSuspensionService;
 import org.brite.banking.service.BankStatementService;
 import org.brite.banking.service.ClientAccountService;
 import org.brite.banking.service.CustomerAccessService;
@@ -48,7 +47,6 @@ class CustomerAccessControllerTest {
     private static final String DENIED = "Account CH-THEIRS does not belong to the authenticated customer";
 
     private ClientAccountService accountService;
-    private AccountSuspensionService suspensionService;
     private AccountStatusStatementService statusService;
     private BankStatementService statementService;
     private PortalOrchestrationService portalService;
@@ -57,7 +55,6 @@ class CustomerAccessControllerTest {
     @BeforeEach
     void setUp() {
         accountService = mock(ClientAccountService.class);
-        suspensionService = mock(AccountSuspensionService.class);
         statusService = mock(AccountStatusStatementService.class);
         statementService = mock(BankStatementService.class);
         portalService = mock(PortalOrchestrationService.class);
@@ -66,7 +63,7 @@ class CustomerAccessControllerTest {
         when(accounts.findCustomerIdByAccountNumber("CH-THEIRS")).thenReturn(Optional.of(6L));
         CustomerAccessService access = new CustomerAccessService(accounts);
         mockMvc = MockMvcBuilders.standaloneSetup(
-                        new ClientAccountController(accountService, statementService, statusService, suspensionService, access),
+                        new ClientAccountController(accountService, statementService, statusService, access),
                         new PortalController(portalService, access))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
@@ -104,15 +101,10 @@ class CustomerAccessControllerTest {
         mockMvc.perform(post("/v1/api/accounts/lookup").contentType(MediaType.APPLICATION_JSON).content("{\"accountNumber\":\"CH-THEIRS\"}"))
                 .andExpect(status().isForbidden());
         mockMvc.perform(post("/v1/api/accounts/CH-THEIRS/close")).andExpect(status().isForbidden());
-        mockMvc.perform(post("/v1/api/accounts/CH-THEIRS/suspend").contentType(MediaType.APPLICATION_JSON).content("{\"notes\":\"x\"}"))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(patch("/v1/api/accounts/CH-THEIRS/suspension").contentType(MediaType.APPLICATION_JSON).content("{\"notes\":\"x\"}"))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(post("/v1/api/accounts/CH-THEIRS/reactivate")).andExpect(status().isForbidden());
         mockMvc.perform(get("/v1/api/accounts/CH-THEIRS/statement").param("beginDate", "2026-09-01").param("endDate", "2026-09-30"))
                 .andExpect(status().isForbidden());
 
-        verifyNoInteractions(accountService, suspensionService, statementService);
+        verifyNoInteractions(accountService, statementService);
     }
 
     @Test
@@ -136,7 +128,7 @@ class CustomerAccessControllerTest {
     @Test
     void withoutAnAuthenticatedCustomerEveryHandlerFailsClosedWith401() throws Exception {
         MockMvc noAuth = MockMvcBuilders.standaloneSetup(
-                        new ClientAccountController(accountService, statementService, statusService, suspensionService,
+                        new ClientAccountController(accountService, statementService, statusService,
                                 new CustomerAccessService(mock(AccountRepository.class))))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
@@ -154,9 +146,6 @@ class CustomerAccessControllerTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(post("/bff/v1/portal/accounts/deposit").contentType(MediaType.APPLICATION_JSON).content(deposit("CH-THEIRS")))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/bff/v1/portal/accounts/CH-THEIRS/suspend").contentType(MediaType.APPLICATION_JSON).content("{\"notes\":\"x\"}"))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(post("/bff/v1/portal/accounts/CH-THEIRS/reactivate")).andExpect(status().isForbidden());
         mockMvc.perform(post("/bff/v1/portal/accounts/CH-THEIRS/close")).andExpect(status().isForbidden());
         mockMvc.perform(post("/bff/v1/portal/accounts/CH-THEIRS/statement").param("beginDate", "2026-09-01").param("endDate", "2026-09-30"))
                 .andExpect(status().isForbidden());
@@ -164,5 +153,18 @@ class CustomerAccessControllerTest {
 
         mockMvc.perform(get("/bff/v1/portal/home").param("state", "TX"));
         verify(portalService).home("TX", 5L);
+    }
+
+    @Test
+    void suspendingUpdatingASuspensionAndReactivatingAreNotOfferedToCustomersOnEitherApi() throws Exception {
+        String suspendBody = "{\"notes\":\"x\"}";
+        // even on their own account: staff-only operations have no customer route (the staff endpoints are /v1/api/staff/accounts/...)
+        mockMvc.perform(post("/v1/api/accounts/CH-MINE/suspend").contentType(MediaType.APPLICATION_JSON).content(suspendBody)).andExpect(status().isNotFound());
+        mockMvc.perform(patch("/v1/api/accounts/CH-MINE/suspension").contentType(MediaType.APPLICATION_JSON).content(suspendBody)).andExpect(status().isNotFound());
+        mockMvc.perform(post("/v1/api/accounts/CH-MINE/reactivate")).andExpect(status().isNotFound());
+        mockMvc.perform(post("/bff/v1/portal/accounts/CH-MINE/suspend").contentType(MediaType.APPLICATION_JSON).content(suspendBody)).andExpect(status().isNotFound());
+        mockMvc.perform(patch("/bff/v1/portal/accounts/CH-MINE/suspension").contentType(MediaType.APPLICATION_JSON).content(suspendBody)).andExpect(status().isNotFound());
+        mockMvc.perform(post("/bff/v1/portal/accounts/CH-MINE/reactivate")).andExpect(status().isNotFound());
+        verifyNoInteractions(accountService, portalService);
     }
 }
