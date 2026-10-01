@@ -21,7 +21,8 @@ import java.util.Set;
 
 /**
  * Requires a valid employee JWT ({@code Authorization: Bearer <token>} from {@code POST /v1/api/staff/login}) on every
- * staff endpoint except the login and the two password-reset calls (the user can't log in). On success the token's subject (the employee number) is placed in the
+ * staff endpoint (the banking {@code /v1/api/staff/*} API and the staff portal {@code /bff/v1/staff/*}) except the login and the two
+ * password-reset calls (the user can't log in). On success the token's subject (the employee number) is placed in the
  * request attribute {@link #EMPLOYEE_ATTRIBUTE}, which is the only place the staff controllers take the acting
  * employee from - there is no header to forge any more. A token issued before the employee's password last changed
  * (a password reset) is refused.
@@ -37,7 +38,9 @@ import java.util.Set;
 public class StaffAuthenticationFilter extends OncePerRequestFilter {
     public static final String EMPLOYEE_ATTRIBUTE = "banking.authenticatedEmployee";
     /** Method + path (inside the context path) of the endpoints that can't need a token: the user has none yet. */
-    static final Set<String> OPEN = Set.of("POST /v1/api/staff/login", "POST /v1/api/staff/password-reset/questions", "POST /v1/api/staff/password-reset");
+    static final Set<String> OPEN = Set.of("POST /v1/api/staff/login", "POST /v1/api/staff/password-reset/questions", "POST /v1/api/staff/password-reset",
+            "POST /bff/v1/staff/login", "GET /bff/v1/staff/security-questions/catalog",
+            "POST /bff/v1/staff/password-reset/questions", "POST /bff/v1/staff/password-reset");
     private static final String BEARER = "bearer ";
 
     private final JwtService jwtService;

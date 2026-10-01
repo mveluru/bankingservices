@@ -19,6 +19,7 @@ Work through the rows that apply, then run the verification commands. The rules 
 | Withdraw/deposit or any new transaction type | closed **and suspended** guards before balance checks in `AccountRepository`, plus a test for each |
 | A user-visible or log string | a constant in `BankingMessages` (no literals) |
 | A customer-facing banking endpoint added or changed (the BFF must mirror it) |  `PortalController`/`PortalAuthController` + DTOs, OpenAPI `Portal (BFF)` operations, README portal rows, `PortalCorsConfig` for a new verb/header, `CustomerAuthenticationFilter.OPEN` for a no-token path; staff-only features are not mirrored; never expose the employee to customers |
+| A staff banking endpoint added or changed (the staff portal BFF mirrors it) | `StaffPortalController`/`StaffPortalAuthController` + services/DTOs, OpenAPI `Staff portal (BFF)` operations, README `/bff/v1/staff` rows, the staff filter's `OPEN` set for a no-token path, `PortalCorsConfig` for a new verb; the banking staff service runs before anything is built |
 | A BFF screen (`org.brite.banking.bff`) | DTO record, `PortalOrchestrationService`, OpenAPI tag `Portal (BFF)`, README, `PortalControllerTest` / `PortalOrchestrationServiceTest` |
 | Behavior described in CLAUDE.md | the matching CLAUDE.md section and rules file, in the same commit |
 

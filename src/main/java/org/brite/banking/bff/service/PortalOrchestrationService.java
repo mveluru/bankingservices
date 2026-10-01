@@ -197,6 +197,15 @@ public class PortalOrchestrationService {
                 t.getBankLocationName(), t.getBankLocationType(), t.getBankLocationCity(), t.getBankLocationState());
     }
 
+    /**
+     * One branch/ATM as a portal card, or null for a null id (an area manager has no branch).
+     *
+     * @throws org.brite.banking.exception.LocationNotFoundException (mapped to 404) if the id doesn't exist
+     */
+    public PortalLocation location(Long id) {
+        return id == null ? null : toLocation(locationService.getLocation(id));
+    }
+
     private PortalLocation toLocation(BankLocations l) {
         BankAddress a = l.getBankAddress();
         return new PortalLocation(l.getId(), l.getName(), l.getLocationType(),

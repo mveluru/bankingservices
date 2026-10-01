@@ -144,16 +144,18 @@ class StaffAuthenticationFilterTest {
 
     @Test
     void onlyTheLoginAndThePasswordResetCallsNeedNoToken() throws Exception {
-        for (String path : new String[]{"/v1/api/staff/login", "/v1/api/staff/password-reset/questions", "/v1/api/staff/password-reset"}) {
+        for (String path : new String[]{"/v1/api/staff/login", "/v1/api/staff/password-reset/questions", "/v1/api/staff/password-reset",
+                "/bff/v1/staff/login", "/bff/v1/staff/password-reset/questions", "/bff/v1/staff/password-reset", "/bff/v1/staff/security-questions/catalog"}) {
             MockHttpServletRequest open = request(path, null);
-            open.setMethod("POST");
+            open.setMethod(path.endsWith("/catalog") ? "GET" : "POST");
             MockFilterChain chain = new MockFilterChain();
             assertEquals(200, run(open, chain).getStatus(), path);
             assertNotNull(chain.getRequest(), path);
         }
 
         for (String path : new String[]{"/v1/api/staff/login/", "/v1/api/staff/loginx", "/v1/api/staff/employees/login", "/v1/api/staff/accounts/deposit",
-                "/v1/api/staff/security-questions", "/v1/api/staff/password-reset/other"}) {
+                "/v1/api/staff/security-questions", "/v1/api/staff/password-reset/other",
+                "/bff/v1/staff/password", "/bff/v1/staff/accounts/CH-1/overview", "/bff/v1/staff/employees", "/bff/v1/staff/login/", "/bff/v1/staff/password-reset/other"}) {
             MockFilterChain other = new MockFilterChain();
             assertEquals(401, run(request(path, null), other).getStatus(), path);
             assertNull(other.getRequest(), path);

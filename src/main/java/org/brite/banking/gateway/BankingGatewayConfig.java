@@ -29,6 +29,7 @@ public class BankingGatewayConfig {
     private static final String[] BANKING_URL_PATTERNS = {
             "/v1/api/accounts/*",
             "/v1/api/staff/*",
+            "/bff/v1/staff/*",
             "/v1/api/customers/*",
             "/v1/api/locations",
             "/v1/api/locations/*",
@@ -73,7 +74,7 @@ public class BankingGatewayConfig {
         registration.setFilter(new StaffAuthenticationFilter(jwtService, employeeCredentialService));
         registration.setName("staffAuthenticationFilter");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 2);
-        registration.addUrlPatterns("/v1/api/staff/*");
+        registration.addUrlPatterns("/v1/api/staff/*", "/bff/v1/staff/*");
         return registration;
     }
 
