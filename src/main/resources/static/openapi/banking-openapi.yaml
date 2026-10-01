@@ -55,6 +55,8 @@ tags:
     description: Suspend, update and reactivate accounts. A suspended account can't transact.
   - name: Locations
     description: Bank offices and ATMs.
+  - name: Staff
+    description: Employee-facing endpoints. The acting employee (`X-Employee-Number`) must hold the privilege for the action; privileges come from the role (`TELLER` < `MANAGER` < `AREA_MANAGER`).
   - name: Portal (BFF)
     description: Screen-shaped endpoints for the banking UI portal; compose the account and location services in one call.
   - name: Clients
@@ -777,6 +779,306 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/staff/accounts/withdraw:
+    post:
+      tags: [Staff]
+      operationId: staffWithdraw
+      summary: Withdraw as an employee
+      description: |
+        Requires the `WITHDRAW` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/EmployeeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/WithdrawalRequest'}
+      responses:
+        '200':
+          description: The updated account.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee or account. Plain-text body.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/accounts/deposit:
+    post:
+      tags: [Staff]
+      operationId: staffDeposit
+      summary: Deposit as an employee
+      description: |
+        Requires the `DEPOSIT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/EmployeeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DepositForm'}
+      responses:
+        '200':
+          description: The updated account.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee or account. Plain-text body.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/accounts/{accountNumber}/suspend:
+    post:
+      tags: [Staff]
+      operationId: staffSuspendAccount
+      summary: Suspend an account as an employee
+      description: |
+        Requires the `SUSPEND_ACCOUNT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+        - $ref: '#/components/parameters/EmployeeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SuspendAccountRequest'}
+      responses:
+        '200':
+          description: The updated account.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee or account. Plain-text body.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/accounts/{accountNumber}/suspension:
+    patch:
+      tags: [Staff]
+      operationId: staffUpdateSuspension
+      summary: Update a suspension as an employee
+      description: |
+        Requires the `UPDATE_SUSPENSION` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+        - $ref: '#/components/parameters/EmployeeHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/UpdateSuspensionRequest'}
+      responses:
+        '200':
+          description: The updated account.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee or account. Plain-text body.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/accounts/{accountNumber}/reactivate:
+    post:
+      tags: [Staff]
+      operationId: staffReactivateAccount
+      summary: Reactivate an account as an employee
+      description: |
+        Requires the `REACTIVATE_ACCOUNT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+        - $ref: '#/components/parameters/EmployeeHeader'
+      responses:
+        '200':
+          description: The updated account.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee or account. Plain-text body.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/accounts/{accountNumber}/close:
+    post:
+      tags: [Staff]
+      operationId: staffCloseAccount
+      summary: Close an account as an employee
+      description: |
+        Requires the `CLOSE_ACCOUNT` privilege. On success it delegates to the same rule set as the matching customer endpoint, so its business errors apply too.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/AccountNumberPath'
+        - $ref: '#/components/parameters/EmployeeHeader'
+      responses:
+        '200':
+          description: The updated account.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Account'}
+        '400':
+          description: Missing `X-Employee-Number` (plain text), a failed validation (JSON) or a business rule (plain text).
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee or account. Plain-text body.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/employees:
+    get:
+      tags: [Staff]
+      operationId: listEmployees
+      summary: List employees
+      description: |
+        Requires `MANAGE_EMPLOYEES` (area managers). Optional `role` filter; sortable by `lastName` (default), `firstName`, `employeeNumber`, `role`, `hireDate`; default `size=20`.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/EmployeeHeader'
+        - name: role
+          in: query
+          required: false
+          schema: {$ref: '#/components/schemas/EmployeeRole'}
+        - {name: page, in: query, required: false, schema: {type: integer, minimum: 0, default: 0}}
+        - {name: size, in: query, required: false, schema: {type: integer, minimum: 1, default: 20}}
+        - {name: sort, in: query, required: false, schema: {type: string}, example: 'lastName,asc'}
+      responses:
+        '200':
+          description: A Spring Data page of employee profiles (`content` holds `Employee` objects).
+          content:
+            application/json:
+              schema: {type: object}
+        '400':
+          description: Missing `X-Employee-Number` or an unsupported `sort` property. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown acting employee. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/employees/{employeeNumber}:
+    get:
+      tags: [Staff]
+      operationId: getEmployee
+      summary: Get one employee profile
+      description: |
+        An employee can read their own profile; reading anyone else's requires `MANAGE_EMPLOYEES`.
+      security:
+        - CustomerId: []
+          EmployeeNumber: []
+      parameters:
+        - $ref: '#/components/parameters/EmployeeHeader'
+        - name: employeeNumber
+          in: path
+          required: true
+          schema: {type: string}
+          example: EMP-000010
+      responses:
+        '200':
+          description: The employee profile, including the privileges derived from the role.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Employee'}
+        '400':
+          description: Missing `X-Employee-Number`. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown acting employee or employee. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/portal/home:
     get:
       tags: [Portal (BFF)]
@@ -1190,7 +1492,23 @@ components:
         (`banking.rate-limit.customer-header-name`) and the check can be turned off with
         `banking.rate-limit.enabled: false`.
 
+    EmployeeNumber:
+      type: apiKey
+      in: header
+      name: X-Employee-Number
+      description: |
+        Employee number of the acting employee (e.g. `EMP-000010`). Like `X-Customer-Id` it is a
+        claimed identity, **not** authentication: it selects whose role privileges are enforced,
+        but nothing proves the caller is that employee.
+
   parameters:
+    EmployeeHeader:
+      name: X-Employee-Number
+      in: header
+      required: true
+      description: Employee number of the acting employee; their role decides what is allowed.
+      schema: {type: string}
+      example: EMP-000010
     AccountNumberPath:
       name: accountNumber
       in: path
@@ -1247,6 +1565,16 @@ components:
         text/plain:
           schema: {type: string}
           example: 'Bank location not found: 999'
+    EmployeeForbidden:
+      description: The acting employee is not ACTIVE, or their role lacks the required privilege. Plain-text body.
+      content:
+        text/plain:
+          schema: {type: string}
+          examples:
+            privilege:
+              value: 'Employee EMP-000010 (TELLER) is not authorized: requires SUSPEND_ACCOUNT'
+            onLeave:
+              value: Employee EMP-000016 is ON_LEAVE and cannot perform this action
     TooManyRequests:
       description: >-
         The calling customer's daily quota (`banking.rate-limit.requests-per-day`) is
@@ -1277,6 +1605,38 @@ components:
       schema: {type: integer}
 
   schemas:
+    EmployeeRole:
+      type: string
+      enum: [TELLER, MANAGER, AREA_MANAGER]
+      description: |
+        `TELLER`: VIEW_ACCOUNT, DEPOSIT, WITHDRAW. `MANAGER`: plus SUSPEND_ACCOUNT, UPDATE_SUSPENSION,
+        REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS. `AREA_MANAGER`: plus MANAGE_EMPLOYEES.
+
+    EmployeePrivilege:
+      type: string
+      enum: [VIEW_ACCOUNT, DEPOSIT, WITHDRAW, SUSPEND_ACCOUNT, UPDATE_SUSPENSION, REACTIVATE_ACCOUNT, CLOSE_ACCOUNT, VIEW_BRANCH_REPORTS, MANAGE_EMPLOYEES]
+
+    Employee:
+      type: object
+      properties:
+        id: {type: integer, format: int64}
+        employeeNumber: {type: string, example: EMP-000010}
+        firstName: {type: string}
+        lastName: {type: string}
+        email: {type: string}
+        phoneNumber: {type: string, example: 512-555-0210}
+        role: {$ref: '#/components/schemas/EmployeeRole'}
+        jobTitle: {type: string}
+        status: {type: string, enum: [ACTIVE, ON_LEAVE, TERMINATED]}
+        hireDate: {type: string, format: date}
+        bankLocationId: {type: integer, format: int64, nullable: true, description: Branch; null for area managers.}
+        region: {type: string, nullable: true, description: Area covered; set for area managers.}
+        supervisorId: {type: integer, format: int64, nullable: true}
+        privileges:
+          type: array
+          description: Derived from `role`.
+          items: {$ref: '#/components/schemas/EmployeePrivilege'}
+
     AccountType:
       type: string
       description: >-

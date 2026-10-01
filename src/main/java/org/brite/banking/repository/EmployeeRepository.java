@@ -5,6 +5,8 @@ import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.entity.EmployeeEntity;
 import org.brite.banking.repository.jpa.EmployeeJpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,6 +25,14 @@ public class EmployeeRepository {
     public List<Employee> findByRole(EmployeeRole role) {
         return employeeJpaRepository.findByRoleOrderByLastNameAscFirstNameAsc(role).stream()
                 .map(EmployeeRepository::toDomain).toList();
+    }
+
+    /** All employees, or only those with {@code role} when it is non-null. */
+    public Page<Employee> search(EmployeeRole role, Pageable pageable) {
+        Page<EmployeeEntity> page = role == null
+                ? employeeJpaRepository.findAll(pageable)
+                : employeeJpaRepository.findByRole(role, pageable);
+        return page.map(EmployeeRepository::toDomain);
     }
 
     static Employee toDomain(EmployeeEntity e) {

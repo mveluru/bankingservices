@@ -22,6 +22,11 @@ public final class BankingMessages {
     public static final String SUSPENSION_END_NOT_AFTER_START = "Suspension end (%s) must be after suspension start (%s)";
     public static final String SUSPENSION_END_IN_PAST = "Suspension end (%s) must be in the future";
     public static final String SUSPENSION_UPDATE_EMPTY = "Provide notes and/or endDateTime to update the suspension";
+    public static final String EMPLOYEE_HEADER_REQUIRED = "Header %s with the acting employee number is required";
+    public static final String EMPLOYEE_NOT_FOUND = "Employee not found: %s";
+    public static final String EMPLOYEE_NOT_ACTIVE = "Employee %s is %s and cannot perform this action";
+    public static final String EMPLOYEE_NOT_AUTHORIZED = "Employee %s (%s) is not authorized: requires %s";
+    public static final String UNSUPPORTED_EMPLOYEE_SORT_PROPERTY = "Unsupported sort property: %s (supported: lastName, firstName, employeeNumber, role, hireDate)";
     public static final String PORTAL_ACTIVITY_DAYS_INVALID = "days must be between 1 and %d";
     public static final String LOCATION_NOT_FOUND = "Bank location not found: %s";
     public static final String ACCOUNT_CLOSED = "Account %s is closed and cannot be used for transactions";
@@ -103,9 +108,14 @@ public final class BankingMessages {
     public static final String LOG_STATEMENT_REJECTED_DATE_ORDER = "Statement rejected for account {}: end date {} is before begin date {}";
     public static final String LOG_STATEMENT_GENERATED = "Generated statement for account {}: {} transactions between {} and {}";
 
+    // StaffAccountService log messages
+    public static final String LOG_STAFF_ACTION = "Employee {} ({}) performed {} on account {}";
+
     // BankingExceptionHandler log messages
     public static final String LOG_HANDLER_ACCOUNT_NOT_FOUND = "Account not found: {}";
     public static final String LOG_HANDLER_LOCATION_NOT_FOUND = "Bank location not found: {}";
+    public static final String LOG_HANDLER_EMPLOYEE_NOT_FOUND = "Employee not found: {}";
+    public static final String LOG_HANDLER_EMPLOYEE_NOT_AUTHORIZED = "Employee not authorized: {}";
     public static final String LOG_HANDLER_ACCOUNT_CLOSED = "Account closed: {}";
     public static final String LOG_HANDLER_INSUFFICIENT_FUNDS = "Insufficient funds: {}";
     public static final String LOG_HANDLER_INVALID_REQUEST = "Invalid banking request: {}";

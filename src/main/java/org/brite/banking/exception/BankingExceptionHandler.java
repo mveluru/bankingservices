@@ -28,6 +28,24 @@ public class BankingExceptionHandler {
                 .body(ex.getMessage());
     }
 
+    @ExceptionHandler(EmployeeNotFoundException.class)
+    public ResponseEntity<String> handleEmployeeNotFound(
+            EmployeeNotFoundException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_EMPLOYEE_NOT_FOUND, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(EmployeeNotAuthorizedException.class)
+    public ResponseEntity<String> handleEmployeeNotAuthorized(
+            EmployeeNotAuthorizedException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_EMPLOYEE_NOT_AUTHORIZED, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(AccountClosedException.class)
     public ResponseEntity<String> handleAccountClosed(
             AccountClosedException ex) {
