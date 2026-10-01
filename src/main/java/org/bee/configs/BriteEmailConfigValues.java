@@ -1,4 +1,4 @@
-package org.bee.configs.config;
+package org.bee.configs;
 
 import lombok.Getter;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -15,7 +15,7 @@ A Spring Boot 3 REST application demonstrating configuration properties binding 
 - **Bank Statement**: `/v1/api/accounts/{accountNumber}/statement` returns an account's deposit/withdrawal history for a given date range, capped by a configurable maximum range in months.
 - **Resilience Demo**: `/v1/payment/process` demonstrates a Resilience4j circuit breaker with jittered exponential-backoff retry around a simulated flaky downstream call.
 - **Event Ingestion**: `/api/events` accepts versioned event payloads validated against a JSON Schema (`event-v1.json`) and persisted via Spring Data JPA.
-- **API Versioning Demo**: `/apiversion` illustrates URI-, query-param-, header-, and content-negotiation-based API versioning strategies.
+- **API Versioning Demo**: moved to the separate `restapiversionservice` project (`/apiversion`, port 8084).
 - **Actuator Monitoring**: Integrated Spring Boot Actuator exposing health status under `/actuator/health`.
 - **Endpoint Execution-Time Logging**: A Spring AOP `@Aspect` (`ExecutionTimeLoggingAspect`, `org.bee.common.logging`) wraps every `@RestController` method app-wide and logs its execution time in milliseconds — no code changes needed per controller.
 - **Account Search Caching**: `GET /v1/api/accounts` results are cached for 10 minutes via Spring's `@Cacheable` (Caffeine, `spring.cache.caffeine.spec: expireAfterWrite=10m`), evicted whenever an account is registered or closed.
@@ -197,18 +197,6 @@ Raw Spring Data repositories live in `org.bee.banking.repository.jpa` (`AccountJ
 | :--- | :--- | :--- |
 | `GET` | `/v1/sample/spl?item={item}` | Looks up a sample item count by name (e.g. `Mac`, `Dell`, `IBM`) |
 
-### API versioning demo — `/apiversion`
-
-| Method | Endpoint Path | Description |
-| :--- | :--- | :--- |
-| `GET` | `/apiversion/v1/api` | Versioning via URI path (v1) |
-| `GET` | `/apiversion/v2/api` | Versioning via URI path (v2) |
-| `GET` | `/apiversion/api?v1` | Versioning via request parameter (v1) |
-| `GET` | `/apiversion/api?v2` | Versioning via request parameter (v2) |
-| `GET` | `/apiversion/api` (header `X-API-VERSION: 1`) | Versioning via custom header (v1) |
-| `GET` | `/apiversion/api` (header `X-API-VERSION: 2`) | Versioning via custom header (v2) |
-| `GET` | `/apiversion/api` (`Accept: application/vnd.company.app-v1+json`) | Versioning via content negotiation (v1) |
-| `GET` | `/apiversion/api` (`Accept: application/vnd.company.app-v2+json`) | Versioning via content negotiation (v2) |
 
 ### Monitoring
 
@@ -359,9 +347,6 @@ curl -s -X POST http://localhost:8081/brite/api/events \
         "version":"v1","eventId":"evt_123abc","timestamp":"2026-09-17T10:00:00Z",
         "payload":{"userId":"u123","email":"user@example.com"}
       }'
-
-# API Versioning via URI Path
-curl -s http://localhost:8081/brite/apiversion/v1/api
 
 # Sample Item Lookup
 curl -s "http://localhost:8081/brite/v1/sample/spl?item=Mac"
