@@ -62,7 +62,7 @@ class CustomerPortalControllerTest {
     @Test
     void overviewBindsDaysAndReturnsJson() throws Exception {
         when(service.overview("CH-0000088291", 7)).thenReturn(new AccountOverviewResponse("CH-0000088291", AccountType.CHECKING,
-                AccountStatus.ACTIVE, new BigDecimal("500.00"), false, null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", 7, List.of()));
+                AccountStatus.ACTIVE, new BigDecimal("500.00"), false, null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", null, 7, List.of()));
 
         mockMvc.perform(get("/bff/v1/portal/accounts/CH-0000088291/overview").param("days", "7"))
                 .andExpect(status().isOk())
@@ -95,7 +95,7 @@ class CustomerPortalControllerTest {
     @Test
     void closeReturnsTheRefreshedOverview() throws Exception {
         when(service.close("CH-0000010001")).thenReturn(new AccountOverviewResponse("CH-0000010001", AccountType.CHECKING,
-                AccountStatus.CLOSED, BigDecimal.ZERO, false, null, LocalDate.of(2026, 1, 5), LocalDate.of(2026, 9, 30), "Ada", "Lovelace", "***-***-0101", 30, List.of()));
+                AccountStatus.CLOSED, BigDecimal.ZERO, false, null, LocalDate.of(2026, 1, 5), LocalDate.of(2026, 9, 30), "Ada", "Lovelace", "***-***-0101", null, 30, List.of()));
 
         mockMvc.perform(post("/bff/v1/portal/accounts/CH-0000010001/close"))
                 .andExpect(status().isOk())

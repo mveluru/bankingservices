@@ -1,5 +1,7 @@
 package org.brite.banking.bff;
 
+import org.brite.banking.domain.Address;
+import org.brite.banking.bff.dto.HolderAddress;
 import org.brite.banking.bff.config.PortalProperties;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
 import org.brite.banking.bff.dto.OpenAccountResponse;
@@ -39,6 +41,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -135,6 +138,22 @@ class PortalOrchestrationServiceTest {
         assertEquals(30, overview.activityDays());
         assertEquals(2, overview.recentActivity().size());
         assertEquals(new BigDecimal("20.00"), overview.recentActivity().get(0).amount());
+    }
+
+    @Test
+    void overviewIncludesTheHoldersAddressForPrefillingAndIsNullSafe() {
+        Account withAddress = checking("CH-0000088291", new BigDecimal("500.00"));
+        withAddress.getCustomer().setAddress(Address.builder().street("12 Oak St").addressLine1("Apt 4").addressLine2("Rear").city("Austin").state("TX").zip("78701").build());
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(withAddress));
+        when(transactionRepository.findByAccountNumber(any())).thenReturn(List.of());
+
+        HolderAddress address = service.overview("CH-0000088291", null).holderAddress();
+
+        assertEquals(new HolderAddress("12 Oak St", "Apt 4", "Rear", "Austin", "TX", "78701", "USA"), address);
+
+        // A customer with no address on file gives null, not an error.
+        when(clientAccountService.lookupAccountDetails(any())).thenReturn(Optional.of(checking("CH-0000088291", new BigDecimal("500.00"))));
+        assertNull(service.overview("CH-0000088291", null).holderAddress());
     }
 
     @Test

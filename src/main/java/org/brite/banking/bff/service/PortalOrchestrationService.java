@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.brite.banking.bff.config.PortalProperties;
 import org.brite.banking.bff.dto.AccountOverviewResponse;
+import org.brite.banking.bff.dto.HolderAddress;
 import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalAccountSummary;
 import org.brite.banking.bff.dto.PortalActivityItem;
@@ -180,6 +181,7 @@ public class PortalOrchestrationService {
                 a.getCreatedDate(), a.getClosedDate(),
                 c == null ? null : c.getFirstName(), c == null ? null : c.getLastName(),
                 c == null ? null : maskPhone(c.getPhoneNumber()),
+                c == null ? null : HolderAddress.of(c.getAddress()),
                 days, activity);
     }
 

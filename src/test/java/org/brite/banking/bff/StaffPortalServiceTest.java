@@ -49,7 +49,7 @@ class StaffPortalServiceTest {
 
     private static AccountOverviewResponse overviewOf(String number) {
         return new AccountOverviewResponse(number, AccountType.CHECKING, AccountStatus.ACTIVE, new BigDecimal("75.00"), false, null,
-                LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", 30, List.of());
+                LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", null, 30, List.of());
     }
 
     @BeforeEach

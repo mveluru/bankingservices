@@ -62,7 +62,7 @@ class StaffPortalControllerTest {
 
     private static AccountOverviewResponse overview(AccountStatus status) {
         return new AccountOverviewResponse("CH-0000010001", AccountType.CHECKING, status, new BigDecimal("75.00"), status == AccountStatus.SUSPENDED,
-                null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", 30, List.of());
+                null, LocalDate.of(2026, 1, 5), null, "Ada", "Lovelace", "***-***-0101", null, 30, List.of());
     }
 
     private MockMvc build(StaffPortalService portal, jakarta.servlet.Filter... filters) {

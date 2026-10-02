@@ -4369,10 +4369,26 @@ components:
           nullable: true
           description: Only the last four digits are shown (`***-***-0101`); null if no phone is on file. The BFF never returns the full number.
           example: '***-***-0101'
+        holderAddress:
+          allOf:
+            - $ref: '#/components/schemas/HolderAddress'
+          nullable: true
+          description: The account holder's address on file (null if none), so the portal can pre-fill a withdraw or deposit and a teller can confirm it. Returned only to the owning customer's token or to an employee with `VIEW_ACCOUNT`.
         activityDays: {type: integer, description: Window actually applied.}
         recentActivity:
           type: array
           items: {$ref: '#/components/schemas/PortalActivityItem'}
+    HolderAddress:
+      type: object
+      description: The account holder's address on file (never masked, never logged).
+      properties:
+        street: {type: string, example: 12 Oak St}
+        addressLine1: {type: string, example: Apt 4}
+        addressLine2: {type: string, nullable: true}
+        city: {type: string, example: Austin}
+        state: {type: string, example: TX, description: Two uppercase letters.}
+        zip: {type: string, example: '78701', description: Five digits.}
+        country: {type: string, nullable: true, example: USA}
     PortalHomeResponse:
       type: object
       properties:
