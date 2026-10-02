@@ -582,4 +582,32 @@ class AccountRepositoryTest {
         assertThat(accountRepository.search(null, null, null, null, null, null, null, PageRequest.of(0, 10)).getTotalElements()).isEqualTo(2);
         assertThat(accountRepository.findCustomerIdByAccountNumber(mine.getCheckingAccountNumber())).contains(myCustomerId);
     }
+
+    @Test
+    void inactiveAndDormantAccountsRejectWithdrawAndDepositAndLeaveTheBalanceUnchanged() {
+        for (AccountStatus status : new AccountStatus[]{AccountStatus.INACTIVE, AccountStatus.DORMANT}) {
+            Account account = newCheckingAccount();
+            account.setAccountStatus(status);
+            String number = accountRepository.save(account).getCheckingAccountNumber();
+
+            assertThatThrownBy(() -> accountRepository.withdraw(number, AccountType.CHECKING, new BigDecimal("10.00")))
+                    .isInstanceOf(org.brite.banking.exception.AccountNotActiveException.class)
+                    .hasMessageContaining(status.name()).hasMessageContaining("customer support");
+            assertThatThrownBy(() -> accountRepository.deposit(number, AccountType.CHECKING, new BigDecimal("10.00")))
+                    .isInstanceOf(org.brite.banking.exception.AccountNotActiveException.class);
+            assertThat(accountRepository.findByAccountNumber(number).orElseThrow().getCheckingBalance()).isEqualByComparingTo("0.00");
+        }
+    }
+
+    @Test
+    void theStatusesOfEveryAccountACustomerOwnsAreReturnedForTheLoginRule() {
+        Account active = newCheckingAccount();
+        String number = accountRepository.save(active).getCheckingAccountNumber();
+        Long customerId = accountRepository.findCustomerIdByAccountNumber(number).orElseThrow();
+
+        assertThat(accountRepository.findStatusesByCustomerId(customerId)).containsExactly(AccountStatus.ACTIVE);
+        accountRepository.closeAccount(number);
+        assertThat(accountRepository.findStatusesByCustomerId(customerId)).containsExactly(AccountStatus.CLOSED);
+        assertThat(accountRepository.findStatusesByCustomerId(-1L)).isEmpty();
+    }
 }

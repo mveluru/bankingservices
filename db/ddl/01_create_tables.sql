@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     suspended_start datetime(6),
     version bigint,
     account_number varchar(20) not null,
-    account_status enum ('ACTIVE','CLOSED','SUSPENDED'),
+    account_status enum ('ACTIVE','CLOSED','DORMANT','INACTIVE','SUSPENDED'),
     suspension_notes varchar(500),
     account_type enum ('CHECKING','CREDIT_OR_LOAN','INVESTMENT','RETIREMENT','SAVINGS'),
     primary key (id)

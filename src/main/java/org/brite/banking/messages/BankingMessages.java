@@ -62,6 +62,12 @@ public final class BankingMessages {
     public static final String EMPLOYEE_HAS_LOGIN = "Employee %s already has a login";
     public static final String PORTAL_ACTIVITY_DAYS_INVALID = "days must be between 1 and %d";
     public static final String LOCATION_NOT_FOUND = "Bank location not found: %s";
+    public static final String ACCOUNT_NOT_ACTIVE = "Account %s is %s and cannot be used for transactions; please contact the customer support service";
+    public static final String LOGIN_BLOCKED_BY_ACCOUNT_STATUS = "Sign-in is not available: your account status is %s. Please contact the customer support service.";
+    public static final String LOG_LOGIN_BLOCKED_BY_ACCOUNT_STATUS = "Customer {} can't sign in: no ACTIVE account (statuses {})";
+    public static final String LOG_TRANSACTION_REJECTED_NOT_ACTIVE = "Transaction rejected: account {} is {}";
+    public static final String LOG_HANDLER_ACCOUNT_NOT_ACTIVE = "Account not active: {}";
+    public static final String LOG_HANDLER_LOGIN_BLOCKED = "Sign-in blocked by account status: {}";
     public static final String ACCOUNT_CLOSED = "Account %s is closed and cannot be used for transactions";
     public static final String ACCOUNT_ALREADY_CLOSED = "Account %s is already closed";
     public static final String UNSUPPORTED_SORT_PROPERTY = "Unsupported sort property: %s (supported: createdDate, closedDate, accountStatus, accountNumber)";

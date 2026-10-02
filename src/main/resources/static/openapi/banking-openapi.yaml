@@ -1346,10 +1346,14 @@ paths:
               schema: {type: string}
               example: Invalid username or password
         '403':
-          description: Right password but the login is `INACTIVE`/`SUSPENDED`. Plain text.
+          description: >-
+            Right password but the login is `INACTIVE`/`SUSPENDED`, **or** none of the customer's accounts is `ACTIVE` (all are `SUSPENDED`,
+            `CLOSED`, `INACTIVE` or `DORMANT`): the message names the account status and says to contact the customer support service.
+            Checked only after the password is verified, so a wrong password never reveals an account status. Plain text.
           content:
             text/plain:
               schema: {type: string}
+              example: 'Sign-in is not available: your account status is CLOSED. Please contact the customer support service.'
         '423':
           description: The login is `LOCKED`. Plain text.
           content:
@@ -1959,10 +1963,13 @@ paths:
             text/plain:
               schema: {type: string}
         '403':
-          description: Right password but the login is `INACTIVE` or `SUSPENDED`.
+          description: >-
+            Right password but the login is `INACTIVE` or `SUSPENDED`, or none of the customer's accounts is `ACTIVE` (all `SUSPENDED`, `CLOSED`,
+            `INACTIVE` or `DORMANT`): the message names the account status and says to contact the customer support service. Same as the banking login.
           content:
             text/plain:
               schema: {type: string}
+              example: 'Sign-in is not available: your account status is SUSPENDED. Please contact the customer support service.'
         '423':
           description: The login is `LOCKED`.
           content:
@@ -2207,7 +2214,7 @@ paths:
       summary: Your own daily request usage and logins today
       description: |
         Requires the employee token; the employee is the token's, so it only ever returns the caller's own row (no privilege needed, unlike an
-        administrator reading someone else's at `GET /bff/v1/staff/employees/{employeeNumber}/rate-limit`). Returns the limit that applies today
+        administrator reading someone else's at `GET /bff/v1/staff/employees/{employeeNumber}/rate-limit`; the employee must be `ACTIVE` with an `ACTIVE` login). Returns the limit that applies today
         (the employee's own `customLimit`, else the `defaultLimit` from `banking.rate-limit.employee-requests-per-day`) and today's usage: requests
         counted against the token and successful logins (`loginsToday`). This request counts as one. `Cache-Control: no-store`.
       security:
@@ -3852,10 +3859,13 @@ components:
 
     AccountStatus:
       type: string
-      enum: [ACTIVE, SUSPENDED, CLOSED]
+      enum: [ACTIVE, SUSPENDED, CLOSED, INACTIVE, DORMANT]
       description: |
         `SUSPENDED` accounts reject every withdraw and deposit until reactivated (or until
-        `suspendedEnd` passes and the expiry job reactivates them). `CLOSED` is final.
+        `suspendedEnd` passes and the expiry job reactivates them). `CLOSED` is final. `INACTIVE` and `DORMANT` also reject every withdraw
+        and deposit (`400`, "contact the customer support service"); nothing sets them through the API (they are set in the database), and no
+        endpoint reactivates them. A customer whose accounts are **all** `SUSPENDED`, `CLOSED`, `INACTIVE` or `DORMANT` cannot sign in (see the
+        customer login `403`); one `ACTIVE` account is enough.
 
     TransactionType:
       type: string

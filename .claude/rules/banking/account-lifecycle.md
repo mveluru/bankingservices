@@ -21,6 +21,7 @@ paths:
 |---|---|---|---|---|---|
 | ACTIVE | allowed | ok | 400 not suspended | 400 not suspended | ok |
 | SUSPENDED | **400 `AccountSuspendedException`** | 400 already suspended | ok | ok | ok (clears suspension) |
+| INACTIVE / DORMANT | **400 `AccountNotActiveException`** ("contact the customer support service") | n/a: set by hand (SQL); suspend/close still work from them, no reactivate endpoint | | | ok |
 | CLOSED | 400 `AccountClosedException` | 400 closed | 400 not suspended | 400 not suspended | 400 already closed |
 
 ## Invariants
@@ -42,3 +43,7 @@ paths:
 3. Seed data: new seeders are idempotent per account number (see `AccountStatusDemoSeeder`), keep dates relative, keep numbers `CH-`/`SV-` + 10 digits, and mirror them in `db/data/`.
 4. `banking-openapi.yaml` (enum, schemas, paths, plain-text error examples), README endpoint table, CLAUDE.md "Account suspension".
 5. Tests: facade state rules on H2, service window rules, controller binding/error mapping, seeder counts.
+
+## Account status and sign-in
+- A customer can sign in only while at least one of their accounts is ACTIVE: when every account is SUSPENDED, CLOSED, INACTIVE or DORMANT, `LoginService.customerLogin` throws `AccountHolderLoginBlockedException` (`403`, names the status, "contact the customer support service"). The check runs after the password is verified (never reveal a status to a wrong password), before the token is issued and before the login is counted; no accounts = not blocked; staff aren't affected; an issued token isn't revoked (add the check to `CustomerAuthenticationFilter` if that is ever wanted).
+- INACTIVE and DORMANT are database-set statuses (`db/dml/07_account_inactive_dormant.sql`); adding another value needs the enum migration, `ddl/01`, the OpenAPI enum and a guard next to the closed/suspended ones in `AccountRepository`.

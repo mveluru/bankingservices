@@ -109,6 +109,24 @@ public class BankingExceptionHandler {
                 .body(ex.getMessage());
     }
 
+    @ExceptionHandler(AccountNotActiveException.class)
+    public ResponseEntity<String> handleAccountNotActive(
+            AccountNotActiveException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_ACCOUNT_NOT_ACTIVE, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(ex.getMessage());
+    }
+
+    @ExceptionHandler(AccountHolderLoginBlockedException.class)
+    public ResponseEntity<String> handleLoginBlocked(
+            AccountHolderLoginBlockedException ex) {
+        log.warn(BankingMessages.LOG_HANDLER_LOGIN_BLOCKED, ex.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ex.getMessage());
+    }
+
     @ExceptionHandler(AccountSuspendedException.class)
     public ResponseEntity<String> handleAccountSuspended(
             AccountSuspendedException ex) {

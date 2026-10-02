@@ -10,6 +10,7 @@ import org.brite.banking.exception.EmployeeLockedException;
 import org.brite.banking.exception.InvalidCredentialsException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.service.CustomerCredentialService;
+import org.brite.banking.repository.AccountRepository;
 import org.brite.banking.service.CustomerQuotaService;
 import org.brite.banking.service.EmployeeQuotaService;
 import org.brite.banking.rules.JwtProperties;
@@ -42,6 +43,7 @@ class LoginControllerTest {
     private JwtService jwtService;
     private CustomerQuotaService quotaService;
     private EmployeeQuotaService employeeQuotaService;
+    private AccountRepository accountRepository;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -53,7 +55,8 @@ class LoginControllerTest {
         jwtService = new JwtService(properties);
         quotaService = mock(CustomerQuotaService.class);
         employeeQuotaService = mock(EmployeeQuotaService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(new LoginService(employeeService, customerService, jwtService, quotaService, employeeQuotaService)))
+        accountRepository = mock(AccountRepository.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(new LoginService(employeeService, customerService, jwtService, quotaService, employeeQuotaService, accountRepository)))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))
@@ -161,5 +164,21 @@ class LoginControllerTest {
         mockMvc.perform(post("/v1/api/staff/login").contentType(MediaType.APPLICATION_JSON).content(body("lucas.meyer", "00000000")))
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("eyJ"))));
+    }
+
+    @Test
+    void anAccountHolderWithNoActiveAccountGets403WithTheStatusAndContactSupportAndNoToken() throws Exception {
+        when(customerService.verify("customer0007", "20260007")).thenReturn(
+                AuthenticatedCustomer.builder().customerId(7L).firstName("Sam").lastName("Roe").build());
+        when(accountRepository.findStatusesByCustomerId(7L)).thenReturn(java.util.List.of(
+                org.brite.banking.domain.AccountStatus.SUSPENDED, org.brite.banking.domain.AccountStatus.CLOSED));
+
+        mockMvc.perform(post("/v1/api/customers/login").contentType(MediaType.APPLICATION_JSON).content(body("customer0007", "20260007")))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("SUSPENDED")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("CLOSED")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("contact the customer support service")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("accessToken"))));
+        verifyNoInteractions(quotaService);
     }
 }

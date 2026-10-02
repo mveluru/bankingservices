@@ -1,6 +1,6 @@
 package org.brite.banking.bff;
 
-import org.brite.banking.service.EmployeeQuotaService;
+import org.brite.banking.service.StaffLoginService;
 import org.brite.banking.domain.EmployeeRateLimitView;
 import org.brite.banking.bff.dto.PortalLocation;
 import org.brite.banking.bff.dto.StaffPortalLoginResponse;
@@ -37,7 +37,7 @@ class StaffPortalAuthServiceTest {
     private PortalOrchestrationService portal;
     private EmployeeCredentialService employees;
     private PasswordResetService resets;
-    private EmployeeQuotaService quota;
+    private StaffLoginService staffLogins;
     private StaffPortalAuthService service;
 
     @BeforeEach
@@ -46,8 +46,8 @@ class StaffPortalAuthServiceTest {
         portal = mock(PortalOrchestrationService.class);
         employees = mock(EmployeeCredentialService.class);
         resets = mock(PasswordResetService.class);
-        quota = mock(EmployeeQuotaService.class);
-        service = new StaffPortalAuthService(loginService, portal, employees, resets, quota);
+        staffLogins = mock(StaffLoginService.class);
+        service = new StaffPortalAuthService(loginService, portal, employees, resets, staffLogins);
     }
 
     private static Employee lucas(Long branch) {
@@ -107,11 +107,13 @@ class StaffPortalAuthServiceTest {
     }
 
     @Test
-    void myRateLimitIsTheCallersOwnUsageFromTheQuotaService() {
+    void myRateLimitIsTheCallersOwnUsageFromTheBankingStaffServiceWhichRequiresAnActiveEmployee() {
         EmployeeRateLimitView view = EmployeeRateLimitView.builder().employeeNumber("EMP-000010").dailyLimit(1000).defaultLimit(1000)
                 .requestsToday(4).remainingToday(996).loginsToday(2).build();
-        when(quota.view("EMP-000010")).thenReturn(view);
+        when(staffLogins.ownRateLimit("EMP-000010")).thenReturn(view);
+        when(staffLogins.ownRateLimit("EMP-000016")).thenThrow(new org.brite.banking.exception.EmployeeNotAuthorizedException("Employee EMP-000016 is ON_LEAVE"));
 
         assertSame(view, service.myRateLimit("EMP-000010"));
+        org.junit.jupiter.api.Assertions.assertThrows(org.brite.banking.exception.EmployeeNotAuthorizedException.class, () -> service.myRateLimit("EMP-000016"));
     }
 }

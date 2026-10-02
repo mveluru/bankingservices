@@ -11,6 +11,7 @@ seeds demo accounts and bank locations on first start. They exist to build/inspe
 | | `04_customer_phone_migration.sql` | Idempotent migration adding `customers.phone_number varchar(20)` if missing (run before or after the app first starts on this version; new databases don't need it) |
 | | `05_transaction_handler_migration.sql` | Idempotent migration adding the nullable `account_transactions` columns that record who handled a transaction (`employee_number/name/role`) and where (`bank_location_id/name/type/city/state`); not needed on a fresh database |
 | | `06_login_status_migration.sql` | Idempotent migration adding `status` (default `ACTIVE`), `status_reason` and `status_changed_at` to `bank_employee_credentials` and `customer_credentials`; not needed on a fresh database |
+| | `10_account_status_inactive_dormant_migration.sql` | Idempotent `MODIFY COLUMN` widening `accounts.account_status` to `ACTIVE`/`CLOSED`/`DORMANT`/`INACTIVE`/`SUSPENDED` (Hibernate never alters an existing enum column, so an older database needs it before the new statuses can be written) |
 | | `09_employee_rate_limits_migration.sql` | Idempotent migration creating `employee_rate_limits` (one row per employee: own `max_requests_per_day`, today's `request_count` and `login_count`); not needed on a fresh database |
 | | `08_customer_rate_limits_migration.sql` | Idempotent migration creating `customer_rate_limits` (one row per customer: own `max_requests_per_day`, today's `request_count` and `login_count`); not needed on a fresh database |
 | | `07_password_reset_migration.sql` | Idempotent migration for password reset with security questions: adds `reset_failed_attempts` / `reset_locked_until` to both credential tables and creates `security_answers` (three BCrypt-hashed answers per employee/customer); not needed on a fresh database |
@@ -27,6 +28,7 @@ seeds demo accounts and bank locations on first start. They exist to build/inspe
 | | `10_backup_customer_rate_limits.sql` | Snapshot (data backup) of `customer_rate_limits` (customers 1-4, `max_requests_per_day` NULL = the property default of 1000) and that day's counters; re-runnable (`ON DUPLICATE KEY UPDATE`); a fresh database needs none |
 | `dml/` | `01_account_operations.sql` | Register / withdraw / deposit / close / bulk-close as guarded SQL |
 | | `02_queries.sql` | Lookup, paginated search, statement, reporting queries (read-only) |
+| | `07_account_inactive_dormant.sql` | Mark an account INACTIVE/DORMANT or put it back, list the customers who can't sign in because no account is ACTIVE, count accounts by status |
 | | `06_employee_rate_limits.sql` | Today's request/login usage per employee, and how to give an employee their own daily limit, put them back on the default or unblock them |
 | | `05_customer_rate_limits.sql` | Today's request/login usage per customer, and how to give a customer their own daily limit, put them back on the default or unblock them |
 | | `04_account_suspension.sql` | Suspend / update / reactivate / expire-finished-suspensions as guarded SQL, plus suspended-account reporting |

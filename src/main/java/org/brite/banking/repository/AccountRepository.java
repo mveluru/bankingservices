@@ -11,6 +11,7 @@ import org.brite.banking.entity.AccountEntity;
 import org.brite.banking.entity.AddressEmbeddable;
 import org.brite.banking.entity.CustomerEntity;
 import org.brite.banking.exception.AccountClosedException;
+import org.brite.banking.exception.AccountNotActiveException;
 import org.brite.banking.exception.AccountNotFoundException;
 import org.brite.banking.exception.AccountSuspendedException;
 import org.brite.banking.exception.InsufficientFundsException;
@@ -48,6 +49,21 @@ public class AccountRepository {
     public Optional<Account> findByAccountNumber(String accountNumber) {
         if (accountNumber == null) return Optional.empty();
         return accountJpaRepository.findByAccountNumber(accountNumber).map(this::toDomain);
+    }
+
+    /** INACTIVE and DORMANT accounts can't transact, like SUSPENDED ones; checked with the closed/suspended guards, before any balance check. */
+    private void rejectIfInactiveOrDormant(AccountEntity entity) {
+        AccountStatus status = entity.getAccountStatus();
+        if (status == AccountStatus.INACTIVE || status == AccountStatus.DORMANT) {
+            log.warn(BankingMessages.LOG_TRANSACTION_REJECTED_NOT_ACTIVE, entity.getAccountNumber(), status);
+            throw new AccountNotActiveException(String.format(BankingMessages.ACCOUNT_NOT_ACTIVE, entity.getAccountNumber(), status));
+        }
+    }
+
+    /** The status of every account the customer owns (empty if they have none). */
+    @Transactional(readOnly = true)
+    public List<AccountStatus> findStatusesByCustomerId(Long customerId) {
+        return accountJpaRepository.findStatusesByCustomerId(customerId);
     }
 
     /** Id of the customer who owns the account, or empty if there is no such account. */
@@ -160,6 +176,7 @@ public class AccountRepository {
             log.warn(BankingMessages.LOG_WITHDRAWAL_REJECTED_SUSPENDED, accountNumber);
             throw new AccountSuspendedException(String.format(BankingMessages.ACCOUNT_SUSPENDED, accountNumber));
         }
+        rejectIfInactiveOrDormant(entity);
         BigDecimal currentBalance = entity.getBalance();
         if (currentBalance == null || currentBalance.compareTo(amount) < 0) {
             log.warn(BankingMessages.LOG_WITHDRAWAL_INSUFFICIENT_FUNDS, amount, accountNumber, currentBalance);
@@ -194,6 +211,7 @@ public class AccountRepository {
             log.warn(BankingMessages.LOG_DEPOSIT_REJECTED_SUSPENDED, accountNumber);
             throw new AccountSuspendedException(String.format(BankingMessages.ACCOUNT_SUSPENDED, accountNumber));
         }
+        rejectIfInactiveOrDormant(entity);
         BigDecimal currentBalance = entity.getBalance() != null ? entity.getBalance() : BigDecimal.ZERO;
         entity.setBalance(currentBalance.add(amount));
         AccountEntity saved = accountJpaRepository.save(entity);
