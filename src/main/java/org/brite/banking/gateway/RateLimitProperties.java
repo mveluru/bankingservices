@@ -18,5 +18,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class RateLimitProperties {
     private boolean enabled;
     private int requestsPerDay;
+    /** Default daily request limit per employee ({@code employee_rate_limits} can give one employee their own). */
+    @Builder.Default
+    private int employeeRequestsPerDay = 1000;
     private String customerHeaderName;
 }

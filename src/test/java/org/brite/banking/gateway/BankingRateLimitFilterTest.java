@@ -10,6 +10,7 @@ import org.brite.banking.domain.EmployeeStatus;
 import org.brite.banking.domain.RateLimitDecision;
 import org.brite.banking.rules.JwtProperties;
 import org.brite.banking.service.CustomerQuotaService;
+import org.brite.banking.service.EmployeeQuotaService;
 import org.brite.banking.service.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,6 +44,7 @@ class BankingRateLimitFilterTest {
 
     private BankingRateLimitFilter filter;
     private CustomerQuotaService quotaService;
+    private EmployeeQuotaService employeeQuotaService;
     private JwtService jwtService;
 
     @BeforeEach
@@ -53,10 +55,11 @@ class BankingRateLimitFilterTest {
                 .customerHeaderName("X-Customer-Id")
                 .build();
         quotaService = mock(CustomerQuotaService.class);
+        employeeQuotaService = mock(EmployeeQuotaService.class);
         JwtProperties jwtProperties = new JwtProperties();
         jwtProperties.setSecret("rate-limit-test-secret-at-least-32-chars!");
         jwtService = new JwtService(jwtProperties);
-        filter = new BankingRateLimitFilter(properties, new CustomerRateLimiter(properties), jwtService, quotaService);
+        filter = new BankingRateLimitFilter(properties, new CustomerRateLimiter(properties), jwtService, quotaService, employeeQuotaService);
     }
 
     @Test
@@ -158,17 +161,51 @@ class BankingRateLimitFilterTest {
     }
 
     @Test
-    void doFilter_noTokenInvalidTokenOrEmployeeToken_fallBackToTheHeaderCounter() throws Exception {
-        when(request.getHeader("X-Customer-Id")).thenReturn("anon-1", "anon-2", "anon-3");
-        Employee employee = Employee.builder().employeeNumber("EMP-000010").role(EmployeeRole.TELLER).status(EmployeeStatus.ACTIVE).build();
-        when(request.getHeader("Authorization")).thenReturn(null, "Bearer not.a.token",
-                "Bearer " + jwtService.issueEmployeeToken(employee).getToken());
+    void doFilter_noTokenOrAnInvalidToken_fallBackToTheHeaderCounter() throws Exception {
+        when(request.getHeader("X-Customer-Id")).thenReturn("anon-1", "anon-2");
+        when(request.getHeader("Authorization")).thenReturn(null, "Bearer not.a.token");
 
-        filter.doFilter(request, response, filterChain);
         filter.doFilter(request, response, filterChain);
         filter.doFilter(request, response, filterChain);
 
         verifyNoInteractions(quotaService);
-        verify(filterChain, org.mockito.Mockito.times(3)).doFilter(request, response);
+        verifyNoInteractions(employeeQuotaService);
+        verify(filterChain, org.mockito.Mockito.times(2)).doFilter(request, response);
+    }
+
+    private String employeeToken(String employeeNumber) {
+        Employee employee = Employee.builder().employeeNumber(employeeNumber).role(EmployeeRole.TELLER).status(EmployeeStatus.ACTIVE).build();
+        return "Bearer " + jwtService.issueEmployeeToken(employee).getToken();
+    }
+
+    @Test
+    void doFilter_validEmployeeToken_countsAgainstTheTokensEmployeeNotTheHeaderOrACustomer() throws Exception {
+        when(request.getHeader("X-Customer-Id")).thenReturn("whatever");
+        when(request.getHeader("Authorization")).thenReturn(employeeToken("EMP-000010"));
+        when(employeeQuotaService.consumeRequest("EMP-000010")).thenReturn(new RateLimitDecision(true, 300, 299));
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(employeeQuotaService).consumeRequest("EMP-000010");
+        verifyNoInteractions(quotaService);
+        verify(response).setHeader("X-RateLimit-Limit", "300");
+        verify(response).setHeader("X-RateLimit-Remaining", "299");
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void doFilter_employeeOverTheirOwnLimit_getsTooManyRequests() throws Exception {
+        when(request.getHeader("X-Customer-Id")).thenReturn("cust-1");
+        when(request.getHeader("Authorization")).thenReturn(employeeToken("EMP-000010"));
+        when(employeeQuotaService.consumeRequest("EMP-000010")).thenReturn(new RateLimitDecision(false, 5, 0));
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+
+        filter.doFilter(request, response, filterChain);
+
+        verify(response).setStatus(429);
+        verify(response).setHeader("X-RateLimit-Limit", "5");
+        assertThat(body.toString()).contains("EMP-000010").contains("max 5");
+        verify(filterChain, never()).doFilter(request, response);
     }
 }

@@ -151,4 +151,22 @@ class StaffPortalAuthControllerTest {
         verify(staffPortalService, times(1)).setEmployeePassword(any(), any(), any());
         verify(staffPortalService, never()).changeEmployeeLoginStatus(any(), any(), any());
     }
+
+    @Test
+    void anAdministratorReadsAndSetsAnEmployeesDailyRequestLimitThroughTheBff() throws Exception {
+        org.brite.banking.domain.EmployeeRateLimitView view = org.brite.banking.domain.EmployeeRateLimitView.builder().employeeNumber("EMP-000010")
+                .dailyLimit(300).customLimit(300).defaultLimit(1000).requestsToday(2).remainingToday(298).build();
+        when(staffPortalService.employeeRateLimit("EMP-A", "EMP-000010")).thenReturn(view);
+        when(staffPortalService.setEmployeeRateLimit(eq("EMP-A"), eq("EMP-000010"), any())).thenReturn(view);
+
+        mockMvc.perform(get("/bff/v1/staff/employees/EMP-000010/rate-limit").requestAttr(ATTR, "EMP-A"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.dailyLimit").value(300)).andExpect(jsonPath("$.remainingToday").value(298));
+        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/rate-limit").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"maxRequestsPerDay\":300}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.customLimit").value(300));
+        mockMvc.perform(put("/bff/v1/staff/employees/EMP-000010/rate-limit").requestAttr(ATTR, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"maxRequestsPerDay\":0}"))
+                .andExpect(status().isBadRequest());
+        verify(staffPortalService, times(1)).setEmployeeRateLimit(eq("EMP-A"), eq("EMP-000010"), any());
+    }
 }

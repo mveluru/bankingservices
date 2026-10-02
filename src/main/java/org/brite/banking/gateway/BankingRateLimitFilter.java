@@ -11,6 +11,7 @@ import org.brite.banking.domain.TokenClaims;
 import org.brite.banking.exception.InvalidTokenException;
 import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.service.CustomerQuotaService;
+import org.brite.banking.service.EmployeeQuotaService;
 import org.brite.banking.service.JwtService;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -24,8 +25,10 @@ import java.util.Locale;
  * banking controller (see url-patterns in {@link BankingGatewayConfig}) must carry a
  * customer identifier header, and is capped per day. A request that carries a valid customer token is counted against
  * <em>that customer</em> (the token's subject, never the header, which anyone can change) in {@code customer_rate_limits}
- * ({@link CustomerQuotaService}: the customer's own limit, else {@link RateLimitProperties#getRequestsPerDay()}). Every other request
- * (no token yet: login, registration, password reset, locations, and staff or invalid tokens) is counted per header value in memory
+ * ({@link CustomerQuotaService}: the customer's own limit, else {@link RateLimitProperties#getRequestsPerDay()}); one with a valid employee token
+ * is counted against <em>that employee</em> in {@code employee_rate_limits} ({@link EmployeeQuotaService}: the employee's own limit, else
+ * {@link RateLimitProperties#getEmployeeRequestsPerDay()}). Every other request
+ * (no token yet: login, registration, password reset, locations, and invalid tokens) is counted per header value in memory
  * ({@link CustomerRateLimiter}). Requests never reach DispatcherServlet/controllers
  * once rejected here, matching how a real gateway would shed load before the backend.
  */
@@ -39,6 +42,7 @@ public class BankingRateLimitFilter extends OncePerRequestFilter {
     private final CustomerRateLimiter customerRateLimiter;
     private final JwtService jwtService;
     private final CustomerQuotaService customerQuotaService;
+    private final EmployeeQuotaService employeeQuotaService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -61,11 +65,14 @@ public class BankingRateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        Long tokenCustomerId = customerFromToken(request);
+        TokenClaims claims = verifiedClaims(request);
         RateLimitDecision decision;
-        if (tokenCustomerId != null) {
-            customerId = String.valueOf(tokenCustomerId);
-            decision = customerQuotaService.consumeRequest(tokenCustomerId);
+        if (claims != null && "customer".equals(claims.getType()) && isNumber(claims.getSubject())) {
+            customerId = claims.getSubject();
+            decision = customerQuotaService.consumeRequest(Long.valueOf(claims.getSubject()));
+        } else if (claims != null && "employee".equals(claims.getType()) && claims.getSubject() != null && !claims.getSubject().isBlank()) {
+            customerId = claims.getSubject();
+            decision = employeeQuotaService.consumeRequest(claims.getSubject());
         } else {
             int left = customerRateLimiter.tryConsume(customerId);
             int limit = rateLimitProperties.getRequestsPerDay();
@@ -85,19 +92,27 @@ public class BankingRateLimitFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
+    private static boolean isNumber(String value) {
+        try {
+            Long.valueOf(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
     /**
-     * The customer a valid customer token names, or null when there is no token, it is invalid, or it is an employee token. Only the signature,
-     * expiry and type are checked here; whether the login is still allowed is {@link CustomerAuthenticationFilter}'s job, which runs next.
+     * The claims of a valid bearer token, or null when there is no token or it is invalid. Only the signature, expiry and type are checked here;
+     * whether the login is still allowed is the authentication filters' job, which run next.
      */
-    private Long customerFromToken(HttpServletRequest request) {
+    private TokenClaims verifiedClaims(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         if (header == null || !header.toLowerCase(Locale.ROOT).startsWith("bearer ") || header.substring(7).isBlank()) {
             return null;
         }
         try {
-            TokenClaims claims = jwtService.parse(header.substring(7).trim());
-            return "customer".equals(claims.getType()) ? Long.valueOf(claims.getSubject()) : null;
-        } catch (InvalidTokenException | NumberFormatException e) {
+            return jwtService.parse(header.substring(7).trim());
+        } catch (InvalidTokenException e) {
             return null;
         }
     }

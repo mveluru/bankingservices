@@ -6,6 +6,7 @@ import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.domain.Account;
 import org.brite.banking.domain.CustomerRateLimitView;
+import org.brite.banking.domain.EmployeeRateLimitView;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.EmployeeRole;
@@ -52,6 +53,16 @@ public class StaffPortalService {
     public OpenAccountResponse openAccount(String employee, AccountRegistrationRequest request) {
         Account account = staffAccountService.openAccount(employee, request);
         return portalService.openAccountResponse(account, request.getState());
+    }
+
+    /** An employee's daily request limit and today's usage (needs MANAGE_EMPLOYEES, checked by the banking service first). */
+    public EmployeeRateLimitView employeeRateLimit(String employee, String employeeNumber) {
+        return staffLoginService.employeeRateLimit(employee, employeeNumber);
+    }
+
+    /** Sets an employee's own daily request limit, or with null puts them back on the default (needs MANAGE_EMPLOYEES, checked first). */
+    public EmployeeRateLimitView setEmployeeRateLimit(String employee, String employeeNumber, SetRateLimitRequest request) {
+        return staffLoginService.setEmployeeRateLimit(employee, employeeNumber, request);
     }
 
     /** A customer's daily request limit and today's usage (needs MANAGE_CUSTOMER_LOGINS, checked by the banking service first). */

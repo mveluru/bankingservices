@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 /**
  * Verifies the credentials and, only if they are valid, issues the access token. All the credential rules
  * (password format, lockout, login status) stay in the credential services; any failure they throw propagates
- * and no token is issued. A successful customer login is also counted for the day ({@link CustomerQuotaService}).
+ * and no token is issued. A successful login is also counted for the day ({@link CustomerQuotaService}, {@link EmployeeQuotaService}).
  */
 @Service
 @RequiredArgsConstructor
@@ -20,10 +20,12 @@ public class LoginService {
     private final CustomerCredentialService customerCredentialService;
     private final JwtService jwtService;
     private final CustomerQuotaService customerQuotaService;
+    private final EmployeeQuotaService employeeQuotaService;
 
     public StaffLoginResponse staffLogin(String username, String password) {
         Employee employee = employeeCredentialService.verify(username, password);
         IssuedToken token = jwtService.issueEmployeeToken(employee);
+        employeeQuotaService.recordLogin(employee.getEmployeeNumber());
         return StaffLoginResponse.builder()
                 .accessToken(token.getToken()).expiresIn(token.getExpiresInSeconds()).employee(employee).build();
     }

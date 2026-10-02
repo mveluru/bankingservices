@@ -8,6 +8,7 @@ import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.domain.CustomerRateLimitView;
+import org.brite.banking.domain.EmployeeRateLimitView;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
@@ -196,5 +197,28 @@ public class StaffController {
             @PathVariable Long customerId,
             @Valid @RequestBody SetRateLimitRequest request) {
         return ResponseEntity.ok(staffLoginService.setCustomerRateLimit(employee, customerId, request));
+    }
+
+    /**
+     * Needs MANAGE_EMPLOYEES (area manager). An employee's daily request limit (their own, else the default) and today's usage.
+     * GET /v1/api/staff/employees/{employeeNumber}/rate-limit
+     */
+    @GetMapping("/employees/{employeeNumber}/rate-limit")
+    public ResponseEntity<EmployeeRateLimitView> employeeRateLimit(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable String employeeNumber) {
+        return ResponseEntity.ok(staffLoginService.employeeRateLimit(employee, employeeNumber));
+    }
+
+    /**
+     * Needs MANAGE_EMPLOYEES (area manager). Gives an employee their own daily request limit (1 to 1,000,000), or with
+     * {@code {"maxRequestsPerDay": null}} (or {@code {}}) puts them back on the default. PUT /v1/api/staff/employees/{employeeNumber}/rate-limit
+     */
+    @PutMapping("/employees/{employeeNumber}/rate-limit")
+    public ResponseEntity<EmployeeRateLimitView> setEmployeeRateLimit(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable String employeeNumber,
+            @Valid @RequestBody SetRateLimitRequest request) {
+        return ResponseEntity.ok(staffLoginService.setEmployeeRateLimit(employee, employeeNumber, request));
     }
 }

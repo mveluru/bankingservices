@@ -11,6 +11,7 @@ import org.brite.banking.exception.InvalidCredentialsException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.service.CustomerCredentialService;
 import org.brite.banking.service.CustomerQuotaService;
+import org.brite.banking.service.EmployeeQuotaService;
 import org.brite.banking.rules.JwtProperties;
 import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.JwtService;
@@ -40,6 +41,7 @@ class LoginControllerTest {
     private CustomerCredentialService customerService;
     private JwtService jwtService;
     private CustomerQuotaService quotaService;
+    private EmployeeQuotaService employeeQuotaService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -50,7 +52,8 @@ class LoginControllerTest {
         properties.setSecret("controller-test-secret-at-least-32-chars!!");
         jwtService = new JwtService(properties);
         quotaService = mock(CustomerQuotaService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(new LoginService(employeeService, customerService, jwtService, quotaService)))
+        employeeQuotaService = mock(EmployeeQuotaService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(new LoginService(employeeService, customerService, jwtService, quotaService, employeeQuotaService)))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))
@@ -75,6 +78,7 @@ class LoginControllerTest {
                 .andExpect(jsonPath("$.employee.employeeNumber").value("EMP-000010"))
                 .andExpect(jsonPath("$.employee.privileges.length()").value(4))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("20260010"))));
+        verify(employeeQuotaService).recordLogin("EMP-000010");
     }
 
     @Test
@@ -112,8 +116,9 @@ class LoginControllerTest {
                 .andExpect(status().isLocked());
         mockMvc.perform(post("/v1/api/customers/login").contentType(MediaType.APPLICATION_JSON).content(body("customer0006", "20260006")))
                 .andExpect(status().isForbidden());
-        // only a successful customer login is counted for the day
+        // only a successful login is counted for the day
         verifyNoInteractions(quotaService);
+        verifyNoInteractions(employeeQuotaService);
     }
 
     @Test

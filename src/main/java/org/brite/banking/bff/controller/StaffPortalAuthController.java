@@ -5,11 +5,13 @@ import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.StaffPortalLoginResponse;
 import org.brite.banking.bff.service.StaffPortalAuthService;
 import org.brite.banking.bff.service.StaffPortalService;
+import org.brite.banking.domain.EmployeeRateLimitView;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.domain.SecurityQuestionView;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
+import org.brite.banking.request.SetRateLimitRequest;
 import org.brite.banking.request.ChangePasswordRequest;
 import org.brite.banking.request.LoginRequest;
 import org.brite.banking.request.PasswordResetQuestionsRequest;
@@ -101,5 +103,22 @@ public class StaffPortalAuthController {
             @Valid @RequestBody AdminSetPasswordRequest request) {
         staffPortalService.setEmployeePassword(employee, employeeNumber, request);
         return ResponseEntity.noContent().build();
+    }
+
+    /** An employee's daily request limit and today's usage (MANAGE_EMPLOYEES). GET /bff/v1/staff/employees/EMP-000010/rate-limit */
+    @GetMapping("/employees/{employeeNumber}/rate-limit")
+    public ResponseEntity<EmployeeRateLimitView> employeeRateLimit(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable String employeeNumber) {
+        return ResponseEntity.ok(staffPortalService.employeeRateLimit(employee, employeeNumber));
+    }
+
+    /** Give an employee their own daily request limit, or {@code {"maxRequestsPerDay": null}} for the default (MANAGE_EMPLOYEES). PUT /bff/v1/staff/employees/EMP-000010/rate-limit */
+    @PutMapping("/employees/{employeeNumber}/rate-limit")
+    public ResponseEntity<EmployeeRateLimitView> setEmployeeRateLimit(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable String employeeNumber,
+            @Valid @RequestBody SetRateLimitRequest request) {
+        return ResponseEntity.ok(staffPortalService.setEmployeeRateLimit(employee, employeeNumber, request));
     }
 }

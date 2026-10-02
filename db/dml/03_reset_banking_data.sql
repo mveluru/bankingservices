@@ -17,6 +17,7 @@
 USE db_example;
 
 START TRANSACTION;
+DELETE FROM employee_rate_limits;
 DELETE FROM customer_rate_limits;
 DELETE FROM security_answers;
 DELETE FROM customer_credentials;
@@ -40,4 +41,5 @@ ALTER TABLE bank_employees           AUTO_INCREMENT = 1;
 ALTER TABLE bank_employee_credentials AUTO_INCREMENT = 1;
 ALTER TABLE customer_credentials     AUTO_INCREMENT = 1;
 ALTER TABLE customer_rate_limits     AUTO_INCREMENT = 1;
+ALTER TABLE employee_rate_limits     AUTO_INCREMENT = 1;
 ALTER TABLE security_answers         AUTO_INCREMENT = 1;

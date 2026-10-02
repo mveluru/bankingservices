@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.domain.EmployeePrivilege;
+import org.brite.banking.domain.EmployeeRateLimitView;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.request.ChangeLoginStatusRequest;
@@ -24,6 +25,7 @@ public class StaffLoginService {
     private final EmployeeCredentialService employeeCredentialService;
     private final CustomerCredentialService customerCredentialService;
     private final CustomerQuotaService customerQuotaService;
+    private final EmployeeQuotaService employeeQuotaService;
 
     /** Needs {@code MANAGE_EMPLOYEES} (area managers). */
     public LoginStatusView changeEmployeeLoginStatus(String actingEmployee, String employeeNumber, ChangeLoginStatusRequest request) {
@@ -72,6 +74,24 @@ public class StaffLoginService {
         employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_CUSTOMER_LOGINS);
         CustomerRateLimitView view = customerQuotaService.setLimit(customerId, request.getMaxRequestsPerDay());
         log.info(BankingMessages.LOG_RATE_LIMIT_CHANGED, actingEmployee, customerId, request.getMaxRequestsPerDay() != null ? request.getMaxRequestsPerDay() : "the default");
+        return view;
+    }
+
+    /** Needs {@code MANAGE_EMPLOYEES} (area managers). An employee's daily request limit and today's usage. */
+    public EmployeeRateLimitView employeeRateLimit(String actingEmployee, String employeeNumber) {
+        employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_EMPLOYEES);
+        return employeeQuotaService.view(employeeNumber);
+    }
+
+    /**
+     * Needs {@code MANAGE_EMPLOYEES} (area managers). Gives an employee their own daily request limit, or with a null limit puts them back on
+     * the default ({@code banking.rate-limit.employee-requests-per-day}).
+     */
+    public EmployeeRateLimitView setEmployeeRateLimit(String actingEmployee, String employeeNumber, SetRateLimitRequest request) {
+        employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_EMPLOYEES);
+        EmployeeRateLimitView view = employeeQuotaService.setLimit(employeeNumber, request.getMaxRequestsPerDay());
+        log.info(BankingMessages.LOG_EMPLOYEE_RATE_LIMIT_CHANGED, actingEmployee, employeeNumber,
+                request.getMaxRequestsPerDay() != null ? request.getMaxRequestsPerDay() : "the default");
         return view;
     }
 }

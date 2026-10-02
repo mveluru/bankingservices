@@ -23,6 +23,9 @@ import org.brite.banking.repository.EmployeeCredentialRepository;
 import org.brite.banking.repository.EmployeeRepository;
 import org.brite.banking.service.CustomerCredentialService;
 import org.brite.banking.service.CustomerQuotaService;
+import org.brite.banking.service.EmployeeQuotaService;
+import org.brite.banking.domain.EmployeeRateLimitView;
+import org.brite.banking.exception.EmployeeNotFoundException;
 import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.StaffLoginService;
@@ -81,6 +84,7 @@ class StaffControllerTest {
     private EmployeeCredentialService employeeCredentialService;
     private CustomerCredentialService customerCredentialService;
     private CustomerQuotaService quotaService;
+    private EmployeeQuotaService employeeQuotaService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -93,10 +97,11 @@ class StaffControllerTest {
         employeeCredentialService = mock(EmployeeCredentialService.class);
         customerCredentialService = mock(CustomerCredentialService.class);
         quotaService = mock(CustomerQuotaService.class);
+        employeeQuotaService = mock(EmployeeQuotaService.class);
         when(employeeCredentials.findByEmployeeId(any())).thenReturn(Optional.of(
                 EmployeeCredential.builder().username("u").status(LoginStatus.ACTIVE).build()));
         EmployeeService employeeService = new EmployeeService(employeeRepository, employeeCredentials);
-        StaffLoginService staffLoginService = new StaffLoginService(employeeService, employeeCredentialService, customerCredentialService, quotaService);
+        StaffLoginService staffLoginService = new StaffLoginService(employeeService, employeeCredentialService, customerCredentialService, quotaService, employeeQuotaService);
         StaffAccountService staffAccountService = new StaffAccountService(employeeService, clientAccountService, suspensionService, locationService);
         mockMvc = MockMvcBuilders.standaloneSetup(new StaffController(staffAccountService, employeeService, staffLoginService))
                 .setControllerAdvice(new BankingExceptionHandler())
@@ -467,6 +472,55 @@ class StaffControllerTest {
 
         when(quotaService.view(99L)).thenThrow(new CustomerNotFoundException("Customer not found: 99"));
         mockMvc.perform(get("/v1/api/staff/customers/99/rate-limit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M"))
+                .andExpect(status().isNotFound());
+    }
+
+    private static EmployeeRateLimitView employeeLimitView(Integer custom, int limit) {
+        return EmployeeRateLimitView.builder().employeeNumber("EMP-000010").dailyLimit(limit).customLimit(custom).defaultLimit(1000)
+                .usageDate(java.time.LocalDate.now()).requestsToday(7).remainingToday(limit - 7).loginsToday(1).build();
+    }
+
+    @Test
+    void anAreaManagerReadsAndSetsAnEmployeesDailyRequestLimit() throws Exception {
+        employee("EMP-A", EmployeeRole.AREA_MANAGER, EmployeeStatus.ACTIVE);
+        when(employeeQuotaService.view("EMP-000010")).thenReturn(employeeLimitView(null, 1000));
+        when(employeeQuotaService.setLimit("EMP-000010", 300)).thenReturn(employeeLimitView(300, 300));
+
+        mockMvc.perform(get("/v1/api/staff/employees/EMP-000010/rate-limit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-A"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.dailyLimit").value(1000)).andExpect(jsonPath("$.customLimit").doesNotExist())
+                .andExpect(jsonPath("$.requestsToday").value(7)).andExpect(jsonPath("$.loginsToday").value(1));
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/employees/EMP-000010/rate-limit")
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"maxRequestsPerDay\":300}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.customLimit").value(300));
+    }
+
+    @Test
+    void aManagerCannotReadOrSetAnEmployeesRateLimitAndNothingIsTouched() throws Exception {
+        employee("EMP-M", EmployeeRole.MANAGER, EmployeeStatus.ACTIVE);
+
+        mockMvc.perform(get("/v1/api/staff/employees/EMP-000010/rate-limit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/employees/EMP-000010/rate-limit")
+                        .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"maxRequestsPerDay\":300}"))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(employeeQuotaService);
+    }
+
+    @Test
+    void anEmployeeLimitOutsideOneToAMillionIsRejectedAndAnUnknownEmployeeIs404() throws Exception {
+        employee("EMP-A", EmployeeRole.AREA_MANAGER, EmployeeStatus.ACTIVE);
+        for (String bad : new String[]{"0", "1000001"}) {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/api/staff/employees/EMP-000010/rate-limit")
+                            .requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-A").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"maxRequestsPerDay\":" + bad + "}"))
+                    .andExpect(status().isBadRequest());
+        }
+        verifyNoInteractions(employeeQuotaService);
+
+        when(employeeQuotaService.view("EMP-999999")).thenThrow(new EmployeeNotFoundException("Employee not found: EMP-999999"));
+        mockMvc.perform(get("/v1/api/staff/employees/EMP-999999/rate-limit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-A"))
                 .andExpect(status().isNotFound());
     }
 }

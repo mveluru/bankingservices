@@ -22,8 +22,11 @@ info:
        A request with a **valid customer token** is counted against that customer (the token's
        subject, not the header), using the customer's own `max_requests_per_day` from the
        `customer_rate_limits` table or else `banking.rate-limit.requests-per-day` (default 1000);
-       the same row counts the customer's logins per day. Requests with no customer token (login,
-       registration, password reset, locations) and employee or invalid tokens are counted per
+       the same row counts the customer's logins per day. A request with a **valid employee token**
+       is counted against that employee in the `employee_rate_limits` table (the employee's own
+       `max_requests_per_day`, else `banking.rate-limit.employee-requests-per-day`, default 1000),
+       which also counts the employee's logins per day. Requests with no token (login,
+       registration, password reset, locations) and invalid tokens are counted per
        header value. A missing/blank header is rejected with `400`; an exhausted quota with `429`. Both are **plain-text**
        bodies written by the filter itself, not the JSON/text bodies produced by the
        controllers' exception handler. Every non-rejected response carries
@@ -1622,6 +1625,87 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/staff/employees/{employeeNumber}/rate-limit:
+    get:
+      tags: [Staff]
+      operationId: getEmployeeRateLimit
+      summary: An employee's daily request limit and usage
+      description: |
+        Requires the `MANAGE_EMPLOYEES` privilege (area managers). Returns the limit that applies to the employee today (their own `customLimit`,
+        else the `defaultLimit` from `banking.rate-limit.employee-requests-per-day`) and today's usage: requests counted against the employee's
+        token and successful logins. Usage is zero for an employee who has made no request today.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: employeeNumber
+          in: path
+          required: true
+          schema: {type: string}
+          example: EMP-000010
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EmployeeRateLimitView'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      tags: [Staff]
+      operationId: setEmployeeRateLimit
+      summary: Set an employee's own daily request limit
+      description: |
+        Requires the `MANAGE_EMPLOYEES` privilege (area managers). Gives the employee their own daily request limit (1 to 1,000,000), or with
+        `maxRequestsPerDay` null or absent puts them back on the application default. Today's usage is not changed, so lowering the limit below
+        today's count blocks the employee for the rest of the day.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: employeeNumber
+          in: path
+          required: true
+          schema: {type: string}
+          example: EMP-000010
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SetRateLimitRequest'}
+            example: {maxRequestsPerDay: 500}
+      responses:
+        '200':
+          description: The limit and today's usage after the change.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EmployeeRateLimitView'}
+        '400':
+          description: A limit below 1 or above 1,000,000 (JSON validation).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/api/staff/customers/{customerId}/rate-limit:
     get:
       tags: [Staff]
@@ -2768,6 +2852,87 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/staff/employees/{employeeNumber}/rate-limit:
+    get:
+      tags: [Staff portal (BFF)]
+      operationId: staffPortalEmployeeRateLimit
+      summary: An employee's daily request limit and usage
+      description: |
+        Requires the `MANAGE_EMPLOYEES` privilege (area managers). Returns the limit that applies to the employee today (their own `customLimit`,
+        else the `defaultLimit` from `banking.rate-limit.employee-requests-per-day`) and today's usage: requests counted against the employee's
+        token and successful logins. Usage is zero for an employee who has made no request today. Same as the banking staff call of the same path under `/v1/api/staff`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: employeeNumber
+          in: path
+          required: true
+          schema: {type: string}
+          example: EMP-000010
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EmployeeRateLimitView'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      tags: [Staff portal (BFF)]
+      operationId: staffPortalSetEmployeeRateLimit
+      summary: Set an employee's own daily request limit
+      description: |
+        Requires the `MANAGE_EMPLOYEES` privilege (area managers). Gives the employee their own daily request limit (1 to 1,000,000), or with
+        `maxRequestsPerDay` null or absent puts them back on the application default. Today's usage is not changed, so lowering the limit below
+        today's count blocks the employee for the rest of the day. Same as the banking staff call of the same path under `/v1/api/staff`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: employeeNumber
+          in: path
+          required: true
+          schema: {type: string}
+          example: EMP-000010
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SetRateLimitRequest'}
+            example: {maxRequestsPerDay: 500}
+      responses:
+        '200':
+          description: The limit and today's usage after the change.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EmployeeRateLimitView'}
+        '400':
+          description: A limit below 1 or above 1,000,000 (JSON validation).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown employee, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/staff/customers/{customerId}/rate-limit:
     get:
       tags: [Staff portal (BFF)]
@@ -3521,6 +3686,18 @@ components:
           maximum: 1000000
           nullable: true
           description: The customer's own daily request limit; null or absent puts them back on the application default.
+
+    EmployeeRateLimitView:
+      type: object
+      properties:
+        employeeNumber: {type: string, example: EMP-000010}
+        dailyLimit: {type: integer, description: "The limit that applies today: the employee's own, else the default."}
+        customLimit: {type: integer, nullable: true, description: The employee's own limit; null when they are on the default.}
+        defaultLimit: {type: integer, description: banking.rate-limit.employee-requests-per-day}
+        usageDate: {type: string, format: date}
+        requestsToday: {type: integer, description: Requests counted against the employee's token today.}
+        remainingToday: {type: integer}
+        loginsToday: {type: integer, description: Successful employee logins today.}
 
     CustomerRateLimitView:
       type: object
