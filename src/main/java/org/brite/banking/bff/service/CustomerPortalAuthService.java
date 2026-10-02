@@ -1,5 +1,7 @@
 package org.brite.banking.bff.service;
 
+import org.brite.banking.service.CustomerQuotaService;
+import org.brite.banking.domain.CustomerRateLimitView;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.PortalHomeResponse;
 import org.brite.banking.bff.dto.PortalLoginResponse;
@@ -36,6 +38,7 @@ public class CustomerPortalAuthService {
     private final StaffLoginService staffLoginService;
     private final CustomerCredentialService customerCredentialService;
     private final PasswordResetService passwordResetService;
+    private final CustomerQuotaService customerQuotaService;
 
     /** Verifies the login, issues the token and returns it with the home screen ({@code state} optionally narrows nearby branches). */
     public PortalLoginResponse login(String username, String password, String state) {
@@ -55,6 +58,11 @@ public class CustomerPortalAuthService {
      */
     public LoginStatusView changeStatus(String employee, Long customerId, ChangeLoginStatusRequest request) {
         return staffLoginService.changeCustomerLoginStatus(employee, customerId, request);
+    }
+
+    /** The signed-in customer's own daily request usage and logins today (no privilege needed: it is only ever the caller's own row). */
+    public CustomerRateLimitView myRateLimit(Long customerId) {
+        return customerQuotaService.view(customerId);
     }
 
     public void changePassword(Long customerId, ChangePasswordRequest request) {

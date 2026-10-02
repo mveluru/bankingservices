@@ -94,4 +94,10 @@ public class StaffLoginService {
                 request.getMaxRequestsPerDay() != null ? request.getMaxRequestsPerDay() : "the default");
         return view;
     }
+
+    /** The acting employee's own daily request limit and today's usage; needs no privilege, only an ACTIVE employee and login. */
+    public EmployeeRateLimitView ownRateLimit(String actingEmployee) {
+        // an employee can always read their own profile, which also demands an ACTIVE employee with an ACTIVE login
+        return employeeQuotaService.view(employeeService.getEmployee(actingEmployee, actingEmployee).getEmployeeNumber());
+    }
 }

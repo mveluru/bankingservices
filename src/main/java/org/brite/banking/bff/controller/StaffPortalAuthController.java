@@ -6,6 +6,7 @@ import org.brite.banking.bff.dto.StaffPortalLoginResponse;
 import org.brite.banking.bff.service.StaffPortalAuthService;
 import org.brite.banking.bff.service.StaffPortalService;
 import org.brite.banking.domain.EmployeeRateLimitView;
+import org.brite.banking.domain.EmployeeRateLimitView;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.domain.SecurityQuestionView;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
@@ -48,6 +49,16 @@ public class StaffPortalAuthController {
     @PostMapping("/login")
     public ResponseEntity<StaffPortalLoginResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(authService.login(request.getUsername(), request.getPassword()));
+    }
+
+    /**
+     * The logged-in employee's own daily request usage and today's sign-ins (the employee is taken from the token, never from the path).
+     * Needs no privilege, unlike an administrator reading someone else's. GET /bff/v1/staff/rate-limit
+     */
+    @GetMapping("/rate-limit")
+    public ResponseEntity<EmployeeRateLimitView> myRateLimit(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(authService.myRateLimit(employee));
     }
 
     /** Change the logged-in employee's password; all earlier tokens (including this one) stop working. PUT /bff/v1/staff/password */

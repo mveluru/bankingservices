@@ -1,5 +1,6 @@
 package org.brite.banking.bff;
 
+import org.brite.banking.domain.CustomerRateLimitView;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import java.util.List;
 import org.brite.banking.bff.controller.CustomerPortalAuthController;
@@ -210,5 +211,24 @@ class CustomerPortalAuthControllerTest {
                 .andExpect(status().isForbidden());
         mockMvc.perform(put("/bff/v1/staff/customers/11/password").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-M")
                         .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void myRateLimitReturnsTheTokenCustomersOwnUsageWithNoStore() throws Exception {
+        when(authService.myRateLimit(5L)).thenReturn(CustomerRateLimitView.builder().customerId(5L).dailyLimit(1000).defaultLimit(1000)
+                .requestsToday(12).remainingToday(988).loginsToday(3).build());
+
+        mockMvc.perform(get("/bff/v1/portal/rate-limit").requestAttr(CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, 5L))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.customerId").value(5))
+                .andExpect(jsonPath("$.loginsToday").value(3))
+                .andExpect(jsonPath("$.remainingToday").value(988));
+    }
+
+    @Test
+    void myRateLimitWithoutAnAuthenticatedCustomerFailsClosedWith401() throws Exception {
+        mockMvc.perform(get("/bff/v1/portal/rate-limit")).andExpect(status().isUnauthorized());
+        verifyNoInteractions(authService);
     }
 }

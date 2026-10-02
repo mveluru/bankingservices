@@ -1194,6 +1194,56 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/customers/rate-limit:
+    get:
+      tags: [Login]
+      operationId: getMyCustomerRateLimit
+      summary: Your own daily request usage and logins today
+      description: |
+        Requires the customer token; the customer is the token's, so it only ever returns the caller's own row (no privilege needed). Returns the
+        limit that applies today (the customer's own `customLimit`, else the `defaultLimit` from `banking.rate-limit.requests-per-day`) and today's usage: requests counted
+        against the token and successful logins (`loginsToday`). This request counts as one. Managers read someone else's at the `/rate-limit` staff calls.
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CustomerRateLimitView'}
+        '401':
+          $ref: '#/components/responses/CustomerUnauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/api/staff/rate-limit:
+    get:
+      tags: [Staff]
+      operationId: getMyEmployeeRateLimit
+      summary: Your own daily request usage and logins today
+      description: |
+        Requires the employee token; the employee is the token's, so it only ever returns the caller's own row (no privilege needed; the employee must be ACTIVE with an ACTIVE login). Returns the
+        limit that applies today (the employee's own `customLimit`, else the `defaultLimit` from `banking.rate-limit.employee-requests-per-day`) and today's usage: requests counted
+        against the token and successful logins (`loginsToday`). This request counts as one. Managers read someone else's at the `/rate-limit` staff calls.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EmployeeRateLimitView'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/api/staff/login:
     post:
       tags: [Login]
@@ -1921,6 +1971,31 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/portal/rate-limit:
+    get:
+      tags: [Portal (BFF)]
+      operationId: portalMyRateLimit
+      summary: Your own daily request usage and logins today
+      description: |
+        Requires the customer token; the customer is the token's, so it only ever returns the caller's own row (no privilege needed). Returns the
+        limit that applies today (the customer's own `customLimit`, else the `defaultLimit` from `banking.rate-limit.requests-per-day`) and today's
+        usage: requests counted against the token and successful logins (`loginsToday`). This request counts as one. `Cache-Control: no-store`.
+        Same body as the staff call `GET /bff/v1/staff/customers/{customerId}/rate-limit`.
+      security:
+        - CustomerId: []
+          CustomerBearerAuth: []
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CustomerRateLimitView'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/CustomerForbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /bff/v1/portal/password:
     put:
       tags: [Portal (BFF)]
@@ -2125,6 +2200,31 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/staff/rate-limit:
+    get:
+      tags: [Staff portal (BFF)]
+      operationId: staffPortalMyRateLimit
+      summary: Your own daily request usage and logins today
+      description: |
+        Requires the employee token; the employee is the token's, so it only ever returns the caller's own row (no privilege needed, unlike an
+        administrator reading someone else's at `GET /bff/v1/staff/employees/{employeeNumber}/rate-limit`). Returns the limit that applies today
+        (the employee's own `customLimit`, else the `defaultLimit` from `banking.rate-limit.employee-requests-per-day`) and today's usage: requests
+        counted against the token and successful logins (`loginsToday`). This request counts as one. `Cache-Control: no-store`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/EmployeeRateLimitView'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
   /bff/v1/staff/password:
     put:
       tags: [Staff portal (BFF)]

@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.PortalLoginResponse;
 import org.brite.banking.bff.service.CustomerPortalAuthService;
+import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.domain.SecurityQuestionView;
 import org.brite.banking.gateway.CustomerAuthenticationFilter;
@@ -78,6 +79,16 @@ public class CustomerPortalAuthController {
             @PathVariable Long customerId,
             @Valid @RequestBody ChangeLoginStatusRequest request) {
         return ResponseEntity.ok(authService.changeStatus(employee, customerId, request));
+    }
+
+    /**
+     * The logged-in customer's own daily request usage and today's sign-ins (the customer is taken from the token, never from the path).
+     * Same shape as the staff view of a customer's limit. GET /bff/v1/portal/rate-limit
+     */
+    @GetMapping("/portal/rate-limit")
+    public ResponseEntity<CustomerRateLimitView> myRateLimit(
+            @RequestAttribute(value = CustomerAuthenticationFilter.CUSTOMER_ATTRIBUTE, required = false) Long customerId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(authService.myRateLimit(customerAccess.requireAuthenticated(customerId)));
     }
 
     /** Change the logged-in customer's password; all earlier tokens (including this one) stop working. PUT /bff/v1/portal/password */

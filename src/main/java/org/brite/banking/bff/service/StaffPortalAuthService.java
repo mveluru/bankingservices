@@ -1,5 +1,7 @@
 package org.brite.banking.bff.service;
 
+import org.brite.banking.service.EmployeeQuotaService;
+import org.brite.banking.domain.EmployeeRateLimitView;
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.bff.dto.StaffPortalLoginResponse;
@@ -28,12 +30,18 @@ public class StaffPortalAuthService {
     private final PortalOrchestrationService portalService;
     private final EmployeeCredentialService employeeCredentialService;
     private final PasswordResetService passwordResetService;
+    private final EmployeeQuotaService employeeQuotaService;
 
     /** Verifies the login, issues the token and returns it with the employee card and their branch. */
     public StaffPortalLoginResponse login(String username, String password) {
         StaffLoginResponse login = loginService.staffLogin(username, password);
         return new StaffPortalLoginResponse(login.getAccessToken(), login.getTokenType(), login.getExpiresIn(),
                 PortalEmployee.of(login.getEmployee()), portalService.location(login.getEmployee().getBankLocationId()));
+    }
+
+    /** The signed-in employee's own daily request usage and logins today (no privilege needed: it is only ever the caller's own row). */
+    public EmployeeRateLimitView myRateLimit(String employeeNumber) {
+        return employeeQuotaService.view(employeeNumber);
     }
 
     public void changePassword(String employeeNumber, ChangePasswordRequest request) {

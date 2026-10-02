@@ -1,5 +1,6 @@
 package org.brite.banking.bff;
 
+import org.brite.banking.domain.EmployeeRateLimitView;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import org.brite.banking.bff.controller.StaffPortalAuthController;
 import org.brite.banking.bff.dto.PortalEmployee;
@@ -168,5 +169,18 @@ class StaffPortalAuthControllerTest {
                         .content("{\"maxRequestsPerDay\":0}"))
                 .andExpect(status().isBadRequest());
         verify(staffPortalService, times(1)).setEmployeeRateLimit(eq("EMP-A"), eq("EMP-000010"), any());
+    }
+
+    @Test
+    void myRateLimitReturnsTheTokenEmployeesOwnUsageWithNoStore() throws Exception {
+        when(service.myRateLimit("EMP-000010")).thenReturn(EmployeeRateLimitView.builder().employeeNumber("EMP-000010").dailyLimit(1000)
+                .defaultLimit(1000).requestsToday(4).remainingToday(996).loginsToday(2).build());
+
+        mockMvc.perform(get("/bff/v1/staff/rate-limit").requestAttr(StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, "EMP-000010"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.employeeNumber").value("EMP-000010"))
+                .andExpect(jsonPath("$.loginsToday").value(2))
+                .andExpect(jsonPath("$.remainingToday").value(996));
     }
 }

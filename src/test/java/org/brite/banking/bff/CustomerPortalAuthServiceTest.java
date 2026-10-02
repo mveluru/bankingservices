@@ -1,5 +1,7 @@
 package org.brite.banking.bff;
 
+import org.brite.banking.service.CustomerQuotaService;
+import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.bff.dto.PortalHomeResponse;
 import org.brite.banking.bff.dto.PortalLoginResponse;
 import org.brite.banking.bff.service.CustomerPortalAuthService;
@@ -41,6 +43,7 @@ class CustomerPortalAuthServiceTest {
     private StaffLoginService staffLoginService;
     private CustomerCredentialService customers;
     private PasswordResetService resets;
+    private CustomerQuotaService quota;
     private CustomerPortalAuthService service;
 
     @BeforeEach
@@ -50,7 +53,8 @@ class CustomerPortalAuthServiceTest {
         staffLoginService = mock(StaffLoginService.class);
         customers = mock(CustomerCredentialService.class);
         resets = mock(PasswordResetService.class);
-        service = new CustomerPortalAuthService(loginService, portalService, staffLoginService, customers, resets);
+        quota = mock(CustomerQuotaService.class);
+        service = new CustomerPortalAuthService(loginService, portalService, staffLoginService, customers, resets, quota);
     }
 
     @Test
@@ -132,5 +136,15 @@ class CustomerPortalAuthServiceTest {
         assertEquals(LoginStatus.SUSPENDED, service.changeStatus("EMP-M", 11L, request).getStatus());
         assertThrows(EmployeeNotAuthorizedException.class, () -> service.changeStatus("EMP-T", 11L, request));
         verifyNoInteractions(loginService);
+    }
+
+    @Test
+    void myRateLimitIsTheCallersOwnUsageFromTheQuotaServiceAndNeedsNoPrivilege() {
+        CustomerRateLimitView view = CustomerRateLimitView.builder().customerId(5L).dailyLimit(1000).defaultLimit(1000).requestsToday(12)
+                .remainingToday(988).loginsToday(3).build();
+        when(quota.view(5L)).thenReturn(view);
+
+        assertSame(view, service.myRateLimit(5L));
+        verifyNoInteractions(staffLoginService);
     }
 }

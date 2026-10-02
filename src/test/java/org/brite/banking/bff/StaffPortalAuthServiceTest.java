@@ -1,5 +1,7 @@
 package org.brite.banking.bff;
 
+import org.brite.banking.service.EmployeeQuotaService;
+import org.brite.banking.domain.EmployeeRateLimitView;
 import org.brite.banking.bff.dto.PortalLocation;
 import org.brite.banking.bff.dto.StaffPortalLoginResponse;
 import org.brite.banking.bff.service.PortalOrchestrationService;
@@ -35,6 +37,7 @@ class StaffPortalAuthServiceTest {
     private PortalOrchestrationService portal;
     private EmployeeCredentialService employees;
     private PasswordResetService resets;
+    private EmployeeQuotaService quota;
     private StaffPortalAuthService service;
 
     @BeforeEach
@@ -43,7 +46,8 @@ class StaffPortalAuthServiceTest {
         portal = mock(PortalOrchestrationService.class);
         employees = mock(EmployeeCredentialService.class);
         resets = mock(PasswordResetService.class);
-        service = new StaffPortalAuthService(loginService, portal, employees, resets);
+        quota = mock(EmployeeQuotaService.class);
+        service = new StaffPortalAuthService(loginService, portal, employees, resets, quota);
     }
 
     private static Employee lucas(Long branch) {
@@ -100,5 +104,14 @@ class StaffPortalAuthServiceTest {
         verify(resets).questionsFor(CredentialOwnerType.EMPLOYEE, "lucas.meyer");
         assertEquals(SecurityQuestion.values().length, service.questionCatalog().size());
         verifyNoInteractions(loginService);
+    }
+
+    @Test
+    void myRateLimitIsTheCallersOwnUsageFromTheQuotaService() {
+        EmployeeRateLimitView view = EmployeeRateLimitView.builder().employeeNumber("EMP-000010").dailyLimit(1000).defaultLimit(1000)
+                .requestsToday(4).remainingToday(996).loginsToday(2).build();
+        when(quota.view("EMP-000010")).thenReturn(view);
+
+        assertSame(view, service.myRateLimit("EMP-000010"));
     }
 }
