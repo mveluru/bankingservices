@@ -20,6 +20,8 @@
         <spring-cloud.version>2025.0.3</spring-cloud.version>
         <!-- Boot does not manage the JaCoCo plugin; pin it (0.8.14+ is needed for Java 25) so builds are reproducible -->
         <jacoco.version>0.8.15</jacoco.version>
+        <!-- Maven compiler plugin 3.13.0+ supports Java 25 -->
+        <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <!-- JWT signing/parsing for the login endpoints; Boot does not manage jjwt -->
         <jjwt.version>0.12.6</jjwt.version>
         <lombok.version>1.18.48</lombok.version>
@@ -161,6 +163,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven-compiler-plugin.version}</version>
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
