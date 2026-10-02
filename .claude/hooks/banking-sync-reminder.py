@@ -36,7 +36,10 @@ if has("banking/entity/") or rel.endswith(SEEDERS) or rel.endswith(DB_ENUMS):
         "07 employees, 08 employee logins, 09 customer logins), db/dml/* (incl. 03_reset_banking_data.sql when a table is added), db/README.md. "
         "ddl-auto:update never alters an existing enum column, so widening an enum (AccountStatus, LoginStatus, EmployeeRole...) also needs "
         "an idempotent db/ddl/NN_*_migration.sql applied to live databases (new columns on existing tables get one too: 04-06 are the pattern). "
-        "Keep seed dates relative and account numbers CH-/SV- + 10 digits. Demo credentials are DEMO ONLY and stored as BCrypt hashes.")
+        "Keep seed dates relative and account numbers CH-/SV- + 10 digits. Demo credentials are DEMO ONLY and stored as BCrypt hashes. "
+        "A NEW TABLE (new *Entity) needs the whole set in db/: DDL (ddl/01 + the DROP in ddl/02 + an idempotent ddl/NN migration), DML (a dml/ script + "
+        "the delete/AUTO_INCREMENT in dml/03_reset_banking_data.sql) and DATA (a data/ backup snapshot of the table's current rows as re-runnable "
+        "INSERT ... ON DUPLICATE KEY UPDATE, or a seeder mirror), then list them in db/README.md ('Adding a table'). doc-sync.py blocks the turn without them.")
 
 if has("banking/contoller/", "banking/request/", "banking/bff/controller/", "banking/bff/dto/") \
         or rel.endswith("BankingExceptionHandler.java"):

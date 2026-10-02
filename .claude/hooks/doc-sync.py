@@ -23,6 +23,9 @@ What counts (paths relative to the project root):
   .claude/CLAUDE.md or .claude/rules/**   <- any functionality change
   banking-openapi.yaml  <- controllers, requests, exceptions, response/domain DTOs, bff, gateway config
   db/**               <- entities and seeders (a script or db/README.md must change with them)
+  NEW table           <- a new *Entity.java (untracked) needs ALL of: ddl/01_create_tables.sql, ddl/02_drop_tables.sql, an idempotent
+                         ddl/NN_*migration*.sql, a dml/ script, a data/ script (a backup/snapshot of the table's rows, or a seeder
+                         mirror) and db/README.md
 """
 import hashlib
 import json
@@ -100,12 +103,21 @@ def touches_db(rel):
     return rel.startswith("src/main/java/") and ("/entity/" in rel or rel.endswith("Seeder.java"))
 
 
+def is_new_entity_candidate(rel):
+    """A JPA entity class, i.e. a table (embeddables and everything else under entity/ don't count)."""
+    return rel.startswith("src/main/java/") and "/entity/" in rel and rel.endswith("Entity.java")
+
+
+MIGRATION = re.compile(r"^db/ddl/\d\d_.*migration.*\.sql$")
+
+
 def is_doc_claude(rel):
     return rel == ".claude/CLAUDE.md" or rel.startswith(".claude/rules/")
 
 
-def unmet(changed):
-    """List of (requirement text, [triggering files]) not satisfied by the docs in `changed`."""
+def unmet(changed, new_entities=()):
+    """List of (requirement text, [triggering files]) not satisfied by the docs in `changed`.
+    `new_entities`: entity classes created this turn (new tables), which need the full set of db/ files."""
     functional = sorted(p for p in changed if is_functional(p))
     if not functional:
         return []
@@ -126,7 +138,32 @@ def unmet(changed):
     dbs = [p for p in functional if touches_db(p)]
     if dbs and not docs_db:
         problems.append(("db/ (ddl/01_create_tables.sql, data/*, a migration for new columns/enums, db/README.md)", dbs))
+    new_entities = sorted(new_entities)
+    if new_entities:
+        table_needs = (
+            ("db/ddl/01_create_tables.sql (the new table and its unique indexes)", "db/ddl/01_create_tables.sql" in changed),
+            ("db/ddl/02_drop_tables.sql (DROP TABLE IF EXISTS for it)", "db/ddl/02_drop_tables.sql" in changed),
+            ("an idempotent db/ddl/NN_<name>_migration.sql (CREATE TABLE IF NOT EXISTS + guarded index) for existing databases",
+             any(MIGRATION.match(p) for p in changed)),
+            ("db/dml/ (a script with the hand-run statements for the table, and the delete/AUTO_INCREMENT in 03_reset_banking_data.sql)",
+             any(p.startswith("db/dml/") for p in changed)),
+            ("db/data/ (a DATA BACKUP: a snapshot of the table's current rows as re-runnable INSERT ... ON DUPLICATE KEY UPDATE, or a mirror of the seeder that fills it)",
+             any(p.startswith("db/data/") for p in changed)),
+            ("db/README.md (list the new files; see 'Adding a table')", "db/README.md" in changed),
+        )
+        for need, met in table_needs:
+            if not met:
+                problems.append((f"NEW TABLE: {need}", new_entities))
     return problems
+
+
+def untracked(project):
+    try:
+        out = subprocess.run(["git", "-C", str(project), "ls-files", "-o", "--exclude-standard", "-z"],
+                             capture_output=True, timeout=20).stdout
+    except Exception:
+        return set()
+    return {raw.decode("utf-8", "replace") for raw in out.split(b"\0") if raw}
 
 
 def escaped(payload):
@@ -176,7 +213,8 @@ def main():
         return
     baseline = saved.get("baseline", {})
     changed = {p for p, h in current.items() if baseline.get(p) != h}
-    problems = unmet(changed)
+    new_entities = {p for p in changed if is_new_entity_candidate(p)} & untracked(project)
+    problems = unmet(changed, new_entities)
     if not problems or saved.get("blocks", 0) >= MAX_BLOCKS_PER_TURN or escaped(payload):
         return
 

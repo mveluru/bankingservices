@@ -5,6 +5,7 @@ import org.brite.banking.bff.dto.AccountOverviewResponse;
 import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.domain.Account;
+import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.EmployeeRole;
@@ -12,6 +13,7 @@ import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
 import org.brite.banking.request.AccountRegistrationRequest;
+import org.brite.banking.request.SetRateLimitRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -50,6 +52,16 @@ public class StaffPortalService {
     public OpenAccountResponse openAccount(String employee, AccountRegistrationRequest request) {
         Account account = staffAccountService.openAccount(employee, request);
         return portalService.openAccountResponse(account, request.getState());
+    }
+
+    /** A customer's daily request limit and today's usage (needs MANAGE_CUSTOMER_LOGINS, checked by the banking service first). */
+    public CustomerRateLimitView customerRateLimit(String employee, Long customerId) {
+        return staffLoginService.customerRateLimit(employee, customerId);
+    }
+
+    /** Sets a customer's own daily request limit, or with null puts them back on the default (needs MANAGE_CUSTOMER_LOGINS, checked first). */
+    public CustomerRateLimitView setCustomerRateLimit(String employee, Long customerId, SetRateLimitRequest request) {
+        return staffLoginService.setCustomerRateLimit(employee, customerId, request);
     }
 
     public AccountOverviewResponse withdraw(String employee, Long locationId, WithdrawalRequest request) {

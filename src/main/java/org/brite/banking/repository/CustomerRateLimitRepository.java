@@ -44,6 +44,12 @@ public class CustomerRateLimitRepository {
         jpaRepository.addLogin(customerId, today);
     }
 
+    /** Sets (or, with null, clears) the customer's own daily limit; the row is created first if the customer has none yet. */
+    public void setMaxRequestsPerDay(Long customerId, LocalDate today, Integer max) {
+        findForToday(customerId, today);
+        jpaRepository.setMaxRequestsPerDay(customerId, max);
+    }
+
     public Optional<CustomerRateLimit> find(Long customerId) {
         return jpaRepository.findByCustomerId(customerId).map(this::toDomain);
     }

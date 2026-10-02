@@ -6,10 +6,12 @@ import org.brite.banking.bff.dto.AccountOverviewResponse;
 import org.brite.banking.bff.dto.OpenAccountResponse;
 import org.brite.banking.bff.dto.PortalEmployee;
 import org.brite.banking.bff.service.StaffPortalService;
+import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.EmployeeRole;
 import org.brite.banking.gateway.StaffAuthenticationFilter;
 import org.brite.banking.request.AccountRegistrationRequest;
+import org.brite.banking.request.SetRateLimitRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -104,6 +107,21 @@ public class StaffPortalController {
     public ResponseEntity<AccountOverviewResponse> close(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
                                                          @PathVariable String accountNumber) {
         return ResponseEntity.ok(staffPortalService.close(employee, accountNumber));
+    }
+
+    /** A customer's daily request limit and today's usage (MANAGE_CUSTOMER_LOGINS). GET /bff/v1/staff/customers/11/rate-limit */
+    @GetMapping("/customers/{customerId}/rate-limit")
+    public ResponseEntity<CustomerRateLimitView> customerRateLimit(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
+                                                                   @PathVariable Long customerId) {
+        return ResponseEntity.ok(staffPortalService.customerRateLimit(employee, customerId));
+    }
+
+    /** Give a customer their own daily request limit, or {@code {"maxRequestsPerDay": null}} for the default (MANAGE_CUSTOMER_LOGINS). PUT /bff/v1/staff/customers/11/rate-limit */
+    @PutMapping("/customers/{customerId}/rate-limit")
+    public ResponseEntity<CustomerRateLimitView> setCustomerRateLimit(@RequestAttribute(value = EMPLOYEE, required = false) String employee,
+                                                                      @PathVariable Long customerId,
+                                                                      @Valid @RequestBody SetRateLimitRequest request) {
+        return ResponseEntity.ok(staffPortalService.setCustomerRateLimit(employee, customerId, request));
     }
 
     /** Employee cards (MANAGE_EMPLOYEES). GET /bff/v1/staff/employees?role=&page=&size=&sort= */

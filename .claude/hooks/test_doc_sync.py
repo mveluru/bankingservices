@@ -14,6 +14,7 @@ OPENAPI = "src/main/resources/static/openapi/banking-openapi.yaml"
 SERVICE = "src/main/java/org/brite/banking/service/FooService.java"
 CONTROLLER = "src/main/java/org/brite/banking/contoller/FooController.java"
 ENTITY = "src/main/java/org/brite/banking/entity/FooEntity.java"
+NEW_ENTITY = "src/main/java/org/brite/banking/entity/BarEntity.java"
 TEST = "src/test/java/org/brite/banking/service/FooServiceTest.java"
 BASE_FILES = ["README.md", ".claude/CLAUDE.md", ".claude/rules/banking/design.md", OPENAPI, "db/README.md",
               "db/ddl/01_create_tables.sql", SERVICE, CONTROLLER, ENTITY, TEST, "pom.xml",
@@ -93,6 +94,36 @@ class DocSyncTest(unittest.TestCase):
         self.write("README.md", "v2\n")
         self.write(".claude/CLAUDE.md", "v2\n")
         self.assertIn("db/", self.reason(self.stop()))
+        self.write("db/ddl/01_create_tables.sql", "v2\n")
+        self.assertIsNone(self.stop())
+
+    def test_a_new_entity_needs_ddl_drop_migration_dml_data_and_readme(self):
+        self.start_turn()
+        self.write(NEW_ENTITY, "class BarEntity {}\n")
+        self.write("README.md", "v2\n")
+        self.write(".claude/CLAUDE.md", "v2\n")
+        self.write("db/ddl/01_create_tables.sql", "v2\n")
+        reason = self.stop()["reason"]
+        for expected in ("02_drop_tables.sql", "migration", "db/dml/", "db/data/", "db/README.md"):
+            self.assertIn(expected, reason)
+        self.assertNotIn("01_create_tables.sql (the new table", reason)
+        self.assertIn("BarEntity.java", reason)
+
+    def test_a_new_entity_with_the_full_db_set_passes(self):
+        self.start_turn()
+        self.write(NEW_ENTITY, "class BarEntity {}\n")
+        self.write("README.md", "v2\n")
+        self.write(".claude/CLAUDE.md", "v2\n")
+        for rel in ("db/ddl/01_create_tables.sql", "db/ddl/02_drop_tables.sql", "db/ddl/08_bar_migration.sql",
+                    "db/dml/05_bar.sql", "db/data/10_backup_bar.sql", "db/README.md"):
+            self.write(rel, "v2\n")
+        self.assertIsNone(self.stop())
+
+    def test_editing_an_existing_entity_does_not_demand_the_full_new_table_set(self):
+        self.start_turn()
+        self.write(ENTITY, "v2\n")
+        self.write("README.md", "v2\n")
+        self.write(".claude/CLAUDE.md", "v2\n")
         self.write("db/ddl/01_create_tables.sql", "v2\n")
         self.assertIsNone(self.stop())
 

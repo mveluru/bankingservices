@@ -1,11 +1,15 @@
 package org.brite.banking.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.domain.EmployeePrivilege;
 import org.brite.banking.domain.LoginStatusView;
+import org.brite.banking.messages.BankingMessages;
 import org.brite.banking.request.ChangeLoginStatusRequest;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.LoginRequest;
+import org.brite.banking.request.SetRateLimitRequest;
 import org.springframework.stereotype.Service;
 
 /**
@@ -13,11 +17,13 @@ import org.springframework.stereotype.Service;
  * login, after checking their privilege. Only an ACTIVE login may perform transactions.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class StaffLoginService {
     private final EmployeeService employeeService;
     private final EmployeeCredentialService employeeCredentialService;
     private final CustomerCredentialService customerCredentialService;
+    private final CustomerQuotaService customerQuotaService;
 
     /** Needs {@code MANAGE_EMPLOYEES} (area managers). */
     public LoginStatusView changeEmployeeLoginStatus(String actingEmployee, String employeeNumber, ChangeLoginStatusRequest request) {
@@ -50,5 +56,22 @@ public class StaffLoginService {
     public LoginStatusView changeCustomerLoginStatus(String actingEmployee, Long customerId, ChangeLoginStatusRequest request) {
         employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_CUSTOMER_LOGINS);
         return customerCredentialService.changeStatus(customerId, request.getStatus(), request.getReason());
+    }
+
+    /** Needs {@code MANAGE_CUSTOMER_LOGINS} (managers and up). A customer's daily request limit and today's usage. */
+    public CustomerRateLimitView customerRateLimit(String actingEmployee, Long customerId) {
+        employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_CUSTOMER_LOGINS);
+        return customerQuotaService.view(customerId);
+    }
+
+    /**
+     * Needs {@code MANAGE_CUSTOMER_LOGINS} (managers and up). Gives a customer their own daily request limit, or with a null limit puts them
+     * back on the default ({@code banking.rate-limit.requests-per-day}).
+     */
+    public CustomerRateLimitView setCustomerRateLimit(String actingEmployee, Long customerId, SetRateLimitRequest request) {
+        employeeService.requirePrivilege(actingEmployee, EmployeePrivilege.MANAGE_CUSTOMER_LOGINS);
+        CustomerRateLimitView view = customerQuotaService.setLimit(customerId, request.getMaxRequestsPerDay());
+        log.info(BankingMessages.LOG_RATE_LIMIT_CHANGED, actingEmployee, customerId, request.getMaxRequestsPerDay() != null ? request.getMaxRequestsPerDay() : "the default");
+        return view;
     }
 }

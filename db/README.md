@@ -22,6 +22,7 @@ seeds demo accounts and bank locations on first start. They exist to build/inspe
 | | `09_seed_customer_credentials.sql` | Demo logins for the first 10 customers (BCrypt hashes only; demo credentials, see the file header). Run against an empty `customer_credentials` table |
 | | `05_seed_closed_and_suspended_accounts.sql` | 40 more accounts (ids 53–92): 20 `CLOSED` and 20 `SUSPENDED` (14 with an end date, 6 indefinite, all with notes) — same as `AccountStatusDemoSeeder`. Run after `01_...` |
 | | `06_backfill_customer_phones.sql` | Gives the 92 demo customers with no phone their `512-555-NNNN` number, keyed by account (so it stays correct even if customer ids have drifted); only touches NULL phones, safe to rerun. For databases seeded before phone numbers existed |
+| | `10_backup_customer_rate_limits.sql` | Snapshot (data backup) of `customer_rate_limits` (customers 1-4, `max_requests_per_day` NULL = the property default of 1000) and that day's counters; re-runnable (`ON DUPLICATE KEY UPDATE`); a fresh database needs none |
 | `dml/` | `01_account_operations.sql` | Register / withdraw / deposit / close / bulk-close as guarded SQL |
 | | `02_queries.sql` | Lookup, paginated search, statement, reporting queries (read-only) |
 | | `05_customer_rate_limits.sql` | Today's request/login usage per customer, and how to give a customer their own daily limit, put them back on the default or unblock them |
@@ -38,3 +39,11 @@ Run in order, e.g. `mysql -u <user> -p < db/ddl/01_create_tables.sql`, then the 
   `CURDATE()`, like the seeder's `LocalDate.now()`.
 - `data/05_...` runs after `data/01_...` and expects ids 53–92 free. `AccountStatusDemoSeeder` seeds the same 40 accounts on app start for any that are missing (per account number), so an existing database gets them without running this file.
 - SQL changes bypass the app's 10-minute `GET /v1/api/accounts` cache, so listings can look stale.
+
+## Adding a table (do all of these in the same change)
+Whenever a new `*Entity` (a new table) is added, the `db/` folder gets every one of these; `doc-sync.py` blocks the end of a turn that adds an entity without them:
+1. **DDL**: the table in `ddl/01_create_tables.sql` (as Hibernate generates it, with its unique indexes), a `DROP TABLE IF EXISTS` in `ddl/02_drop_tables.sql`, and an idempotent `ddl/NN_<name>_migration.sql` (`CREATE TABLE IF NOT EXISTS` + guarded index) for databases that already exist.
+2. **DML**: `dml/NN_<name>.sql` with the useful hand-run statements (usage/reporting queries, how to change the data safely), and a `DELETE` plus `AUTO_INCREMENT = 1` for the table in `dml/03_reset_banking_data.sql`.
+3. **Data**: `data/NN_<name>.sql`: a **backup** (snapshot) of the table's current rows as re-runnable `INSERT ... ON DUPLICATE KEY UPDATE`, or, when the app seeds the table itself, a mirror of that seeder. Take the snapshot from the live database (rows with credentials stay hashes only).
+4. List all of them in the tables above, and update the table counts in this file.
+

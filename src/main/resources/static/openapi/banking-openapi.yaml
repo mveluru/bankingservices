@@ -1622,6 +1622,87 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /v1/api/staff/customers/{customerId}/rate-limit:
+    get:
+      tags: [Staff]
+      operationId: getCustomerRateLimit
+      summary: A customer's daily request limit and usage
+      description: |
+        Requires the `MANAGE_CUSTOMER_LOGINS` privilege (managers and up). Returns the limit that applies to the customer today (their own
+        `customLimit`, else the `defaultLimit` from `banking.rate-limit.requests-per-day`) and today's usage: requests counted against the
+        customer's token and successful logins. Usage is zero for a customer who has made no request today.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+          example: 5
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CustomerRateLimitView'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown customer, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      tags: [Staff]
+      operationId: setCustomerRateLimit
+      summary: Set a customer's own daily request limit
+      description: |
+        Requires the `MANAGE_CUSTOMER_LOGINS` privilege (managers and up). Gives the customer their own daily request limit (1 to 1,000,000), or
+        with `maxRequestsPerDay` null or absent puts them back on the application default. Today's usage is not changed, so lowering the limit
+        below today's count blocks the customer for the rest of the day.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+          example: 5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SetRateLimitRequest'}
+            example: {maxRequestsPerDay: 250}
+      responses:
+        '200':
+          description: The limit and today's usage after the change.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CustomerRateLimitView'}
+        '400':
+          description: A limit below 1 or above 1,000,000 (JSON validation).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown customer, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /v1/api/staff/customers/{customerId}/password:
     put:
       tags: [Password reset]
@@ -2687,6 +2768,87 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
 
+  /bff/v1/staff/customers/{customerId}/rate-limit:
+    get:
+      tags: [Staff portal (BFF)]
+      operationId: staffPortalCustomerRateLimit
+      summary: A customer's daily request limit and usage
+      description: |
+        Requires the `MANAGE_CUSTOMER_LOGINS` privilege (managers and up). Returns the limit that applies to the customer today (their own
+        `customLimit`, else the `defaultLimit` from `banking.rate-limit.requests-per-day`) and today's usage: requests counted against the
+        customer's token and successful logins. Usage is zero for a customer who has made no request today. Same as the banking staff call of the same path under `/v1/api/staff`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+          example: 5
+      responses:
+        '200':
+          description: The limit and today's usage.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CustomerRateLimitView'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown customer, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+    put:
+      tags: [Staff portal (BFF)]
+      operationId: staffPortalSetCustomerRateLimit
+      summary: Set a customer's own daily request limit
+      description: |
+        Requires the `MANAGE_CUSTOMER_LOGINS` privilege (managers and up). Gives the customer their own daily request limit (1 to 1,000,000), or
+        with `maxRequestsPerDay` null or absent puts them back on the application default. Today's usage is not changed, so lowering the limit
+        below today's count blocks the customer for the rest of the day. Same as the banking staff call of the same path under `/v1/api/staff`.
+      security:
+        - CustomerId: []
+          BearerAuth: []
+      parameters:
+        - name: customerId
+          in: path
+          required: true
+          schema: {type: integer, format: int64}
+          example: 5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/SetRateLimitRequest'}
+            example: {maxRequestsPerDay: 250}
+      responses:
+        '200':
+          description: The limit and today's usage after the change.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CustomerRateLimitView'}
+        '400':
+          description: A limit below 1 or above 1,000,000 (JSON validation).
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/SpringErrorResponse'}
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/EmployeeForbidden'
+        '404':
+          description: Unknown customer, or the token's employee no longer exists. Plain text.
+          content:
+            text/plain:
+              schema: {type: string}
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
   /bff/v1/staff/customers/{customerId}/password:
     put:
       tags: [Staff portal (BFF)]
@@ -3349,6 +3511,28 @@ components:
         statusReason: {type: string, nullable: true}
         statusChangedAt: {type: string, format: date-time, nullable: true}
         lockedUntil: {type: string, format: date-time, nullable: true, description: Set only for an automatic lock.}
+
+    SetRateLimitRequest:
+      type: object
+      properties:
+        maxRequestsPerDay:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          nullable: true
+          description: The customer's own daily request limit; null or absent puts them back on the application default.
+
+    CustomerRateLimitView:
+      type: object
+      properties:
+        customerId: {type: integer, format: int64}
+        dailyLimit: {type: integer, description: "The limit that applies today: the customer's own, else the default."}
+        customLimit: {type: integer, nullable: true, description: The customer's own limit; null when they are on the default.}
+        defaultLimit: {type: integer, description: banking.rate-limit.requests-per-day}
+        usageDate: {type: string, format: date}
+        requestsToday: {type: integer, description: Requests counted against the customer's token today.}
+        remainingToday: {type: integer}
+        loginsToday: {type: integer, description: Successful customer logins today.}
 
     EmployeeRole:
       type: string

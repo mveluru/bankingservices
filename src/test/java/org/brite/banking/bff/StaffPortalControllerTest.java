@@ -42,6 +42,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -168,5 +169,23 @@ class StaffPortalControllerTest {
         secured.perform(get("/bff/v1/staff/accounts/CH-0000010001/overview").header("Authorization", "Bearer " + token)).andExpect(status().isOk());
         verify(service).overview("EMP-000010", "CH-0000010001", null);
         org.mockito.Mockito.verifyNoMoreInteractions(service);
+    }
+
+    @Test
+    void staffReadAndSetACustomersDailyRequestLimitThroughTheBff() throws Exception {
+        org.brite.banking.domain.CustomerRateLimitView view = org.brite.banking.domain.CustomerRateLimitView.builder().customerId(11L)
+                .dailyLimit(250).customLimit(250).defaultLimit(1000).requestsToday(3).remainingToday(247).build();
+        when(service.customerRateLimit("EMP-M", 11L)).thenReturn(view);
+        when(service.setCustomerRateLimit(eq("EMP-M"), eq(11L), any())).thenReturn(view);
+
+        mockMvc.perform(get("/bff/v1/staff/customers/11/rate-limit").requestAttr(ATTR, "EMP-M"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.dailyLimit").value(250)).andExpect(jsonPath("$.remainingToday").value(247));
+        mockMvc.perform(put("/bff/v1/staff/customers/11/rate-limit").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"maxRequestsPerDay\":250}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.customLimit").value(250));
+        mockMvc.perform(put("/bff/v1/staff/customers/11/rate-limit").requestAttr(ATTR, "EMP-M").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"maxRequestsPerDay\":0}"))
+                .andExpect(status().isBadRequest());
+        verify(service, org.mockito.Mockito.times(1)).setCustomerRateLimit(eq("EMP-M"), eq(11L), any());
     }
 }

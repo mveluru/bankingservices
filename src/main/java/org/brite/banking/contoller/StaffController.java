@@ -7,10 +7,12 @@ import org.brite.banking.gateway.StaffAuthenticationFilter;
 import org.brite.banking.domain.DepositForm;
 import org.brite.banking.domain.Employee;
 import org.brite.banking.domain.EmployeeRole;
+import org.brite.banking.domain.CustomerRateLimitView;
 import org.brite.banking.domain.LoginStatusView;
 import org.brite.banking.request.AdminSetPasswordRequest;
 import org.brite.banking.request.ChangeLoginStatusRequest;
 import org.brite.banking.request.LoginRequest;
+import org.brite.banking.request.SetRateLimitRequest;
 import org.brite.banking.request.SuspendAccountRequest;
 import org.brite.banking.request.UpdateSuspensionRequest;
 import org.brite.banking.request.WithdrawalRequest;
@@ -171,5 +173,28 @@ public class StaffController {
             @PathVariable Long customerId,
             @Valid @RequestBody ChangeLoginStatusRequest request) {
         return ResponseEntity.ok(staffLoginService.changeCustomerLoginStatus(employee, customerId, request));
+    }
+
+    /**
+     * Needs MANAGE_CUSTOMER_LOGINS (manager and up). A customer's daily request limit (their own, else the default) and today's usage.
+     * GET /v1/api/staff/customers/{customerId}/rate-limit
+     */
+    @GetMapping("/customers/{customerId}/rate-limit")
+    public ResponseEntity<CustomerRateLimitView> customerRateLimit(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable Long customerId) {
+        return ResponseEntity.ok(staffLoginService.customerRateLimit(employee, customerId));
+    }
+
+    /**
+     * Needs MANAGE_CUSTOMER_LOGINS (manager and up). Gives a customer their own daily request limit (1 to 1,000,000), or with
+     * {@code {"maxRequestsPerDay": null}} (or {@code {}}) puts them back on the default. PUT /v1/api/staff/customers/{customerId}/rate-limit
+     */
+    @PutMapping("/customers/{customerId}/rate-limit")
+    public ResponseEntity<CustomerRateLimitView> setCustomerRateLimit(
+            @RequestAttribute(value = StaffAuthenticationFilter.EMPLOYEE_ATTRIBUTE, required = false) String employee,
+            @PathVariable Long customerId,
+            @Valid @RequestBody SetRateLimitRequest request) {
+        return ResponseEntity.ok(staffLoginService.setCustomerRateLimit(employee, customerId, request));
     }
 }

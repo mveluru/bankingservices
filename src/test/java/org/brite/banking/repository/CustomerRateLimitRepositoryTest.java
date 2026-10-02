@@ -112,4 +112,17 @@ class CustomerRateLimitRepositoryTest {
         assertThat(repository.tryConsumeRequest(99L, today, 10)).isFalse();
         assertThat(repository.find(99L)).isEmpty();
     }
+
+    @Test
+    void anOwnLimitCanBeSetClearedAndIsCreatedForACustomerWithNoRow() {
+        repository.setMaxRequestsPerDay(8L, today, 300);
+        assertThat(repository.find(8L).orElseThrow().getMaxRequestsPerDay()).isEqualTo(300);
+
+        repository.tryConsumeRequest(8L, today, 300);
+        repository.setMaxRequestsPerDay(8L, today, null);
+
+        CustomerRateLimit row = repository.find(8L).orElseThrow();
+        assertThat(row.getMaxRequestsPerDay()).isNull();
+        assertThat(row.getRequestCount()).as("today's usage is untouched").isEqualTo(1);
+    }
 }

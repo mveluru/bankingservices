@@ -152,4 +152,18 @@ class StaffPortalServiceTest {
         assertThrows(EmployeeNotAuthorizedException.class, () -> service.openAccount("EMP-X", request));
         verifyNoInteractions(portal);
     }
+
+    @Test
+    void customerRateLimitCallsDelegateToTheBankingStaffServiceWhichChecksThePrivilege() {
+        org.brite.banking.domain.CustomerRateLimitView view = org.brite.banking.domain.CustomerRateLimitView.builder().customerId(11L).dailyLimit(250).build();
+        org.brite.banking.request.SetRateLimitRequest request = new org.brite.banking.request.SetRateLimitRequest(250);
+        when(logins.customerRateLimit("EMP-M", 11L)).thenReturn(view);
+        when(logins.setCustomerRateLimit("EMP-M", 11L, request)).thenReturn(view);
+        when(logins.setCustomerRateLimit("EMP-T", 11L, request)).thenThrow(new EmployeeNotAuthorizedException("not authorized"));
+
+        assertSame(view, service.customerRateLimit("EMP-M", 11L));
+        assertSame(view, service.setCustomerRateLimit("EMP-M", 11L, request));
+        assertThrows(EmployeeNotAuthorizedException.class, () -> service.setCustomerRateLimit("EMP-T", 11L, request));
+        verifyNoInteractions(portal);
+    }
 }

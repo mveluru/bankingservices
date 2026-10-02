@@ -31,6 +31,11 @@ public interface CustomerRateLimitJpaRepository extends JpaRepository<CustomerRa
 
     @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update CustomerRateLimitEntity e set e.maxRequestsPerDay = :max where e.customerId = :customerId")
+    int setMaxRequestsPerDay(@Param("customerId") Long customerId, @Param("max") Integer max);
+
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update CustomerRateLimitEntity e set e.loginCount = e.loginCount + 1 "
             + "where e.customerId = :customerId and e.usageDate = :today")
     int addLogin(@Param("customerId") Long customerId, @Param("today") LocalDate today);
