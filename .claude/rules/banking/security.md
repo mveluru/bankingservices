@@ -4,7 +4,7 @@ paths:
 ---
 # Banking: security and data handling
 
-- **`X-Customer-Id` is a rate-limit key, not authentication.** Don't build authorization on it or describe it as auth. If real auth is added, it goes in the gateway before the rate limiter.
+- **`X-Customer-Id` is a rate-limit key, not authentication.** Don't build authorization on it or describe it as auth. A customer's daily request limit is keyed on the verified customer token (`customer_rate_limits`), not on this header; only token-less traffic is still counted per header value. If real auth is added, it goes in the gateway before the rate limiter.
 - Validate all input at the edge: Bean Validation on request DTOs; typed enums/dates on query params; sort keys allow-listed before reaching Hibernate.
 - SQL: Spring Data derived queries or `Specification` only. No string-concatenated JPQL/SQL.
 - PII: names, addresses, `dateOfBirth` and `phoneNumber` never appear in logs, exception messages, or notification bodies beyond what the feature needs. Request logging masks `dateOfBirth`, `phoneNumber` and `password`; extend `mask` for any new sensitive field. The BFF returns phone numbers only masked (`***-***-0101`, last four digits), never in full. Headers are never logged.

@@ -2,6 +2,7 @@ package org.brite.banking.gateway;
 
 import lombok.RequiredArgsConstructor;
 import org.brite.banking.service.CustomerCredentialService;
+import org.brite.banking.service.CustomerQuotaService;
 import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.JwtService;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +44,7 @@ public class BankingGatewayConfig {
 
     private final RateLimitProperties rateLimitProperties;
     private final CustomerRateLimiter customerRateLimiter;
+    private final CustomerQuotaService customerQuotaService;
     private final JwtService jwtService;
     private final CustomerCredentialService customerCredentialService;
     private final EmployeeCredentialService employeeCredentialService;
@@ -60,7 +62,7 @@ public class BankingGatewayConfig {
     @Bean
     public FilterRegistrationBean<BankingRateLimitFilter> bankingRateLimitFilter() {
         FilterRegistrationBean<BankingRateLimitFilter> registration = new FilterRegistrationBean<>();
-        registration.setFilter(new BankingRateLimitFilter(rateLimitProperties, customerRateLimiter));
+        registration.setFilter(new BankingRateLimitFilter(rateLimitProperties, customerRateLimiter, jwtService, customerQuotaService));
         registration.setName("bankingRateLimitFilter");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
         registration.addUrlPatterns(BANKING_URL_PATTERNS);

@@ -10,6 +10,7 @@ import org.brite.banking.exception.EmployeeLockedException;
 import org.brite.banking.exception.InvalidCredentialsException;
 import org.brite.banking.exception.LoginNotActiveException;
 import org.brite.banking.service.CustomerCredentialService;
+import org.brite.banking.service.CustomerQuotaService;
 import org.brite.banking.rules.JwtProperties;
 import org.brite.banking.service.EmployeeCredentialService;
 import org.brite.banking.service.JwtService;
@@ -25,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -37,6 +39,7 @@ class LoginControllerTest {
     private EmployeeCredentialService employeeService;
     private CustomerCredentialService customerService;
     private JwtService jwtService;
+    private CustomerQuotaService quotaService;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -46,7 +49,8 @@ class LoginControllerTest {
         JwtProperties properties = new JwtProperties();
         properties.setSecret("controller-test-secret-at-least-32-chars!!");
         jwtService = new JwtService(properties);
-        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(new LoginService(employeeService, customerService, jwtService)))
+        quotaService = mock(CustomerQuotaService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new LoginController(new LoginService(employeeService, customerService, jwtService, quotaService)))
                 .setControllerAdvice(new BankingExceptionHandler())
                 .setMessageConverters(new StringHttpMessageConverter(), new MappingJackson2HttpMessageConverter(Jackson2ObjectMapperBuilder.json()
                         .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build()))
@@ -85,6 +89,7 @@ class LoginControllerTest {
                 .andExpect(jsonPath("$.customer.customerId").value(5))
                 .andExpect(jsonPath("$.customer.firstName").value("Alice"))
                 .andExpect(jsonPath("$.customer.length()").value(3));
+        verify(quotaService).recordLogin(5L);
     }
 
     @Test
@@ -107,6 +112,8 @@ class LoginControllerTest {
                 .andExpect(status().isLocked());
         mockMvc.perform(post("/v1/api/customers/login").contentType(MediaType.APPLICATION_JSON).content(body("customer0006", "20260006")))
                 .andExpect(status().isForbidden());
+        // only a successful customer login is counted for the day
+        verifyNoInteractions(quotaService);
     }
 
     @Test

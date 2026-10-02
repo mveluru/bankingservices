@@ -14,22 +14,22 @@ USE db_example;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'bank_employee_credentials' AND column_name = 'reset_failed_attempts') = 0,
-              'ALTER TABLE bank_employee_credentials ADD reset_failed_attemptsUMN reset_failed_attempts int NOT NULL DEFAULT 0', 'SELECT ''bank_employee_credentials.reset_failed_attempts: already present''');
+              'ALTER TABLE bank_employee_credentials ADD COLUMN reset_failed_attempts int NOT NULL DEFAULT 0', 'SELECT ''bank_employee_credentials.reset_failed_attempts: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'bank_employee_credentials' AND column_name = 'reset_locked_until') = 0,
-              'ALTER TABLE bank_employee_credentials ADD reset_locked_untilUMN reset_locked_until datetime(6) NULL', 'SELECT ''bank_employee_credentials.reset_locked_until: already present''');
+              'ALTER TABLE bank_employee_credentials ADD COLUMN reset_locked_until datetime(6) NULL', 'SELECT ''bank_employee_credentials.reset_locked_until: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'customer_credentials' AND column_name = 'reset_failed_attempts') = 0,
-              'ALTER TABLE customer_credentials ADD reset_failed_attemptsUMN reset_failed_attempts int NOT NULL DEFAULT 0', 'SELECT ''customer_credentials.reset_failed_attempts: already present''');
+              'ALTER TABLE customer_credentials ADD COLUMN reset_failed_attempts int NOT NULL DEFAULT 0', 'SELECT ''customer_credentials.reset_failed_attempts: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'customer_credentials' AND column_name = 'reset_locked_until') = 0,
-              'ALTER TABLE customer_credentials ADD reset_locked_untilUMN reset_locked_until datetime(6) NULL', 'SELECT ''customer_credentials.reset_locked_until: already present''');
+              'ALTER TABLE customer_credentials ADD COLUMN reset_locked_until datetime(6) NULL', 'SELECT ''customer_credentials.reset_locked_until: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS security_answers (

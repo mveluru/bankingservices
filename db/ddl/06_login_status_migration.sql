@@ -12,30 +12,30 @@ USE db_example;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'bank_employee_credentials' AND column_name = 'status') = 0,
-              'ALTER TABLE bank_employee_credentials ADD statusUMN status enum(''ACTIVE'',''INACTIVE'',''LOCKED'',''SUSPENDED'') NOT NULL DEFAULT ''ACTIVE''', 'SELECT ''bank_employee_credentials.status: already present''');
+              'ALTER TABLE bank_employee_credentials ADD COLUMN status enum(''ACTIVE'',''INACTIVE'',''LOCKED'',''SUSPENDED'') NOT NULL DEFAULT ''ACTIVE''', 'SELECT ''bank_employee_credentials.status: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'bank_employee_credentials' AND column_name = 'status_reason') = 0,
-              'ALTER TABLE bank_employee_credentials ADD status_reasonUMN status_reason varchar(200) NULL', 'SELECT ''bank_employee_credentials.status_reason: already present''');
+              'ALTER TABLE bank_employee_credentials ADD COLUMN status_reason varchar(200) NULL', 'SELECT ''bank_employee_credentials.status_reason: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'bank_employee_credentials' AND column_name = 'status_changed_at') = 0,
-              'ALTER TABLE bank_employee_credentials ADD status_changed_atUMN status_changed_at datetime(6) NULL', 'SELECT ''bank_employee_credentials.status_changed_at: already present''');
+              'ALTER TABLE bank_employee_credentials ADD COLUMN status_changed_at datetime(6) NULL', 'SELECT ''bank_employee_credentials.status_changed_at: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'customer_credentials' AND column_name = 'status') = 0,
-              'ALTER TABLE customer_credentials ADD statusUMN status enum(''ACTIVE'',''INACTIVE'',''LOCKED'',''SUSPENDED'') NOT NULL DEFAULT ''ACTIVE''', 'SELECT ''customer_credentials.status: already present''');
+              'ALTER TABLE customer_credentials ADD COLUMN status enum(''ACTIVE'',''INACTIVE'',''LOCKED'',''SUSPENDED'') NOT NULL DEFAULT ''ACTIVE''', 'SELECT ''customer_credentials.status: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'customer_credentials' AND column_name = 'status_reason') = 0,
-              'ALTER TABLE customer_credentials ADD status_reasonUMN status_reason varchar(200) NULL', 'SELECT ''customer_credentials.status_reason: already present''');
+              'ALTER TABLE customer_credentials ADD COLUMN status_reason varchar(200) NULL', 'SELECT ''customer_credentials.status_reason: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @sql = IF((SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE() AND table_name = 'customer_credentials' AND column_name = 'status_changed_at') = 0,
-              'ALTER TABLE customer_credentials ADD status_changed_atUMN status_changed_at datetime(6) NULL', 'SELECT ''customer_credentials.status_changed_at: already present''');
+              'ALTER TABLE customer_credentials ADD COLUMN status_changed_at datetime(6) NULL', 'SELECT ''customer_credentials.status_changed_at: already present''');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;

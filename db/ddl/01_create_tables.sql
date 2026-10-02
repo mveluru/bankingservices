@@ -159,6 +159,16 @@ CREATE TABLE IF NOT EXISTS customer_credentials (
     primary key (id)
 ) engine=InnoDB;
 
+CREATE TABLE IF NOT EXISTS customer_rate_limits (
+    login_count integer not null default 0,
+    request_count integer not null default 0,
+    max_requests_per_day integer,
+    usage_date date not null,
+    customer_id bigint not null,
+    id bigint not null auto_increment,
+    primary key (id)
+) engine=InnoDB;
+
 CREATE TABLE IF NOT EXISTS security_answers (
     slot integer not null,
     owner_id bigint not null,
@@ -211,6 +221,9 @@ alter table customer_credentials
 
 alter table customer_credentials
    add constraint idx_customer_credentials_username unique (username);
+
+alter table customer_rate_limits
+   add constraint idx_customer_rate_limits_customer_id unique (customer_id);
 
 alter table security_answers
    add constraint idx_security_answers_owner_slot unique (owner_type, owner_id, slot);

@@ -18,15 +18,20 @@ info:
        `X-BTID` response header. The same id is stamped on every server log line for that
        request, so quote it when reporting a problem.
     2. **`BankingRateLimitFilter`** requires the customer-id header (default `X-Customer-Id`,
-       configurable via `banking.rate-limit.customer-header-name`) and caps each customer at
-       `banking.rate-limit.requests-per-day` requests/day (default 1000). A missing/blank
-       header is rejected with `400`; an exhausted quota with `429`. Both are **plain-text**
+       configurable via `banking.rate-limit.customer-header-name`) and caps each caller per day.
+       A request with a **valid customer token** is counted against that customer (the token's
+       subject, not the header), using the customer's own `max_requests_per_day` from the
+       `customer_rate_limits` table or else `banking.rate-limit.requests-per-day` (default 1000);
+       the same row counts the customer's logins per day. Requests with no customer token (login,
+       registration, password reset, locations) and employee or invalid tokens are counted per
+       header value. A missing/blank header is rejected with `400`; an exhausted quota with `429`. Both are **plain-text**
        bodies written by the filter itself, not the JSON/text bodies produced by the
        controllers' exception handler. Every non-rejected response carries
        `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
 
-    `X-Customer-Id` identifies the caller for rate limiting only. It is **not**
-    authentication - the API has no auth layer.
+    `X-Customer-Id` identifies the caller for rate limiting only when no customer token is
+    present; a customer token decides the customer being counted. It is **not**
+    authentication - the JWT is.
 
     ## Error bodies
 
@@ -3200,8 +3205,9 @@ components:
               value: 'Employee EMP-000010 login is SUSPENDED; only an ACTIVE login can perform transactions'
     TooManyRequests:
       description: >-
-        The calling customer's daily quota (`banking.rate-limit.requests-per-day`) is
-        exhausted. Written by the gateway filter as plain text. (A missing/blank customer-id
+        The calling customer's daily quota is exhausted: their own `max_requests_per_day` or else
+        `banking.rate-limit.requests-per-day`, counted against the customer the token names (per
+        `X-Customer-Id` value when there is no customer token). Written by the gateway filter as plain text. (A missing/blank customer-id
         header is rejected by the same filter with `400` and a plain-text message - see
         *Gateway behavior*.)
       headers:

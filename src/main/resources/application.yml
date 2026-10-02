@@ -71,7 +71,7 @@ banking:
     max-statement-range-months: 18
   rate-limit:
     enabled: true
-    requests-per-day: 1000
+    requests-per-day: 1000   # the default per customer; a row in customer_rate_limits can give one customer their own limit
     customer-header-name: X-Customer-Id
   employee-login:
     max-failed-attempts: 5
