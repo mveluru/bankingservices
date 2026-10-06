@@ -110,6 +110,14 @@ if rel.endswith("banking-openapi.yaml"):
     except Exception as exc:  # validator missing/timeout must never break the session
         notes.append(f"OpenAPI spec edited; validator could not run ({exc}).")
 
+# General reminder for all banking changes
+if rel.startswith("src/main/java/org/brite/banking/") or rel == "pom.xml" or rel.startswith("db/"):
+    notes.append("ACTION ITEM: Keep .claude/rules/banking/*.md files in sync — update the relevant rule file "
+                 "(e.g., architecture.md for layout changes, controller-layer.md for endpoints, employees-and-logins.md for auth changes, "
+                 "account-lifecycle.md for account state rules, service-layer.md for business logic, design.md for domain objects, "
+                 "gateway-layer.md for API gateway, security.md for security rules, testing.md for test patterns, api-design.md for API conventions). "
+                 "The .claude/ files are the single source of truth for how banking works — without updates, future work will follow stale guidance.")
+
 if not notes:
     sys.exit(0)
 
