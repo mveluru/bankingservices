@@ -4,11 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Spring Boot 3.5 (Java 25) REST application (`org.brite`, artifact `bankingservices`) that demonstrates several backend patterns in isolated modules: `@ConfigurationProperties` binding, async notification processing, Resilience4j circuit breaking/retry, MapStruct mapping, and Spring Data JPA — see `../README.md` for the full endpoint table and sample `curl` requests.
+A Spring Boot 3.5 (Java 25) REST application (`org.brite`, artifact `bankingservices`) that demonstrates several backend patterns in isolated modules: `@ConfigurationProperties` binding, async notification processing, Resilience4j circuit breaking/retry, MapStruct mapping, and Spring Data JPA — see `../README.md` for the full endpoint table and sample `curl` requests, and `../banking_requirements.md` for detailed functional and technical requirements.
 
 ## Project naming
 
 The Maven artifact, `spring.application.name` and README title are `bankingservices` (lowercase); the main class is `org.brite.BankingServicesApplication` (tests: `BankingServicesApplicationTests`). The Java packages were renamed from `org.bee.*` to `org.brite.*` (groupId `org.brite` too); the database (`db_example`) deliberately keeps its name. **The context path `/brite` must not change**: the `bankinguiportal` project reaches this service only by URL (`BANKING_BACKEND_URL` / `NEXT_PUBLIC_API_BASE_URL` = `http://localhost:8081/brite`), so renaming it breaks the portal, the OpenAPI `servers`, CORS setup and every curl sample. The GitHub repo (`mveluru/bankingservices`) and the local folder (`~/IdeaProjects/gitprojects/bankingservices`) carry the same name; both were renamed from `springbootexampleprojects`. Claude Code memory is keyed by the folder path, so it was copied to the new project key when the folder was renamed.
+
+## Recent Changes (October 2026)
+
+**Sample service extracted to separate repository**
+- Sample lookup demo module (`org.brite.sample`) moved to https://github.com/mveluru/sampleservice
+- Runs independently on port 8086 with context path `/sample`
+- Removed from bankingservices `BankingServicesApplication` scanBasePackages
+- Banking services remains focused on core banking operations, portal BFF, and employee management
+- No impact on banking functionality; all banking tests pass
 
 ## Banking module rules
 

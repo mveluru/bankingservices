@@ -1,6 +1,8 @@
 # bankingservices (Brite Technology Notifications)
 
-A Spring Boot 3 REST application demonstrating configuration properties binding (`@ConfigurationProperties`), custom REST controllers, async processing, global exception handling, Spring Data JPA, and Spring Boot Actuator monitoring.
+A Spring Boot 3.5 REST API for core banking operations, customer and employee authentication, account management with suspension, and a portal backend (BFF) for mobile/web clients. See [banking_requirements.md](banking_requirements.md) for detailed functional and technical specifications.
+
+Demonstrates configuration properties binding (`@ConfigurationProperties`), custom REST controllers, async processing, global exception handling, Spring Data JPA, JWT authentication, rate limiting, and Spring Boot Actuator monitoring.
 
 ---
 
@@ -269,12 +271,9 @@ customer request ─▶ CustomerAuthenticationFilter ─▶ ClientAccountControl
 | `POST` | `/v1/payment/process` | Calls a simulated flaky bank service (40% failure rate) through a Resilience4j circuit breaker + jittered exponential-backoff retry; returns a fallback message once the breaker opens |
 
 
-### Sample lookup — `/v1/sample`
+### Sample Lookup Service — Moved
 
-| Method | Endpoint Path | Description |
-| :--- | :--- | :--- |
-| `GET` | `/v1/sample/spl?item={item}` | Looks up a sample item count by name (e.g. `Mac`, `Dell`, `IBM`) |
-
+The sample lookup service (`GET /v1/sample/spl`) was moved to a separate repository: https://github.com/mveluru/sampleservice (port 8086, context path `/sample`). See that project's README for usage details.
 
 ### Monitoring
 
@@ -448,8 +447,8 @@ curl -s "http://localhost:8081/brite/notify?name=Alice" -H "X-Customer-Id: demo-
 # Call the Resilience4j Circuit Breaker + Retry Demo (run a few times to see variation)
 curl -s -X POST http://localhost:8081/brite/v1/payment/process -H "X-Customer-Id: demo-customer-1"
 
-# Sample Item Lookup
-curl -s "http://localhost:8081/brite/v1/sample/spl?item=Mac"
+# Sample Item Lookup (via sampleservice on port 8086)
+curl -s "http://localhost:8086/sample/v1/sample/spl?item=Mac"
 ```
 
 ---
